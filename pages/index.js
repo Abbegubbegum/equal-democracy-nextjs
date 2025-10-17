@@ -1,115 +1,182 @@
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
+import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/router";
+import { useState, useEffect } from "react";
+import {
+	Users,
+	Plus,
+	ThumbsUp,
+	MessageCircle,
+	TrendingUp,
+	Info,
+} from "lucide-react";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
+export default function HomePage() {
+	const { data: session, status } = useSession();
+	const router = useRouter();
+	const [proposals, setProposals] = useState([]);
+	const [loading, setLoading] = useState(true);
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+	useEffect(() => {
+		if (status === "unauthenticated") {
+			router.push("/login");
+		}
+	}, [status, router]);
 
-export default function Home() {
-  return (
-    <div
-      className={`${geistSans.className} ${geistMono.className} font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20`}
-    >
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              pages/index.js
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+	useEffect(() => {
+		if (session) {
+			fetchProposals();
+		}
+	}, [session]);
+
+	const fetchProposals = async () => {
+		try {
+			const res = await fetch("/api/proposals");
+			const data = await res.json();
+			setProposals(data);
+		} catch (error) {
+			console.error("Error fetching proposals:", error);
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const handleThumbsUp = async (proposalId) => {
+		try {
+			const res = await fetch("/api/thumbsup", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ proposalId }),
+			});
+
+			if (res.ok) {
+				fetchProposals();
+			} else {
+				const data = await res.json();
+				alert(data.message);
+			}
+		} catch (error) {
+			console.error("Error voting:", error);
+		}
+	};
+
+	const handleMoveToTop3 = async () => {
+		const sorted = [...proposals]
+			.filter((p) => p.status === "active")
+			.sort((a, b) => b.thumbsUpCount - a.thumbsUpCount);
+
+		const top3Ids = sorted.slice(0, 3).map((p) => p._id);
+
+		try {
+			const res = await fetch("/api/proposals", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					action: "moveToTop3",
+					proposalIds: top3Ids,
+				}),
+			});
+
+			if (res.ok) {
+				fetchProposals();
+			}
+		} catch (error) {
+			console.error("Error updating proposals:", error);
+		}
+	};
+
+	if (status === "loading" || loading) {
+		return <p>Loading</p>;
+	}
+
+	return (
+		<div className="min-h-screen bg-gray-100 flex items-center justify-center">
+			<div className="space-y-4">
+				<h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+					<MessageCircle className="w-5 h-5" />
+					Alla förslag ({proposals.length})
+				</h3>
+
+				{proposals.length === 0 ? (
+					<div className="bg-white rounded-2xl p-8 text-center text-gray-500">
+						<p>
+							Inga förslag än. Var den första att föreslå något!
+						</p>
+					</div>
+				) : (
+					proposals.map((proposal) => (
+						<ProposalCard
+							key={proposal._id}
+							proposal={proposal}
+							onThumbsUp={handleThumbsUp}
+							onDiscuss={(id) => router.push(`/proposal/${id}`)}
+						/>
+					))
+				)}
+			</div>
+		</div>
+	);
+
+	function ProposalCard({ proposal, onThumbsUp, onDiscuss }) {
+		const [hasVoted, setHasVoted] = useState(false);
+		const [checking, setChecking] = useState(true);
+
+		useEffect(() => {
+			checkIfVoted();
+		}, [proposal._id]);
+
+		const checkIfVoted = async () => {
+			try {
+				const res = await fetch(
+					`/api/thumbsup?proposalId=${proposal._id}`
+				);
+				const data = await res.json();
+				setHasVoted(data.voted);
+			} catch (error) {
+				console.error("Error checking vote status:", error);
+			} finally {
+				setChecking(false);
+			}
+		};
+
+		return (
+			<div className="bg-white rounded-2xl shadow-md p-6 space-y-4 hover:shadow-lg transition-shadow">
+				<div className="flex items-start justify-between gap-4">
+					<div className="flex-1">
+						<h4 className="text-lg font-bold text-blue-800 mb-2">
+							{proposal.title}
+						</h4>
+						<p className="text-gray-600">{proposal.description}</p>
+						<p className="text-sm text-gray-400 mt-2">
+							Av {proposal.authorName}
+						</p>
+					</div>
+				</div>
+
+				<div className="flex items-center gap-3">
+					<button
+						onClick={() => onThumbsUp(proposal._id)}
+						disabled={hasVoted || checking}
+						className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-colors ${
+							hasVoted
+								? "bg-blue-100 text-blue-600 cursor-not-allowed"
+								: "bg-gray-100 hover:bg-blue-100 text-gray-700 hover:text-blue-600"
+						}`}
+					>
+						<ThumbsUp className="w-5 h-5" />
+						<span className="font-bold">
+							{proposal.thumbsUpCount}
+						</span>
+					</button>
+
+					<button
+						onClick={() => onDiscuss(proposal._id)}
+						className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition-colors"
+					>
+						<MessageCircle className="w-5 h-5" />
+						{proposal.commentsCount || 0}
+					</button>
+				</div>
+			</div>
+		);
+	}
 }

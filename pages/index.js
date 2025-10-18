@@ -345,9 +345,6 @@ function ProposalCard({ proposal, currentUser, onThumbsUp, onDiscuss }) {
 						{proposal.title}
 					</h4>
 					<p className="text-gray-600">{proposal.description}</p>
-					<p className="text-sm text-gray-400 mt-2">
-						Av {proposal.authorName}
-					</p>
 				</div>
 			</div>
 

@@ -510,7 +510,6 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 				<div className="bg-white rounded-2xl shadow-md p-6">
 					<p className="text-gray-700 mb-4">{proposal.description}</p>
 					<div className="flex items-center gap-4 text-sm text-gray-500">
-						<span>Av {proposal.authorName}</span>
 						<span className="flex items-center gap-1">
 							<ThumbsUp className="w-4 h-4" />
 							{proposal.thumbsUpCount}
@@ -541,17 +540,8 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 								className="bg-white rounded-2xl shadow-md p-6"
 							>
 								<div className="flex items-start gap-3">
-									<div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-										<span className="text-blue-600 font-bold">
-											{comment.authorName
-												.charAt(0)
-												.toUpperCase()}
-										</span>
-									</div>
+									<div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0"></div>
 									<div className="flex-1">
-										<p className="font-medium text-gray-800">
-											{comment.authorName}
-										</p>
 										<p className="text-gray-600 mt-1">
 											{comment.text}
 										</p>

@@ -1,4 +1,5 @@
-import { getSession } from "next-auth/react";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "../../../lib/mongodb";
 import { Proposal, ThumbsUp, Comment } from "../../../lib/models";
 
@@ -38,7 +39,7 @@ export default async function handler(req, res) {
 	}
 
 	if (req.method === "POST") {
-		const session = await getSession({ req });
+		const session = await getServerSession(req, res, authOptions);
 
 		if (!session) {
 			return res.status(401).json({ message: "Du måste vara inloggad" });
@@ -76,7 +77,7 @@ export default async function handler(req, res) {
 	}
 
 	if (req.method === "PATCH") {
-		const session = await getSession({ req });
+		const session = await getServerSession(req, res, authOptions);
 
 		if (!session) {
 			return res.status(401).json({ message: "Du måste vara inloggad" });

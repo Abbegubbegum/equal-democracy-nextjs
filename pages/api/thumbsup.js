@@ -1,72 +1,77 @@
-import { getSession } from 'next-auth/react';
-import connectDB from '../../lib/mongodb';
-import { ThumbsUp, Proposal } from '../../lib/models';
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "./auth/[...nextauth]";
+import connectDB from "../../lib/mongodb";
+import { ThumbsUp, Proposal } from "../../lib/models";
 
 export default async function handler(req, res) {
-  await connectDB();
+	await connectDB();
 
-  if (req.method === 'POST') {
-    const session = await getSession({ req });
-    
-    if (!session) {
-      return res.status(401).json({ message: 'Du måste vara inloggad' });
-    }
+	if (req.method === "POST") {
+		const session = await getServerSession(req, res, authOptions);
 
-    const { proposalId } = req.body;
+		if (!session) {
+			return res.status(401).json({ message: "Du måste vara inloggad" });
+		}
 
-    if (!proposalId) {
-      return res.status(400).json({ message: 'Proposal ID krävs' });
-    }
+		const { proposalId } = req.body;
 
-    try {
-      const existingVote = await ThumbsUp.findOne({
-        proposalId,
-        userId: session.user.id
-      });
+		if (!proposalId) {
+			return res.status(400).json({ message: "Proposal ID krävs" });
+		}
 
-      if (existingVote) {
-        return res.status(400).json({ message: 'Du har redan röstat på detta förslag' });
-      }
+		try {
+			const existingVote = await ThumbsUp.findOne({
+				proposalId,
+				userId: session.user.id,
+			});
 
-      await ThumbsUp.create({
-        proposalId,
-        userId: session.user.id
-      });
+			if (existingVote) {
+				return res
+					.status(400)
+					.json({ message: "Du har redan röstat på detta förslag" });
+			}
 
-      const count = await ThumbsUp.countDocuments({ proposalId });
-      await Proposal.findByIdAndUpdate(proposalId, { thumbsUpCount: count });
+			await ThumbsUp.create({
+				proposalId,
+				userId: session.user.id,
+			});
 
-      return res.status(201).json({ message: 'Röst registrerad', count });
-    } catch (error) {
-      console.error('Error adding thumbs up:', error);
-      return res.status(500).json({ message: 'Ett fel uppstod' });
-    }
-  }
+			const count = await ThumbsUp.countDocuments({ proposalId });
+			await Proposal.findByIdAndUpdate(proposalId, {
+				thumbsUpCount: count,
+			});
 
-  if (req.method === 'GET') {
-    const session = await getSession({ req });
-    
-    if (!session) {
-      return res.status(401).json({ message: 'Du måste vara inloggad' });
-    }
+			return res.status(201).json({ message: "Röst registrerad", count });
+		} catch (error) {
+			console.error("Error adding thumbs up:", error);
+			return res.status(500).json({ message: "Ett fel uppstod" });
+		}
+	}
 
-    const { proposalId } = req.query;
+	if (req.method === "GET") {
+		const session = await getServerSession(req, res, authOptions);
 
-    if (proposalId) {
-      const voted = await ThumbsUp.exists({
-        proposalId,
-        userId: session.user.id
-      });
+		if (!session) {
+			return res.status(401).json({ message: "Du måste vara inloggad" });
+		}
 
-      return res.status(200).json({ voted: !!voted });
-    }
+		const { proposalId } = req.query;
 
-    const votes = await ThumbsUp.find({ userId: session.user.id })
-      .populate('proposalId')
-      .lean();
+		if (proposalId) {
+			const voted = await ThumbsUp.exists({
+				proposalId,
+				userId: session.user.id,
+			});
 
-    return res.status(200).json(votes);
-  }
+			return res.status(200).json({ voted: !!voted });
+		}
 
-  return res.status(405).json({ message: 'Method not allowed' });
+		const votes = await ThumbsUp.find({ userId: session.user.id })
+			.populate("proposalId")
+			.lean();
+
+		return res.status(200).json(votes);
+	}
+
+	return res.status(405).json({ message: "Method not allowed" });
 }

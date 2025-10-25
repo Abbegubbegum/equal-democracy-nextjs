@@ -2,44 +2,76 @@ import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import connectDB from "../../../lib/mongodb";
-import { User } from "../../../lib/models";
+import { User, LoginCode } from "../../../lib/models";
 
 export const authOptions = {
 	providers: [
 		CredentialsProvider({
-			name: "Credentials",
+			name: "Email Code",
 			credentials: {
 				email: { label: "Email", type: "email" },
-				password: { label: "Password", type: "password" },
+				code: { label: "Code", type: "text" },
 			},
 			async authorize(credentials) {
 				try {
 					await connectDB();
 
-					if (!credentials?.email || !credentials?.password) {
-						throw new Error("Vänligen ange e-post och lösenord");
+					const email = credentials?.email?.toLowerCase();
+					const code = credentials?.code?.trim();
+
+					if (!email || !code) {
+						throw new Error("Vänligen ange e-post och kod");
 					}
 
-					const user = await User.findOne({
-						email: credentials.email,
+					// Find active code
+					const rec = await LoginCode.findOne({
+						email,
+						expiresAt: { $gt: new Date() },
 					});
 
+					if (!rec) {
+						throw new Error("Ogiltig eller utgången kod");
+					}
+
+					// throttle attempts
+					if (rec.attempts >= 5) {
+						await LoginCode.deleteMany({ email });
+						throw new Error("För många försök. Begär en ny kod.");
+					}
+
+					const ok = await bcrypt.compare(code, rec.codeHash);
+					if (!ok) {
+						rec.attempts += 1;
+						await rec.save();
+						throw new Error("Felaktig kod");
+					}
+
+					// One-time: consume code
+					await LoginCode.deleteMany({ email });
+
+					let user = await User.findOne({ email });
+
 					if (!user) {
-						throw new Error(
-							"Ingen användare hittades med denna e-post"
-						);
+						// Use pendingName from the code request or fallback to local-part
+						const fallbackName =
+							email
+								.split("@")[0]
+								.replace(/[._-]/g, " ")
+								.replace(/\b\w/g, (c) => c.toUpperCase())
+								.slice(0, 60) || "Medborgare";
+
+						user = await User.create({
+							name: rec.pendingName?.slice(0, 60) || fallbackName,
+							email,
+							// no password
+						});
+					} else if (!user.name) {
+						// If existing (legacy) user had no name, backfill from pendingName
+						if (rec.pendingName) {
+							user.name = rec.pendingName.slice(0, 60);
+							await user.save();
+						}
 					}
-
-					const isPasswordValid = await bcrypt.compare(
-						credentials.password,
-						user.password
-					);
-
-					if (!isPasswordValid) {
-						throw new Error("Felaktigt lösenord");
-					}
-
-					console.log("AUTH: %b", user.isAdmin);
 
 					return {
 						id: user._id.toString(),

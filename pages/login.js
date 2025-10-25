@@ -6,34 +6,54 @@ import { Users, Info } from "lucide-react";
 
 export default function LoginPage() {
 	const router = useRouter();
+	const [step, setStep] = useState("email"); // 'email' | 'code'
 	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
+	const [code, setCode] = useState("");
 	const [error, setError] = useState("");
 	const [loading, setLoading] = useState(false);
+	const [info, setInfo] = useState("");
 
-	const handleSubmit = async (e) => {
+	async function requestCode(e) {
 		e.preventDefault();
 		setError("");
+		setInfo("");
 		setLoading(true);
-
 		try {
-			const result = await signIn("credentials", {
-				email,
-				password,
-				redirect: false,
+			const res = await fetch("/api/auth/request-code", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ email }),
 			});
-
-			if (result.error) {
-				setError("Felaktigt e-post eller lösenord");
-			} else {
-				router.push("/");
-			}
-		} catch (error) {
-			setError("Ett fel uppstod vid inloggning");
+			const data = await res.json();
+			if (!res.ok)
+				throw new Error(data.message || "Kunde inte skicka kod");
+			setInfo("Kod skickad! Kontrollera din e-post.");
+			setStep("code");
+		} catch (err) {
+			setError(err.message);
 		} finally {
 			setLoading(false);
 		}
-	};
+	}
+
+	async function verifyCode(e) {
+		e.preventDefault();
+		setError("");
+		setLoading(true);
+		try {
+			const result = await signIn("credentials", {
+				email,
+				code,
+				redirect: false,
+			});
+			if (result?.error) throw new Error(result.error);
+			router.push("/");
+		} catch (err) {
+			setError(err.message || "Fel vid inloggning");
+		} finally {
+			setLoading(false);
+		}
+	}
 
 	return (
 		<div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 flex flex-col items-center justify-center p-6">
@@ -46,72 +66,112 @@ export default function LoginPage() {
 						Equal Democracy
 					</h1>
 					<p className="text-lg text-gray-600">
-						Logga in för att delta
+						Logga in utan lösenord
 					</p>
 				</div>
 
-				<form onSubmit={handleSubmit} className="space-y-4">
-					{error && (
-						<div className="bg-red-50 border-2 border-red-200 rounded-xl p-3 text-red-700 text-sm">
-							{error}
+				{step === "email" && (
+					<form onSubmit={requestCode} className="space-y-4">
+						{error && (
+							<div className="bg-red-50 border-2 border-red-200 rounded-xl p-3 text-red-700 text-sm">
+								{error}
+							</div>
+						)}
+						{info && (
+							<div className="bg-green-50 border-2 border-green-200 rounded-xl p-3 text-green-700 text-sm">
+								{info}
+							</div>
+						)}
+
+						<div>
+							<label className="block text-sm font-medium text-gray-700 mb-2">
+								E-post
+							</label>
+							<input
+								type="email"
+								value={email}
+								onChange={(e) => setEmail(e.target.value)}
+								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none text-lg"
+								placeholder="din@email.com"
+								required
+								autoFocus
+							/>
 						</div>
-					)}
 
-					<div>
-						<label className="block text-sm font-medium text-gray-700 mb-2">
-							E-post
-						</label>
-						<input
-							type="email"
-							value={email}
-							onChange={(e) => setEmail(e.target.value)}
-							className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none text-lg"
-							placeholder="din@email.com"
-							required
-							autoFocus
-						/>
-					</div>
+						<button
+							type="submit"
+							disabled={loading}
+							className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-semibold py-4 rounded-xl transition-colors text-lg shadow-lg"
+						>
+							{loading ? "Skickar..." : "Skicka kod"}
+						</button>
+					</form>
+				)}
 
-					<div>
-						<label className="block text-sm font-medium text-gray-700 mb-2">
-							Lösenord
-						</label>
-						<input
-							type="password"
-							value={password}
-							onChange={(e) => setPassword(e.target.value)}
-							className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none text-lg"
-							placeholder="Ditt lösenord"
-							required
-						/>
-					</div>
+				{step === "code" && (
+					<form onSubmit={verifyCode} className="space-y-4">
+						{error && (
+							<div className="bg-red-50 border-2 border-red-200 rounded-xl p-3 text-red-700 text-sm">
+								{error}
+							</div>
+						)}
 
-					<button
-						type="submit"
-						disabled={loading}
-						className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-semibold py-4 rounded-xl transition-colors text-lg shadow-lg"
-					>
-						{loading ? "Loggar in..." : "Logga in"}
-					</button>
-				</form>
+						<div>
+							<label className="block text-sm font-medium text-gray-700 mb-2">
+								Kod (6 siffror)
+							</label>
+							<input
+								inputMode="numeric"
+								pattern="\d{6}"
+								maxLength={6}
+								value={code}
+								onChange={(e) =>
+									setCode(e.target.value.replace(/\D/g, ""))
+								}
+								className="w-full tracking-widest text-center text-2xl px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none"
+								placeholder="••••••"
+								required
+								autoFocus
+							/>
+							<p className="text-xs text-gray-500 mt-2">
+								Vi skickade koden till{" "}
+								<span className="font-medium">{email}</span>
+							</p>
+						</div>
+
+						<button
+							type="submit"
+							disabled={loading || code.length !== 6}
+							className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-semibold py-4 rounded-xl transition-colors text-lg shadow-lg"
+						>
+							{loading ? "Verifierar..." : "Logga in"}
+						</button>
+
+						<button
+							type="button"
+							onClick={() => setStep("email")}
+							className="w-full text-blue-600 hover:text-blue-700 font-medium"
+						>
+							Byt e-postadress
+						</button>
+					</form>
+				)}
 
 				<div className="text-center space-y-3">
 					<p className="text-gray-600">
-						Har du inget konto?{" "}
+						Ny här?{" "}
 						<Link
 							href="/register"
 							className="text-blue-600 hover:text-blue-700 font-medium"
 						>
-							Registrera dig här
+							Skapa konto
 						</Link>
 					</p>
-
 					<Link
 						href="/about"
 						className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
 					>
-						<Info className="w-4 h-4" />
-						Om Equal Democracy
+						<Info className="w-4 h-4" /> Om Equal Democracy
 					</Link>
 				</div>
 			</div>

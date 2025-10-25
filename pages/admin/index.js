@@ -334,8 +334,9 @@ function CommentsPanel() {
 		<SimpleList
 			endpoint="/api/admin/comments"
 			columns={[
-				["authorName", "Namn"],
+				["authorName", "Skribent"],
 				["text", "Text"],
+				["proposalTitle", "Förslag"],
 				["createdAt", "Tid"],
 			]}
 		/>
@@ -346,8 +347,8 @@ function ThumbsPanel() {
 		<SimpleList
 			endpoint="/api/admin/thumbs"
 			columns={[
-				["userId", "Användare"],
-				["proposalId", "Förslag"],
+				["userName", "Användare"],
+				["proposalTitle", "Förslag"],
 				["createdAt", "Tid"],
 			]}
 		/>
@@ -358,8 +359,8 @@ function VotesPanel() {
 		<SimpleList
 			endpoint="/api/admin/finalvotes"
 			columns={[
-				["userId", "Användare"],
-				["proposalId", "Förslag"],
+				["userName", "Användare"],
+				["proposalTitle", "Förslag"],
 				["choice", "Val"],
 				["createdAt", "Tid"],
 			]}

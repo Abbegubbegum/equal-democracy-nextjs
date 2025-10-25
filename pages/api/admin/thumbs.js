@@ -1,5 +1,5 @@
 import connectDB from "../../../lib/mongodb";
-import { ThumbsUp } from "../../../lib/models";
+import { ThumbsUp, User, Proposal } from "../../../lib/models";
 import { requireAdmin } from "../../../lib/admin";
 
 export default async function handler(req, res) {
@@ -13,16 +13,52 @@ export default async function handler(req, res) {
 			const filter = {};
 			if (proposalId) filter.proposalId = proposalId;
 			if (userId) filter.userId = userId;
+
 			const data = await ThumbsUp.find(filter)
 				.sort({ createdAt: -1 })
 				.lean();
 
-            
+			// Gather unique ids
+			const userIds = [
+				...new Set(
+					data.map((t) => t.userId?.toString?.()).filter(Boolean)
+				),
+			];
+			const proposalIds = [
+				...new Set(
+					data.map((t) => t.proposalId?.toString?.()).filter(Boolean)
+				),
+			];
+
+			// Batch fetch users & proposals
+			const [users, proposals] = await Promise.all([
+				userIds.length
+					? User.find({ _id: { $in: userIds } })
+							.select("name")
+							.lean()
+					: [],
+				proposalIds.length
+					? Proposal.find({ _id: { $in: proposalIds } })
+							.select("title")
+							.lean()
+					: [],
+			]);
+
+			const userNameById = Object.fromEntries(
+				users.map((u) => [u._id.toString(), u.name])
+			);
+			const proposalTitleById = Object.fromEntries(
+				proposals.map((p) => [p._id.toString(), p.title])
+			);
+
 			return res.status(200).json(
 				data.map((t) => ({
 					id: t._id.toString(),
 					proposalId: t.proposalId?.toString?.() || null,
+					proposalTitle:
+						proposalTitleById[t.proposalId?.toString?.()] || null,
 					userId: t.userId?.toString?.() || null,
+					userName: userNameById[t.userId?.toString?.()] || null,
 					createdAt: t.createdAt,
 				}))
 			);

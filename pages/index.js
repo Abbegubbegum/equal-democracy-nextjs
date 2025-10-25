@@ -550,7 +550,7 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 								className="bg-white rounded-2xl shadow-md p-6"
 							>
 								<div className="flex items-start gap-3">
-									<div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0"></div>
+									<div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center shrink-0"></div>
 									<div className="flex-1">
 										<p className="text-gray-600 mt-1">
 											{comment.text}

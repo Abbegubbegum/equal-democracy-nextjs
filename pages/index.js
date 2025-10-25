@@ -205,7 +205,7 @@ export default function HomePage() {
 
 	return (
 		<div className="min-h-screen bg-gray-50">
-			<div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 shadow-lg">
+			<div className="bg-linear-to-r from-blue-600 to-blue-700 text-white p-6 shadow-lg">
 				<div className="max-w-4xl mx-auto">
 					<div className="flex items-center justify-between mb-4">
 						<div className="flex items-center gap-3">
@@ -680,7 +680,7 @@ function VoteView({ proposals, currentUser, onVote, onBack }) {
 								className="bg-white rounded-2xl shadow-lg p-6 space-y-4"
 							>
 								<div className="flex items-start gap-3">
-									<div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center flex-shrink-0">
+									<div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center shrink-0">
 										<span className="text-blue-800 font-bold text-lg">
 											#{index + 1}
 										</span>

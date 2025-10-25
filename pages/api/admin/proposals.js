@@ -1,0 +1,93 @@
+import connectDB from "../../../lib/mongodb";
+import { Proposal, Comment, ThumbsUp, FinalVote } from "../../../lib/models";
+import { requireAdmin } from "../../../lib/admin";
+
+export default async function handler(req, res) {
+	await connectDB();
+	const session = await requireAdmin(req, res);
+	if (!session) return;
+
+	try {
+		if (req.method === "GET") {
+			const data = await Proposal.find().sort({ createdAt: -1 }).lean();
+			return res.status(200).json(
+				data.map((p) => ({
+					id: p._id.toString(),
+					title: p.title,
+					description: p.description,
+					status: p.status,
+					thumbsUpCount: p.thumbsUpCount,
+					authorId: p.authorId?.toString?.() || null,
+					authorName: p.authorName,
+					createdAt: p.createdAt,
+				}))
+			);
+		}
+
+		if (req.method === "POST") {
+			const {
+				title,
+				description,
+				status = "active",
+				authorId,
+				authorName,
+			} = req.body;
+			if (!title || !description || !authorId || !authorName) {
+				return res
+					.status(400)
+					.json({
+						message:
+							"title, description, authorId, authorName krävs",
+					});
+			}
+			const p = await Proposal.create({
+				title,
+				description,
+				status,
+				authorId,
+				authorName,
+				thumbsUpCount: 0,
+			});
+			return res.status(201).json({ id: p._id.toString() });
+		}
+
+		if (req.method === "PATCH") {
+			const { id, updates } = req.body;
+			if (!id || typeof updates !== "object")
+				return res
+					.status(400)
+					.json({ message: "id och updates krävs" });
+			const allowed = ["title", "description", "status", "thumbsUpCount"];
+			const $set = Object.fromEntries(
+				Object.entries(updates).filter(([k]) => allowed.includes(k))
+			);
+			const p = await Proposal.findByIdAndUpdate(
+				id,
+				{ $set },
+				{ new: true }
+			);
+			if (!p)
+				return res
+					.status(404)
+					.json({ message: "Förslag hittades inte" });
+			return res.status(200).json({ id: p._id.toString() });
+		}
+
+		if (req.method === "DELETE") {
+			const { id } = req.query;
+			if (!id) return res.status(400).json({ message: "id krävs" });
+			await Promise.all([
+				Comment.deleteMany({ proposalId: id }),
+				ThumbsUp.deleteMany({ proposalId: id }),
+				FinalVote.deleteMany({ proposalId: id }),
+			]);
+			await Proposal.findByIdAndDelete(id);
+			return res.status(204).end();
+		}
+
+		return res.status(405).json({ message: "Method not allowed" });
+	} catch (e) {
+		console.error(e);
+		return res.status(500).json({ message: "Ett fel uppstod" });
+	}
+}

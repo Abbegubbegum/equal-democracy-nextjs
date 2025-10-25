@@ -39,10 +39,13 @@ export const authOptions = {
 						throw new Error("Felaktigt lösenord");
 					}
 
+					console.log("AUTH: %b", user.isAdmin);
+
 					return {
 						id: user._id.toString(),
 						email: user.email,
 						name: user.name,
+						isAdmin: !!user.isAdmin,
 					};
 				} catch (error) {
 					console.error("Auth error:", error);
@@ -60,12 +63,14 @@ export const authOptions = {
 		async jwt({ token, user }) {
 			if (user) {
 				token.id = user.id;
+				token.isAdmin = !!user.isAdmin;
 			}
 			return token;
 		},
 		async session({ session, token }) {
 			if (token && session.user) {
 				session.user.id = token.id;
+				session.user.isAdmin = !!token.isAdmin;
 			}
 			return session;
 		},

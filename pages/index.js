@@ -201,6 +201,8 @@ export default function HomePage() {
 
 	const top3Proposals = proposals.filter((p) => p.status === "top3");
 
+	console.log(session.user.isAdmin);
+
 	return (
 		<div className="min-h-screen bg-gray-50">
 			<div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 shadow-lg">
@@ -220,6 +222,14 @@ export default function HomePage() {
 							</div>
 						</div>
 						<div className="flex items-center gap-4">
+							{session.user.isAdmin && (
+								<button
+									onClick={() => router.push("/admin")}
+									className="text-white hover:text-yellow-400 text-sm font-medium"
+								>
+									Admin
+								</button>
+							)}
 							<button
 								onClick={() => router.push("/dashboard")}
 								className="text-white hover:text-yellow-400 text-sm font-medium"

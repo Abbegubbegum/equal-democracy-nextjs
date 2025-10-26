@@ -8,12 +8,13 @@ import {
 	MessageCircle,
 	ThumbsUp,
 	CheckCircle,
+	Settings,
 } from "lucide-react";
 
 export default function AdminPage() {
 	const { data: session, status } = useSession();
 	const router = useRouter();
-	const [tab, setTab] = useState("users");
+	const [tab, setTab] = useState("settings");
 
 	useEffect(() => {
 		if (status === "loading") return;
@@ -27,21 +28,35 @@ export default function AdminPage() {
 	return (
 		<div className="min-h-screen bg-gray-50">
 			<header className="bg-slate-800 text-white p-6 shadow">
-				<div className="max-w-6xl mx-auto flex items-center gap-3">
-					<div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center">
-						<Shield className="w-5 h-5 text-slate-900" />
+				<div className="max-w-6xl mx-auto flex items-center justify-between">
+					<div className="flex items-center gap-3">
+						<div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center">
+							<Shield className="w-5 h-5 text-slate-900" />
+						</div>
+						<div>
+							<h1 className="text-2xl font-bold">Admin</h1>
+							<p className="text-slate-300 text-sm">
+								Full kontroll över data
+							</p>
+						</div>
 					</div>
-					<div>
-						<h1 className="text-2xl font-bold">Admin</h1>
-						<p className="text-slate-300 text-sm">
-							Full kontroll över data
-						</p>
-					</div>
+					<button
+						onClick={() => router.push("/")}
+						className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-medium rounded-lg transition-colors"
+					>
+						Tillbaka till startsidan
+					</button>
 				</div>
 			</header>
 
 			<main className="max-w-6xl mx-auto p-6 space-y-6">
 				<nav className="flex gap-2">
+					<Tab
+						label="Inställningar"
+						icon={<Settings className="w-4 h-4" />}
+						active={tab === "settings"}
+						onClick={() => setTab("settings")}
+					/>
 					<Tab
 						label="Användare"
 						icon={<Users className="w-4 h-4" />}
@@ -74,6 +89,7 @@ export default function AdminPage() {
 					/>
 				</nav>
 
+				{tab === "settings" && <SettingsPanel />}
 				{tab === "users" && <UsersPanel />}
 				{tab === "proposals" && <ProposalsPanel />}
 				{tab === "comments" && <CommentsPanel />}
@@ -97,6 +113,99 @@ function Tab({ label, icon, active, onClick }) {
 			{icon}
 			{label}
 		</button>
+	);
+}
+
+function SettingsPanel() {
+	const [municipalityName, setMunicipalityName] = useState("");
+	const [loading, setLoading] = useState(true);
+	const [saving, setSaving] = useState(false);
+	const [message, setMessage] = useState("");
+
+	useEffect(() => {
+		loadSettings();
+	}, []);
+
+	const loadSettings = async () => {
+		setLoading(true);
+		try {
+			const res = await fetch("/api/settings");
+			const data = await res.json();
+			setMunicipalityName(data.municipalityName || "");
+		} catch (error) {
+			console.error("Error loading settings:", error);
+		}
+		setLoading(false);
+	};
+
+	const handleSave = async () => {
+		setSaving(true);
+		setMessage("");
+		try {
+			const res = await fetch("/api/settings", {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ municipalityName }),
+			});
+
+			if (res.ok) {
+				setMessage("Inställningar sparade!");
+				setTimeout(() => setMessage(""), 3000);
+			} else {
+				const error = await res.json();
+				setMessage(`Fel: ${error.error}`);
+			}
+		} catch (error) {
+			console.error("Error saving settings:", error);
+			setMessage("Kunde inte spara inställningar");
+		}
+		setSaving(false);
+	};
+
+	if (loading) return <div className="p-4 bg-white rounded-xl">Laddar…</div>;
+
+	return (
+		<section className="bg-white rounded-xl p-6 shadow">
+			<h2 className="text-xl font-bold mb-4">Inställningar</h2>
+
+			<div className="space-y-4">
+				<div>
+					<label className="block text-sm font-medium text-slate-700 mb-2">
+						Kommunnamn
+					</label>
+					<input
+						type="text"
+						value={municipalityName}
+						onChange={(e) => setMunicipalityName(e.target.value)}
+						className="w-full max-w-md border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+						placeholder="T.ex. Vallentuna"
+					/>
+					<p className="text-sm text-slate-500 mt-1">
+						Detta namn visas på startsidan: "Hur vill du förbättra [kommunnamn]?"
+					</p>
+				</div>
+
+				<button
+					onClick={handleSave}
+					disabled={saving}
+					className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed"
+				>
+					{saving ? "Sparar..." : "Spara inställningar"}
+				</button>
+
+				{message && (
+					<div
+						className={`p-3 rounded-lg ${
+							message.startsWith("Fel")
+								? "bg-red-100 text-red-700"
+								: "bg-green-100 text-green-700"
+						}`}
+					>
+						{message}
+					</div>
+				)}
+			</div>
+		</section>
 	);
 }
 

@@ -18,6 +18,7 @@ export default function HomePage() {
 	const [loading, setLoading] = useState(true);
 	const [view, setView] = useState("home"); // 'home', 'create', 'discuss', 'vote'
 	const [selectedProposal, setSelectedProposal] = useState(null);
+	const [municipalityName, setMunicipalityName] = useState("Vallentuna");
 
 	useEffect(() => {
 		if (status === "unauthenticated") {
@@ -28,8 +29,21 @@ export default function HomePage() {
 	useEffect(() => {
 		if (session) {
 			fetchProposals();
+			fetchMunicipalityName();
 		}
 	}, [session]);
+
+	const fetchMunicipalityName = async () => {
+		try {
+			const res = await fetch("/api/settings");
+			const data = await res.json();
+			if (data.municipalityName) {
+				setMunicipalityName(data.municipalityName);
+			}
+		} catch (error) {
+			console.error("Error fetching municipality name:", error);
+		}
+	};
 
 	const fetchProposals = async () => {
 		try {
@@ -245,7 +259,7 @@ export default function HomePage() {
 						</div>
 					</div>
 					<h2 className="text-xl font-medium">
-						Hur vill du förbättra vår stad?
+						Hur vill du förbättra {municipalityName}?
 					</h2>
 				</div>
 			</div>

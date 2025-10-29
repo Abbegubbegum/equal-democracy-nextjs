@@ -35,17 +35,6 @@ export default async function handler(req, res) {
 			// Get the active session
 			const activeSession = await ensureActiveSession();
 
-			// Track active user in session
-			// Initialize activeUsers array if it doesn't exist
-			if (!activeSession.activeUsers) {
-				activeSession.activeUsers = [];
-			}
-
-			if (!activeSession.activeUsers.includes(session.user.id)) {
-				activeSession.activeUsers.push(session.user.id);
-				await activeSession.save();
-			}
-
 			const existingVote = await ThumbsUp.findOne({
 				proposalId,
 				userId: session.user.id,

@@ -19,6 +19,17 @@ export default async function handler(req, res) {
 	try {
 		const activeSession = await ensureActiveSession();
 
+		// Register user as active in session (on first visit)
+		// Initialize activeUsers array if it doesn't exist
+		if (!activeSession.activeUsers) {
+			activeSession.activeUsers = [];
+		}
+
+		if (!activeSession.activeUsers.some((id) => id.toString() === session.user.id)) {
+			activeSession.activeUsers.push(session.user.id);
+			await activeSession.save();
+		}
+
 		// Check if current user has marked ready for phase 1
 		const userReady = activeSession.userReadyPhase1.some(
 			(id) => id.toString() === session.user.id

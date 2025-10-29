@@ -5,7 +5,10 @@ import { authOptions } from "../auth/[...nextauth]";
 
 /**
  * Checks if automatic phase transition should occur
- * Triggers when 75% of proposals have been rated
+ * Triggers when BOTH conditions are met:
+ * 1. 75% of active users have rated at least one proposal
+ * 2. 75% of proposals have been rated
+ * Then schedules transition after 100 seconds
  */
 export default async function handler(req, res) {
 	await dbConnect();
@@ -27,6 +30,20 @@ export default async function handler(req, res) {
 			return res.status(200).json({ shouldTransition: false });
 		}
 
+		// Check if transition is already scheduled
+		if (activeSession.phase1TransitionScheduled) {
+			const scheduledTime = new Date(activeSession.phase1TransitionScheduled);
+			const now = new Date();
+			const secondsRemaining = Math.max(0, Math.floor((scheduledTime - now) / 1000));
+
+			return res.status(200).json({
+				shouldTransition: false,
+				transitionScheduled: true,
+				scheduledTime: scheduledTime,
+				secondsRemaining: secondsRemaining,
+			});
+		}
+
 		// Count total proposals
 		const totalProposals = await Proposal.countDocuments({
 			sessionId: activeSession._id,
@@ -39,9 +56,12 @@ export default async function handler(req, res) {
 				shouldTransition: false,
 				reason: "Minst 2 förslag krävs",
 				progress: {
-					total: totalProposals,
-					rated: 0,
-					percentage: 0,
+					totalProposals: totalProposals,
+					ratedProposals: 0,
+					proposalsPercentage: 0,
+					activeUsers: 0,
+					usersWhoRated: 0,
+					usersPercentage: 0,
 				},
 			});
 		}
@@ -62,15 +82,53 @@ export default async function handler(req, res) {
 			})
 		).then((results) => results.reduce((sum, val) => sum + val, 0));
 
-		const percentage = (ratedProposalsCount / totalProposals) * 100;
-		const shouldTransition = percentage >= 75;
+		const proposalsPercentage = (ratedProposalsCount / totalProposals) * 100;
+
+		// Get active users count and users who have rated
+		const activeUsersCount = activeSession.activeUsers?.length || 0;
+
+		// Get unique users who have rated in this session
+		const usersWhoRated = await ThumbsUp.distinct("userId", {
+			sessionId: activeSession._id,
+		});
+		const usersWhoRatedCount = usersWhoRated.length;
+
+		const usersPercentage = activeUsersCount > 0
+			? (usersWhoRatedCount / activeUsersCount) * 100
+			: 0;
+
+		// Check both conditions
+		const proposalsConditionMet = proposalsPercentage >= 75;
+		const usersConditionMet = usersPercentage >= 75 && activeUsersCount > 0;
+		const shouldScheduleTransition = proposalsConditionMet && usersConditionMet;
+
+		if (shouldScheduleTransition) {
+			// Schedule transition for 100 seconds from now
+			const scheduledTime = new Date(Date.now() + 100 * 1000);
+			activeSession.phase1TransitionScheduled = scheduledTime;
+			await activeSession.save();
+
+			return res.status(200).json({
+				shouldTransition: false,
+				transitionScheduled: true,
+				scheduledTime: scheduledTime,
+				secondsRemaining: 100,
+				message: "Övergång till Fas 2 schemalagd om 100 sekunder",
+			});
+		}
 
 		return res.status(200).json({
-			shouldTransition,
+			shouldTransition: false,
+			transitionScheduled: false,
 			progress: {
-				total: totalProposals,
-				rated: ratedProposalsCount,
-				percentage: Math.round(percentage),
+				totalProposals: totalProposals,
+				ratedProposals: ratedProposalsCount,
+				proposalsPercentage: Math.round(proposalsPercentage),
+				activeUsers: activeUsersCount,
+				usersWhoRated: usersWhoRatedCount,
+				usersPercentage: Math.round(usersPercentage),
+				proposalsConditionMet,
+				usersConditionMet,
 			},
 		});
 	} catch (error) {

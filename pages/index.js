@@ -9,6 +9,7 @@ import {
 	MessageCircle,
 	TrendingUp,
 	Info,
+	Clock,
 } from "lucide-react";
 import { fetchWithCsrf } from "../lib/fetch-with-csrf";
 
@@ -25,6 +26,9 @@ export default function HomePage() {
 	const [expandedProposal, setExpandedProposal] = useState(null); // proposalId currently showing arguments
 	const [userHasRated, setUserHasRated] = useState(false); // Has user rated at least one proposal
 	const [showPhaseTransition, setShowPhaseTransition] = useState(false); // Show transition modal
+	const [showSessionClosed, setShowSessionClosed] = useState(false); // Show session closed modal
+	const [winningProposals, setWinningProposals] = useState([]); // Winning proposals with yes-majority
+	const [transitionCountdown, setTransitionCountdown] = useState(null); // Countdown seconds for phase transition
 
 	useEffect(() => {
 		if (status === "unauthenticated") {
@@ -45,10 +49,27 @@ export default function HomePage() {
 			const res = await fetch("/api/sessions/current");
 			const data = await res.json();
 			if (data.phase) {
+				const previousPhase = currentPhase;
 				setCurrentPhase(data.phase);
+
+				// If session just closed, show modal with winning proposals
+				if (data.phase === "closed" && previousPhase !== "closed") {
+					await fetchWinningProposals();
+					setShowSessionClosed(true);
+				}
 			}
 		} catch (error) {
 			console.error("Error fetching session info:", error);
+		}
+	};
+
+	const fetchWinningProposals = async () => {
+		try {
+			const res = await fetch("/api/top-proposals");
+			const data = await res.json();
+			setWinningProposals(data);
+		} catch (error) {
+			console.error("Error fetching winning proposals:", error);
 		}
 	};
 
@@ -126,24 +147,41 @@ export default function HomePage() {
 			const res = await fetch("/api/sessions/check-phase-transition");
 			const data = await res.json();
 
-			if (data.shouldTransition) {
-				// Trigger automatic phase transition
-				const advanceRes = await fetchWithCsrf("/api/sessions/advance-phase", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-				});
+			if (data.transitionScheduled) {
+				// Transition is scheduled, show countdown
+				setTransitionCountdown(data.secondsRemaining);
 
-				if (advanceRes.ok) {
-					// Show transition modal
-					setShowPhaseTransition(true);
+				// Start polling for execution
+				const checkInterval = setInterval(async () => {
+					const execRes = await fetchWithCsrf("/api/sessions/execute-scheduled-transition", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+					});
 
-					// Update session info
-					setTimeout(() => {
-						fetchSessionInfo();
-						fetchProposals();
-						setShowPhaseTransition(false);
-					}, 3000); // Show modal for 3 seconds
-				}
+					if (execRes.ok) {
+						const execData = await execRes.json();
+
+						if (execData.transitionExecuted) {
+							// Transition complete!
+							clearInterval(checkInterval);
+							setTransitionCountdown(null);
+							setShowPhaseTransition(true);
+
+							// Update session info after delay
+							setTimeout(() => {
+								fetchSessionInfo();
+								fetchProposals();
+								setShowPhaseTransition(false);
+							}, 3000);
+						} else if (execData.secondsRemaining !== undefined) {
+							// Update countdown
+							setTransitionCountdown(execData.secondsRemaining);
+						}
+					}
+				}, 1000); // Check every second
+
+				// Clear interval after 110 seconds (safety)
+				setTimeout(() => clearInterval(checkInterval), 110000);
 			}
 		} catch (error) {
 			console.error("Error checking phase transition:", error);
@@ -203,7 +241,15 @@ export default function HomePage() {
 			});
 
 			if (res.ok) {
+				const data = await res.json();
 				await fetchProposals();
+
+				// Check if session was auto-closed
+				if (data.sessionClosed) {
+					await fetchWinningProposals();
+					await fetchSessionInfo();
+					setShowSessionClosed(true);
+				}
 			} else {
 				const data = await res.json();
 				alert(data.message);
@@ -237,6 +283,88 @@ export default function HomePage() {
 					<p className="text-xl text-gray-700">
 						Nu till debatt och omröstning
 					</p>
+				</div>
+			</div>
+		);
+	}
+
+	// Session closed modal
+	if (showSessionClosed) {
+		return (
+			<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+				<div className="bg-white rounded-3xl p-8 max-w-2xl w-full mx-4 shadow-2xl animate-fade-in max-h-[90vh] overflow-y-auto">
+					<div className="text-center mb-6">
+						<div className="text-6xl mb-4">✅</div>
+						<h2 className="text-3xl font-bold text-blue-800 mb-4">
+							Omröstningen är avslutad
+						</h2>
+						<p className="text-xl text-gray-700 mb-6">
+							Vi har ett resultat:
+						</p>
+					</div>
+
+					{winningProposals.length > 0 ? (
+						<div className="space-y-4 mb-8">
+							{winningProposals.map((proposal, index) => (
+								<div
+									key={proposal._id}
+									className="bg-green-50 border-2 border-green-500 rounded-2xl p-6"
+								>
+									<div className="flex items-start gap-3">
+										<div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center shrink-0">
+											<span className="text-white font-bold text-lg">
+												{index + 1}
+											</span>
+										</div>
+										<div className="flex-1">
+											<h3 className="text-xl font-bold text-green-800 mb-2">
+												{proposal.title}
+											</h3>
+											<div className="space-y-2 text-sm">
+												<div>
+													<p className="font-semibold text-gray-700">Problem:</p>
+													<p className="text-gray-600">{proposal.problem}</p>
+												</div>
+												<div>
+													<p className="font-semibold text-gray-700">Lösning:</p>
+													<p className="text-gray-600">{proposal.solution}</p>
+												</div>
+												<div className="flex gap-4 mt-3 text-sm">
+													<span className="bg-green-200 text-green-800 px-3 py-1 rounded-full font-semibold">
+														JA: {proposal.yesVotes}
+													</span>
+													<span className="bg-red-200 text-red-800 px-3 py-1 rounded-full font-semibold">
+														NEJ: {proposal.noVotes}
+													</span>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+							))}
+						</div>
+					) : (
+						<div className="bg-gray-100 rounded-2xl p-8 text-center mb-8">
+							<p className="text-gray-600">
+								Inga förslag fick majoritet i omröstningen.
+							</p>
+						</div>
+					)}
+
+					<div className="text-center">
+						<p className="text-xl font-semibold text-blue-800 mb-4">
+							Tack för din medverkan!
+						</p>
+						<button
+							onClick={() => {
+								setShowSessionClosed(false);
+								setView("home");
+							}}
+							className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors"
+						>
+							Stäng
+						</button>
+					</div>
 				</div>
 			</div>
 		);
@@ -369,6 +497,21 @@ export default function HomePage() {
 						<Plus className="w-6 h-6" />
 						Föreslå en ny idé
 					</button>
+				)}
+
+				{/* Countdown banner for phase transition */}
+				{transitionCountdown !== null && currentPhase === "phase1" && (
+					<div className="bg-gradient-to-r from-yellow-100 to-yellow-50 border-2 border-yellow-400 rounded-2xl p-6 shadow-md">
+						<div className="flex items-center justify-center gap-3">
+							<Clock className="w-6 h-6 text-yellow-600 animate-pulse" />
+							<p className="text-center text-lg font-semibold text-yellow-800">
+								Övergång till Fas 2 om <span className="text-2xl font-bold text-yellow-900">{transitionCountdown}</span> sekunder...
+							</p>
+						</div>
+						<p className="text-center text-sm text-yellow-700 mt-2">
+							Tillräckligt många användare och förslag har betygssatts. Systemet övergår snart till Fas 2 där vi diskuterar och röstar om toppförslagen.
+						</p>
+					</div>
 				)}
 
 				{top3Proposals.length > 0 && (

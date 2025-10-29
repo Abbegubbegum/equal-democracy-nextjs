@@ -61,7 +61,7 @@ export default function RegisterPage() {
 						<Users className="w-10 h-10 text-blue-800" />
 					</div>
 					<h1 className="text-3xl font-bold text-blue-800">
-						Equal Democracy
+						Jämlik Demokrati
 					</h1>
 					<p className="text-lg text-gray-600">Skapa ditt konto</p>
 				</div>
@@ -164,7 +164,7 @@ export default function RegisterPage() {
 						href="/about"
 						className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
 					>
-						<Info className="w-4 h-4" /> Om Equal Democracy
+						<Info className="w-4 h-4" /> Om Jämlik Demokrati
 					</Link>
 				</div>
 			</div>

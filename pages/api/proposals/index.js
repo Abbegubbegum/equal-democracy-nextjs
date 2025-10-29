@@ -2,13 +2,24 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "../../../lib/mongodb";
 import { Proposal, ThumbsUp, Comment } from "../../../lib/models";
+import { ensureActiveSession } from "../../../lib/session-helper";
+import { csrfProtection } from "../../../lib/csrf";
 
 export default async function handler(req, res) {
 	await connectDB();
 
+	// CSRF protection for state-changing methods
+	if (!csrfProtection(req, res)) {
+		return;
+	}
+
 	if (req.method === "GET") {
 		try {
-			const proposals = await Proposal.find()
+			// Get the active session
+			const activeSession = await ensureActiveSession();
+
+			// Only get proposals from the active session
+			const proposals = await Proposal.find({ sessionId: activeSession._id })
 				.sort({ createdAt: -1 })
 				.lean();
 
@@ -45,18 +56,24 @@ export default async function handler(req, res) {
 			return res.status(401).json({ message: "Du måste vara inloggad" });
 		}
 
-		const { title, description } = req.body;
+		const { title, problem, solution, estimatedCost } = req.body;
 
-		if (!title || !description) {
+		if (!title || !problem || !solution || !estimatedCost) {
 			return res
 				.status(400)
-				.json({ message: "Titel och beskrivning krävs" });
+				.json({ message: "Alla fält krävs" });
 		}
 
 		try {
+			// Get the active session
+			const activeSession = await ensureActiveSession();
+
 			const proposal = await Proposal.create({
+				sessionId: activeSession._id,
 				title,
-				description,
+				problem,
+				solution,
+				estimatedCost,
 				authorId: session.user.id,
 				authorName: session.user.name,
 				status: "active",

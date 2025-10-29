@@ -1,9 +1,17 @@
 import connectDB from "../../../lib/mongodb";
 import { Comment, Proposal } from "../../../lib/models";
 import { requireAdmin } from "../../../lib/admin";
+import { validateObjectId, toObjectId } from "../../../lib/validation";
+import { csrfProtection } from "../../../lib/csrf";
 
 export default async function handler(req, res) {
 	await connectDB();
+
+	// CSRF protection for state-changing methods
+	if (!csrfProtection(req, res)) {
+		return;
+	}
+
 	const session = await requireAdmin(req, res);
 	if (!session) return;
 
@@ -11,8 +19,20 @@ export default async function handler(req, res) {
 		if (req.method === "GET") {
 			const { proposalId, userId } = req.query;
 			const filter = {};
-			if (proposalId) filter.proposalId = proposalId;
-			if (userId) filter.userId = userId;
+
+			if (proposalId) {
+				if (!validateObjectId(proposalId)) {
+					return res.status(400).json({ message: "Invalid proposalId format" });
+				}
+				filter.proposalId = toObjectId(proposalId);
+			}
+
+			if (userId) {
+				if (!validateObjectId(userId)) {
+					return res.status(400).json({ message: "Invalid userId format" });
+				}
+				filter.userId = toObjectId(userId);
+			}
 
 			const data = await Comment.find(filter)
 				.sort({ createdAt: -1 })
@@ -51,8 +71,10 @@ export default async function handler(req, res) {
 
 		if (req.method === "DELETE") {
 			const { id } = req.query;
-			if (!id) return res.status(400).json({ message: "id krävs" });
-			await Comment.findByIdAndDelete(id);
+			if (!id || !validateObjectId(id)) {
+				return res.status(400).json({ message: "Invalid comment ID" });
+			}
+			await Comment.findByIdAndDelete(toObjectId(id));
 			return res.status(204).end();
 		}
 

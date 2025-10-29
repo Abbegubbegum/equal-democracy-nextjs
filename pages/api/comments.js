@@ -2,9 +2,16 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
 import connectDB from "../../lib/mongodb";
 import { Comment } from "../../lib/models";
+import { ensureActiveSession } from "../../lib/session-helper";
+import { csrfProtection } from "../../lib/csrf";
 
 export default async function handler(req, res) {
 	await connectDB();
+
+	// CSRF protection for state-changing methods
+	if (!csrfProtection(req, res)) {
+		return;
+	}
 
 	if (req.method === "GET") {
 		const { proposalId } = req.query;
@@ -18,12 +25,13 @@ export default async function handler(req, res) {
 				.sort({ createdAt: -1 })
 				.lean();
 
-			// Return comments with anonymized data
+			// Return comments with anonymized data and type
 			const anonymizedComments = comments.map((comment) => ({
 				_id: comment._id.toString(),
 				proposalId: comment.proposalId.toString(),
 				authorName: comment.authorName, // This is the anonymous display name
 				text: comment.text,
+				type: comment.type || "neutral",
 				createdAt: comment.createdAt,
 			}));
 
@@ -41,7 +49,7 @@ export default async function handler(req, res) {
 			return res.status(401).json({ message: "Du måste vara inloggad" });
 		}
 
-		const { proposalId, text } = req.body;
+		const { proposalId, text, type } = req.body;
 
 		if (!proposalId || !text) {
 			return res
@@ -55,12 +63,24 @@ export default async function handler(req, res) {
 				.json({ message: "Kommentaren är för lång (max 1000 tecken)" });
 		}
 
+		// Validate type
+		if (type && !["for", "against", "neutral"].includes(type)) {
+			return res
+				.status(400)
+				.json({ message: "Ogiltig kommentarstyp" });
+		}
+
 		try {
+			// Get the active session
+			const activeSession = await ensureActiveSession();
+
 			const comment = await Comment.create({
+				sessionId: activeSession._id,
 				proposalId,
 				userId: session.user.id,
 				authorName: session.user.name,
 				text,
+				type: type || "neutral",
 			});
 
 			return res.status(201).json({
@@ -68,6 +88,7 @@ export default async function handler(req, res) {
 				proposalId: comment.proposalId.toString(),
 				authorName: comment.authorName,
 				text: comment.text,
+				type: comment.type,
 				createdAt: comment.createdAt,
 			});
 		} catch (error) {

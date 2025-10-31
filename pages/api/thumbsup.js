@@ -36,6 +36,11 @@ export default async function handler(req, res) {
 			// Get the active session
 			const activeSession = await ensureActiveSession();
 
+			// If no active session, cannot rate
+			if (!activeSession) {
+				return res.status(400).json({ message: "Ingen aktiv session finns" });
+			}
+
 			const existingVote = await ThumbsUp.findOne({
 				proposalId,
 				userId: session.user.id,

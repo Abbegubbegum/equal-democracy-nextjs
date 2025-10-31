@@ -19,6 +19,11 @@ export default async function handler(req, res) {
 			// Get the active session
 			const activeSession = await ensureActiveSession();
 
+			// If no active session, return empty array
+			if (!activeSession) {
+				return res.status(200).json([]);
+			}
+
 			// Only get proposals from the active session
 			const proposals = await Proposal.find({ sessionId: activeSession._id })
 				.sort({ createdAt: -1 })
@@ -68,6 +73,11 @@ export default async function handler(req, res) {
 		try {
 			// Get the active session
 			const activeSession = await ensureActiveSession();
+
+			// If no active session, cannot create proposal
+			if (!activeSession) {
+				return res.status(400).json({ message: "Ingen aktiv session finns" });
+			}
 
 			const proposal = await Proposal.create({
 				sessionId: activeSession._id,

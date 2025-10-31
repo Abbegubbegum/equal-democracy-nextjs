@@ -82,6 +82,11 @@ export default async function handler(req, res) {
 			// Get the active session
 			const activeSession = await ensureActiveSession();
 
+			// If no active session, cannot create comment
+			if (!activeSession) {
+				return res.status(400).json({ message: "Ingen aktiv session finns" });
+			}
+
 			const comment = await Comment.create({
 				sessionId: activeSession._id,
 				proposalId,

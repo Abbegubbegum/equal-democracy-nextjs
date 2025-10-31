@@ -44,6 +44,11 @@ export default async function handler(req, res) {
 			// Get the active session
 			const activeSession = await ensureActiveSession();
 
+			// If no active session, cannot vote
+			if (!activeSession) {
+				return res.status(400).json({ message: "Ingen aktiv session finns" });
+			}
+
 			// Check if user has already voted in this session (limit: 1 vote per session)
 			const existingVoteInSession = await FinalVote.findOne({
 				sessionId: activeSession._id,

@@ -35,6 +35,11 @@ export default async function handler(req, res) {
 			// Get the active session
 			const activeSession = await ensureActiveSession();
 
+			// If no active session, cannot rate
+			if (!activeSession) {
+				return res.status(400).json({ message: "Ingen aktiv session finns" });
+			}
+
 			// Check if comment exists
 			const comment = await Comment.findById(commentId);
 			if (!comment) {

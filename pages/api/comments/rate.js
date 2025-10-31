@@ -85,7 +85,7 @@ export default async function handler(req, res) {
 			await comment.save();
 
 			// Broadcast comment rating update to all connected clients
-			broadcaster.broadcast("comment-rating-update", {
+			await broadcaster.broadcast("comment-rating-update", {
 				commentId: commentId.toString(),
 				proposalId: comment.proposalId.toString(),
 				averageRating: averageRating,

@@ -94,7 +94,7 @@ export default async function handler(req, res) {
 			});
 
 			// Broadcast new proposal event to all connected clients
-			broadcaster.broadcast("new-proposal", {
+			await broadcaster.broadcast("new-proposal", {
 				_id: proposal._id.toString(),
 				sessionId: proposal.sessionId.toString(),
 				title: proposal.title,

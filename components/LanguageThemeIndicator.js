@@ -3,20 +3,17 @@
  * This demonstrates that the i18n system is working
  */
 
-import { useConfig } from '../lib/contexts/ConfigContext';
+import { useConfig } from "../lib/contexts/ConfigContext";
 
 export default function LanguageThemeIndicator() {
 	const { config, t, isLoading } = useConfig();
 
-	console.log('[LanguageThemeIndicator] RENDERING');
-	console.log('[LanguageThemeIndicator] config:', config);
-	console.log('[LanguageThemeIndicator] isLoading:', isLoading);
-	console.log('[LanguageThemeIndicator] t(appName):', t('appName'));
-	console.log('[LanguageThemeIndicator] t(common.loading):', t('common.loading'));
-
 	if (isLoading) {
-		console.log('[LanguageThemeIndicator] Still loading, not rendering yet');
-		return <div className="fixed bottom-4 right-4 bg-yellow-200 p-2 rounded">Loading config...</div>;
+		return (
+			<div className="fixed bottom-4 right-4 bg-yellow-200 p-2 rounded">
+				Loading config...
+			</div>
+		);
 	}
 
 	return (
@@ -26,27 +23,35 @@ export default function LanguageThemeIndicator() {
 			</div>
 			<div className="space-y-1 text-sm">
 				<div>
-					<span className="font-medium">Language:</span>{' '}
-					<span className="text-blue-600 font-bold">{config.language}</span>
+					<span className="font-medium">Language:</span>{" "}
+					<span className="text-blue-600 font-bold">
+						{config.language}
+					</span>
 				</div>
 				<div>
-					<span className="font-medium">Theme:</span>{' '}
-					<span className="text-blue-600 font-bold">{config.theme}</span>
+					<span className="font-medium">Theme:</span>{" "}
+					<span className="text-blue-600 font-bold">
+						{config.theme}
+					</span>
 				</div>
 				<div>
-					<span className="font-medium">Municipality:</span>{' '}
-					<span className="text-blue-600 font-bold">{config.municipalityName}</span>
+					<span className="font-medium">Municipality:</span>{" "}
+					<span className="text-blue-600 font-bold">
+						{config.municipalityName}
+					</span>
 				</div>
 				<div className="mt-3 pt-3 border-t border-gray-200">
-					<div className="font-medium text-gray-700 mb-1">Translation Test:</div>
+					<div className="font-medium text-gray-700 mb-1">
+						Translation Test:
+					</div>
 					<div className="text-blue-700 font-bold">
-						appName: "{t('appName')}"
+						appName: "{t("appName")}"
 					</div>
 					<div className="text-sm text-gray-600">
-						common.loading: "{t('common.loading')}"
+						common.loading: "{t("common.loading")}"
 					</div>
 					<div className="text-sm text-gray-600">
-						auth.hello: "{t('auth.hello')}"
+						auth.hello: "{t("auth.hello")}"
 					</div>
 				</div>
 			</div>

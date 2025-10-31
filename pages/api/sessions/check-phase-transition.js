@@ -110,7 +110,7 @@ export default async function handler(req, res) {
 			await activeSession.save();
 
 			// Broadcast transition scheduled event to all connected clients
-			broadcaster.broadcast("transition-scheduled", {
+			await broadcaster.broadcast("transition-scheduled", {
 				sessionId: activeSession._id.toString(),
 				scheduledTime: scheduledTime,
 				secondsRemaining: 90,

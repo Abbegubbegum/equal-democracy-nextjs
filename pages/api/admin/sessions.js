@@ -55,7 +55,7 @@ export default async function handler(req, res) {
 			});
 
 			// Broadcast new session event to all connected clients
-			broadcaster.broadcast("new-session", {
+			await broadcaster.broadcast("new-session", {
 				_id: newSession._id.toString(),
 				name: newSession.name,
 				municipalityName: newSession.municipalityName,

@@ -91,7 +91,7 @@ export default async function handler(req, res) {
 			});
 
 			// Broadcast new comment event
-			broadcaster.broadcast("new-comment", {
+			await broadcaster.broadcast("new-comment", {
 				_id: comment._id.toString(),
 				proposalId: comment.proposalId.toString(),
 				authorName: comment.authorName,

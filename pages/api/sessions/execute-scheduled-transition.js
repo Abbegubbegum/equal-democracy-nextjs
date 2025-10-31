@@ -117,7 +117,7 @@ export default async function handler(req, res) {
 		await activeSession.save();
 
 		// Broadcast phase change to all connected clients
-		broadcaster.broadcast("phase-change", {
+		await broadcaster.broadcast("phase-change", {
 			phase: "phase2",
 			sessionId: activeSession._id.toString(),
 			topProposalsCount: topProposalIds.length,

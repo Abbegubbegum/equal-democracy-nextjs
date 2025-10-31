@@ -68,7 +68,7 @@ export default async function handler(req, res) {
 				});
 
 				// Broadcast rating update event
-				broadcaster.broadcast("rating-update", {
+				await broadcaster.broadcast("rating-update", {
 					proposalId: proposalId.toString(),
 					thumbsUpCount: count,
 					averageRating: avgRating,
@@ -102,7 +102,7 @@ export default async function handler(req, res) {
 			});
 
 			// Broadcast rating update event
-			broadcaster.broadcast("rating-update", {
+			await broadcaster.broadcast("rating-update", {
 				proposalId: proposalId.toString(),
 				thumbsUpCount: count,
 				averageRating: avgRating,

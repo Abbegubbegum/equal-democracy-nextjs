@@ -91,7 +91,7 @@ export default async function handler(req, res) {
 			});
 
 			// Broadcast vote update event
-			broadcaster.broadcast("vote-update", {
+			await broadcaster.broadcast("vote-update", {
 				proposalId: proposalId.toString(),
 				yes: yesCount,
 				no: noCount,
@@ -103,7 +103,7 @@ export default async function handler(req, res) {
 
 			// If session closed, broadcast phase change
 			if (shouldClose) {
-				broadcaster.broadcast("phase-change", {
+				await broadcaster.broadcast("phase-change", {
 					phase: "closed",
 					sessionId: activeSession._id.toString(),
 				});

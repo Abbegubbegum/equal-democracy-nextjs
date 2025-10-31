@@ -58,12 +58,12 @@ export default function HomePage() {
 	// Setup SSE for real-time updates
 	useSSE({
 		onNewProposal: (proposal) => {
-			console.log("[SSE] New proposal received, updating list");
+			console.log("New proposal received, updating list");
 			setProposals((prev) => [proposal, ...prev]);
 		},
 		onNewComment: (comment) => {
 			console.log(
-				"[SSE] New comment received for proposal:",
+				"New comment received for proposal:",
 				comment.proposalId
 			);
 			// Trigger comment refresh for the specific proposal
@@ -71,7 +71,7 @@ export default function HomePage() {
 		},
 		onCommentRatingUpdate: (commentRatingData) => {
 			console.log(
-				"[SSE] Comment rating update for comment:",
+				"Comment rating update for comment:",
 				commentRatingData.commentId
 			);
 			// Trigger comment refresh to show updated ratings
@@ -79,7 +79,7 @@ export default function HomePage() {
 		},
 		onVoteUpdate: (voteData) => {
 			console.log(
-				"[SSE] Vote update received for proposal:",
+				"Vote update received for proposal:",
 				voteData.proposalId
 			);
 			// Update the specific proposal's vote counts
@@ -93,7 +93,7 @@ export default function HomePage() {
 		},
 		onRatingUpdate: (ratingData) => {
 			console.log(
-				"[SSE] Rating update received for proposal:",
+				"Rating update received for proposal:",
 				ratingData.proposalId
 			);
 			// Update the specific proposal's rating
@@ -110,7 +110,7 @@ export default function HomePage() {
 			);
 		},
 		onPhaseChange: async (phaseData) => {
-			console.log("[SSE] Phase change received:", phaseData.phase);
+			console.log("Phase change received:", phaseData.phase);
 			setCurrentPhase(phaseData.phase);
 
 			// If session is closed, show results modal
@@ -120,13 +120,16 @@ export default function HomePage() {
 			}
 		},
 		onTransitionScheduled: (transitionData) => {
-			console.log("[SSE] Transition scheduled, countdown:", transitionData.secondsRemaining);
+			console.log(
+				"Transition scheduled, countdown:",
+				transitionData.secondsRemaining
+			);
 			// Start the countdown timer for all connected clients
 			setTransitionCountdown(transitionData.secondsRemaining);
 			checkPhaseTransition(); // This will start the countdown polling
 		},
 		onNewSession: async (sessionData) => {
-			console.log("[SSE] New session created:", sessionData.name);
+			console.log("New session created:", sessionData.name);
 			// Update municipality name
 			setMunicipalityName(sessionData.municipalityName);
 			// Clear old data and refresh
@@ -139,13 +142,10 @@ export default function HomePage() {
 			await fetchProposals();
 		},
 		onConnected: () => {
-			console.log("[SSE] Successfully connected to real-time updates");
+			console.log("Successfully connected to real-time updates");
 		},
 		onError: (error) => {
-			console.error(
-				"[SSE] Connection error, will auto-reconnect:",
-				error
-			);
+			console.error("Connection error, will auto-reconnect:", error);
 		},
 	});
 
@@ -1276,8 +1276,12 @@ function ProposalCard({
 													}`}
 													title={
 														userCommentRating > 0
-															? `${t("rating.yourRating")}: ${userCommentRating}/5`
-															: t("rating.giveRating")
+															? `${t(
+																	"rating.yourRating"
+															  )}: ${userCommentRating}/5`
+															: t(
+																	"rating.giveRating"
+															  )
 													}
 												>
 													<ThumbsUp className="w-5 h-5 text-white" />
@@ -1287,22 +1291,24 @@ function ProposalCard({
 												{userCommentRating > 0 && (
 													<div className="flex flex-col items-center gap-0.5 bg-white px-2 py-1 rounded-md border border-gray-200">
 														<span className="text-xs text-gray-500 font-medium">
-															{t("rating.yourRating")}
+															{t(
+																"rating.yourRating"
+															)}
 														</span>
 														<div className="flex gap-0.5">
-															{[1, 2, 3, 4, 5].map(
-																(star) => (
-																	<Star
-																		key={star}
-																		className={`w-3 h-3 ${
-																			star <=
-																			userCommentRating
-																				? "fill-blue-500 text-blue-500"
-																				: "text-gray-300"
-																		}`}
-																	/>
-																)
-															)}
+															{[
+																1, 2, 3, 4, 5,
+															].map((star) => (
+																<Star
+																	key={star}
+																	className={`w-3 h-3 ${
+																		star <=
+																		userCommentRating
+																			? "fill-blue-500 text-blue-500"
+																			: "text-gray-300"
+																	}`}
+																/>
+															))}
 														</div>
 													</div>
 												)}
@@ -1311,24 +1317,27 @@ function ProposalCard({
 												{avgRating > 0 && (
 													<div className="flex flex-col items-center gap-0.5">
 														<span className="text-xs text-gray-400">
-															Ø {avgRating.toFixed(1)}
+															Ø{" "}
+															{avgRating.toFixed(
+																1
+															)}
 														</span>
 														<div className="flex gap-0.5">
-															{[1, 2, 3, 4, 5].map(
-																(star) => (
-																	<Star
-																		key={star}
-																		className={`w-2.5 h-2.5 ${
-																			star <=
-																			Math.round(
-																				avgRating
-																			)
-																				? "fill-yellow-400 text-yellow-400"
-																				: "text-gray-300"
-																		}`}
-																	/>
-																)
-															)}
+															{[
+																1, 2, 3, 4, 5,
+															].map((star) => (
+																<Star
+																	key={star}
+																	className={`w-2.5 h-2.5 ${
+																		star <=
+																		Math.round(
+																			avgRating
+																		)
+																			? "fill-yellow-400 text-yellow-400"
+																			: "text-gray-300"
+																	}`}
+																/>
+															))}
 														</div>
 													</div>
 												)}
@@ -1349,9 +1358,14 @@ function ProposalCard({
 												{isCommentRatingExpanded && (
 													<div className="mt-3 flex items-center gap-2 bg-white p-3 rounded-lg shadow-sm border border-gray-200">
 														<span className="text-sm text-gray-600">
-															{userCommentRating > 0
-																? t("rating.changeRating")
-																: t("rating.giveRating")}
+															{userCommentRating >
+															0
+																? t(
+																		"rating.changeRating"
+																  )
+																: t(
+																		"rating.giveRating"
+																  )}
 															:
 														</span>
 														{[1, 2, 3, 4, 5].map(

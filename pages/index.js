@@ -48,6 +48,7 @@ export default function HomePage() {
 	const [transitionCountdown, setTransitionCountdown] = useState(null); // Countdown seconds for phase transition
 	const [userHasVotedInSession, setUserHasVotedInSession] = useState(false); // Has user used their one vote
 	const [votedProposalId, setVotedProposalId] = useState(null); // Which proposal user voted on
+	const [isInitialLoad, setIsInitialLoad] = useState(true); // Track if this is the first session info fetch
 	const transitionIntervalRef = useRef(null); // Reference to transition checking interval
 
 	useEffect(() => {
@@ -114,10 +115,17 @@ export default function HomePage() {
 				const previousPhase = currentPhase;
 				setCurrentPhase(data.phase);
 
-				// If session just closed, show modal with winning proposals
-				if (data.phase === "closed" && previousPhase !== "closed") {
+				// Show results modal if:
+				// 1. Session just closed (phase changed to closed during this session)
+				// 2. Session is already closed when user first loads the page
+				if (data.phase === "closed" && (previousPhase !== "closed" || isInitialLoad)) {
 					await fetchWinningProposals();
 					setShowSessionClosed(true);
+				}
+
+				// Mark that initial load is complete
+				if (isInitialLoad) {
+					setIsInitialLoad(false);
 				}
 			}
 		} catch (error) {

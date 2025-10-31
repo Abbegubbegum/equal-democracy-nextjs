@@ -6,7 +6,7 @@ import broadcaster from "@/lib/sse-broadcaster";
 
 /**
  * Checks if a scheduled phase transition should be executed
- * Called periodically from frontend to check if 100 seconds have passed
+ * Called periodically from frontend to check if 90 seconds have passed
  */
 export default async function handler(req, res) {
 	await dbConnect();

@@ -9,7 +9,7 @@ import broadcaster from "@/lib/sse-broadcaster";
  * Triggers when BOTH conditions are met:
  * 1. 75% of active users have rated at least one proposal
  * 2. 75% of proposals have been rated
- * Then schedules transition after 100 seconds
+ * Then schedules transition after 90 seconds
  */
 export default async function handler(req, res) {
 	await dbConnect();
@@ -104,8 +104,8 @@ export default async function handler(req, res) {
 		const shouldScheduleTransition = proposalsConditionMet && usersConditionMet;
 
 		if (shouldScheduleTransition) {
-			// Schedule transition for 100 seconds from now
-			const scheduledTime = new Date(Date.now() + 100 * 1000);
+			// Schedule transition for 90 seconds from now
+			const scheduledTime = new Date(Date.now() + 90 * 1000);
 			activeSession.phase1TransitionScheduled = scheduledTime;
 			await activeSession.save();
 
@@ -113,15 +113,15 @@ export default async function handler(req, res) {
 			broadcaster.broadcast("transition-scheduled", {
 				sessionId: activeSession._id.toString(),
 				scheduledTime: scheduledTime,
-				secondsRemaining: 100,
+				secondsRemaining: 90,
 			});
 
 			return res.status(200).json({
 				shouldTransition: false,
 				transitionScheduled: true,
 				scheduledTime: scheduledTime,
-				secondsRemaining: 100,
-				message: "Övergång till Fas 2 schemalagd om 100 sekunder",
+				secondsRemaining: 90,
+				message: "Övergång till Fas 2 schemalagd om 90 sekunder",
 			});
 		}
 

@@ -4,6 +4,7 @@ import connectDB from "../../../lib/mongodb";
 import { Proposal, ThumbsUp, Comment } from "../../../lib/models";
 import { ensureActiveSession } from "../../../lib/session-helper";
 import { csrfProtection } from "../../../lib/csrf";
+import broadcaster from "../../../lib/sse-broadcaster";
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -78,6 +79,25 @@ export default async function handler(req, res) {
 				authorName: session.user.name,
 				status: "active",
 				thumbsUpCount: 0,
+			});
+
+			// Broadcast new proposal event to all connected clients
+			broadcaster.broadcast('new-proposal', {
+				_id: proposal._id.toString(),
+				sessionId: proposal.sessionId.toString(),
+				title: proposal.title,
+				problem: proposal.problem,
+				solution: proposal.solution,
+				estimatedCost: proposal.estimatedCost,
+				status: proposal.status,
+				thumbsUpCount: 0,
+				averageRating: 0,
+				yesVotes: 0,
+				noVotes: 0,
+				authorId: proposal.authorId.toString(),
+				authorName: proposal.authorName,
+				createdAt: proposal.createdAt,
+				commentsCount: 0,
 			});
 
 			return res.status(201).json({

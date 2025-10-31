@@ -53,6 +53,7 @@ export default function HomePage() {
 	const [isInitialLoad, setIsInitialLoad] = useState(true); // Track if this is the first session info fetch
 	const [hasActiveSession, setHasActiveSession] = useState(true); // Track if there is an active session
 	const transitionIntervalRef = useRef(null); // Reference to transition checking interval
+	const [commentUpdateTrigger, setCommentUpdateTrigger] = useState(0); // Trigger for comment updates
 
 	// Setup SSE for real-time updates
 	useSSE({
@@ -61,9 +62,20 @@ export default function HomePage() {
 			setProposals((prev) => [proposal, ...prev]);
 		},
 		onNewComment: (comment) => {
-			console.log("[SSE] New comment received");
-			// If we're viewing the proposal details, we might want to refresh
-			// For now, the Discuss component will handle its own SSE or refetch
+			console.log(
+				"[SSE] New comment received for proposal:",
+				comment.proposalId
+			);
+			// Trigger comment refresh for the specific proposal
+			setCommentUpdateTrigger((prev) => prev + 1);
+		},
+		onCommentRatingUpdate: (commentRatingData) => {
+			console.log(
+				"[SSE] Comment rating update for comment:",
+				commentRatingData.commentId
+			);
+			// Trigger comment refresh to show updated ratings
+			setCommentUpdateTrigger((prev) => prev + 1);
 		},
 		onVoteUpdate: (voteData) => {
 			console.log(
@@ -106,6 +118,25 @@ export default function HomePage() {
 				await fetchWinningProposals();
 				setShowSessionClosed(true);
 			}
+		},
+		onTransitionScheduled: (transitionData) => {
+			console.log("[SSE] Transition scheduled, countdown:", transitionData.secondsRemaining);
+			// Start the countdown timer for all connected clients
+			setTransitionCountdown(transitionData.secondsRemaining);
+			checkPhaseTransition(); // This will start the countdown polling
+		},
+		onNewSession: async (sessionData) => {
+			console.log("[SSE] New session created:", sessionData.name);
+			// Update municipality name
+			setMunicipalityName(sessionData.municipalityName);
+			// Clear old data and refresh
+			setProposals([]);
+			setHasActiveSession(true);
+			setCurrentPhase("phase1");
+			setShowSessionClosed(false);
+			// Fetch fresh data
+			await fetchSessionInfo();
+			await fetchProposals();
 		},
 		onConnected: () => {
 			console.log("[SSE] Successfully connected to real-time updates");
@@ -537,6 +568,10 @@ export default function HomePage() {
 							onClick={() => {
 								setShowSessionClosed(false);
 								setView("home");
+								// Update state to reflect no active session
+								setHasActiveSession(false);
+								setCurrentPhase(null);
+								setProposals([]);
 							}}
 							className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors"
 						>
@@ -811,6 +846,7 @@ export default function HomePage() {
 								onVote={() => setView("vote")}
 								userHasVotedInSession={userHasVotedInSession}
 								votedProposalId={votedProposalId}
+								commentUpdateTrigger={commentUpdateTrigger}
 								t={t}
 							/>
 						))
@@ -838,6 +874,7 @@ function ProposalCard({
 	onVote,
 	userHasVotedInSession,
 	votedProposalId,
+	commentUpdateTrigger,
 	t,
 }) {
 	const [hasVoted, setHasVoted] = useState(false);
@@ -866,6 +903,13 @@ function ProposalCard({
 			fetchComments();
 		}
 	}, [isExpandedForDiscuss]);
+
+	// Refetch comments when commentUpdateTrigger changes (from SSE)
+	useEffect(() => {
+		if (isExpandedForDiscuss && commentUpdateTrigger > 0) {
+			fetchComments();
+		}
+	}, [commentUpdateTrigger]);
 
 	const checkIfVoted = async () => {
 		try {
@@ -1208,8 +1252,8 @@ function ProposalCard({
 										className={`rounded-xl shadow-sm p-4 ${bgColor}`}
 									>
 										<div className="flex items-start gap-3">
-											{/* Left side: Clickable thumbs-up icon for rating */}
-											<div className="flex flex-col items-center gap-1 shrink-0">
+											{/* Left side: Rating display and button */}
+											<div className="flex flex-col items-center gap-2 shrink-0">
 												<button
 													onClick={() =>
 														setExpandedCommentRating(
@@ -1229,27 +1273,62 @@ function ProposalCard({
 																: "bg-blue-500 hover:bg-blue-600"
 															: "bg-gray-300 hover:bg-gray-400"
 													}`}
+													title={
+														userCommentRating > 0
+															? `${t("rating.yourRating")}: ${userCommentRating}/5`
+															: t("rating.giveRating")
+													}
 												>
 													<ThumbsUp className="w-5 h-5 text-white" />
 												</button>
-												{/* Show average rating with stars */}
+
+												{/* Show user's rating prominently if they've rated */}
+												{userCommentRating > 0 && (
+													<div className="flex flex-col items-center gap-0.5 bg-white px-2 py-1 rounded-md border border-gray-200">
+														<span className="text-xs text-gray-500 font-medium">
+															{t("rating.yourRating")}
+														</span>
+														<div className="flex gap-0.5">
+															{[1, 2, 3, 4, 5].map(
+																(star) => (
+																	<Star
+																		key={star}
+																		className={`w-3 h-3 ${
+																			star <=
+																			userCommentRating
+																				? "fill-blue-500 text-blue-500"
+																				: "text-gray-300"
+																		}`}
+																	/>
+																)
+															)}
+														</div>
+													</div>
+												)}
+
+												{/* Show average rating below user rating (or below button if no user rating) */}
 												{avgRating > 0 && (
-													<div className="flex gap-0.5">
-														{[1, 2, 3, 4, 5].map(
-															(star) => (
-																<Star
-																	key={star}
-																	className={`w-3 h-3 ${
-																		star <=
-																		Math.round(
-																			avgRating
-																		)
-																			? "fill-yellow-400 text-yellow-400"
-																			: "text-gray-300"
-																	}`}
-																/>
-															)
-														)}
+													<div className="flex flex-col items-center gap-0.5">
+														<span className="text-xs text-gray-400">
+															Ø {avgRating.toFixed(1)}
+														</span>
+														<div className="flex gap-0.5">
+															{[1, 2, 3, 4, 5].map(
+																(star) => (
+																	<Star
+																		key={star}
+																		className={`w-2.5 h-2.5 ${
+																			star <=
+																			Math.round(
+																				avgRating
+																			)
+																				? "fill-yellow-400 text-yellow-400"
+																				: "text-gray-300"
+																		}`}
+																	/>
+																)
+															)}
+														</div>
 													</div>
 												)}
 											</div>
@@ -1263,19 +1342,15 @@ function ProposalCard({
 													{formatDateTime(
 														comment.createdAt
 													)}
-													{avgRating > 0 &&
-														` • ${avgRating.toFixed(
-															1
-														)} ⭐`}
 												</p>
 
 												{/* Expandable star rating UI */}
 												{isCommentRatingExpanded && (
 													<div className="mt-3 flex items-center gap-2 bg-white p-3 rounded-lg shadow-sm border border-gray-200">
 														<span className="text-sm text-gray-600">
-															{t(
-																"rating.clickStar"
-															)}
+															{userCommentRating > 0
+																? t("rating.changeRating")
+																: t("rating.giveRating")}
 															:
 														</span>
 														{[1, 2, 3, 4, 5].map(

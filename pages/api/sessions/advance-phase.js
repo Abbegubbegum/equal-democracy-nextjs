@@ -3,6 +3,7 @@ import { Session, Proposal, ThumbsUp } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { csrfProtection } from "@/lib/csrf";
+import broadcaster from "@/lib/sse-broadcaster";
 
 export default async function handler(req, res) {
 	await dbConnect();
@@ -101,6 +102,13 @@ export default async function handler(req, res) {
 			activeSession.phase = "phase2";
 			activeSession.phase2StartTime = new Date();
 			await activeSession.save();
+
+			// Broadcast phase change to all connected clients
+			broadcaster.broadcast("phase-change", {
+				phase: "phase2",
+				sessionId: activeSession._id.toString(),
+				topProposalsCount: topProposalIds.length,
+			});
 
 			return res.status(200).json({
 				message: "Advanced to Phase 2",

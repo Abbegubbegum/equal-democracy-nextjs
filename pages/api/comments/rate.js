@@ -4,6 +4,7 @@ import connectDB from "../../../lib/mongodb";
 import { Comment, CommentRating } from "../../../lib/models";
 import { getActiveSession } from "../../../lib/session-helper";
 import { csrfProtection } from "../../../lib/csrf";
+import broadcaster from "../../../lib/sse-broadcaster";
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -82,6 +83,14 @@ export default async function handler(req, res) {
 			// Update comment with new average
 			comment.averageRating = averageRating;
 			await comment.save();
+
+			// Broadcast comment rating update to all connected clients
+			broadcaster.broadcast("comment-rating-update", {
+				commentId: commentId.toString(),
+				proposalId: comment.proposalId.toString(),
+				averageRating: averageRating,
+				totalRatings: ratings.length,
+			});
 
 			return res.status(200).json({
 				success: true,

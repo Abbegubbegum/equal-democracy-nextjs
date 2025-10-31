@@ -3,6 +3,7 @@ import { Session, Settings } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { csrfProtection } from "@/lib/csrf";
+import broadcaster from "@/lib/sse-broadcaster";
 
 export default async function handler(req, res) {
 	await dbConnect();
@@ -51,6 +52,16 @@ export default async function handler(req, res) {
 				municipalityName: municipalityName.trim(),
 				status: "active",
 				startDate: new Date(),
+			});
+
+			// Broadcast new session event to all connected clients
+			broadcaster.broadcast("new-session", {
+				_id: newSession._id.toString(),
+				name: newSession.name,
+				municipalityName: newSession.municipalityName,
+				status: newSession.status,
+				phase: newSession.phase,
+				startDate: newSession.startDate,
 			});
 
 			return res.status(201).json(newSession);

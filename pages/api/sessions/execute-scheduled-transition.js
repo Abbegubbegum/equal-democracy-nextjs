@@ -2,6 +2,7 @@ import dbConnect from "@/lib/mongodb";
 import { Session, Proposal, ThumbsUp } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
+import broadcaster from "@/lib/sse-broadcaster";
 
 /**
  * Checks if a scheduled phase transition should be executed
@@ -114,6 +115,13 @@ export default async function handler(req, res) {
 		activeSession.phase2StartTime = new Date();
 		activeSession.phase1TransitionScheduled = null; // Clear the scheduled time
 		await activeSession.save();
+
+		// Broadcast phase change to all connected clients
+		broadcaster.broadcast("phase-change", {
+			phase: "phase2",
+			sessionId: activeSession._id.toString(),
+			topProposalsCount: topProposalIds.length,
+		});
 
 		return res.status(200).json({
 			transitionExecuted: true,

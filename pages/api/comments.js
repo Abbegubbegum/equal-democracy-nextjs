@@ -26,16 +26,6 @@ export default async function handler(req, res) {
 				.sort({ averageRating: -1, createdAt: -1 }) // Sort by rating first, then by creation date
 				.lean();
 
-			// Log for debugging
-			console.log("Comments sorting debug:");
-			comments.forEach((c, i) => {
-				console.log(
-					`${i + 1}. Rating: ${
-						c.averageRating || 0
-					}, Text: ${c.text.substring(0, 30)}...`
-				);
-			});
-
 			// Return comments with anonymized data and type
 			const anonymizedComments = comments.map((comment) => ({
 				_id: comment._id.toString(),

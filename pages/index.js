@@ -53,6 +53,7 @@ export default function HomePage() {
 	const [hasActiveSession, setHasActiveSession] = useState(true); // Track if there is an active session
 	const transitionIntervalRef = useRef(null); // Reference to transition checking interval
 	const [commentUpdateTrigger, setCommentUpdateTrigger] = useState(0); // Trigger for comment updates
+	const [userHasCreatedProposal, setUserHasCreatedProposal] = useState(false); // Track if user has created a proposal
 
 	// Setup SSE for real-time updates
 	useSSE({
@@ -162,6 +163,16 @@ export default function HomePage() {
 		}
 	}, [session]);
 
+	// Check if user has created a proposal
+	useEffect(() => {
+		if (session && proposals.length > 0) {
+			const hasCreated = proposals.some(
+				(p) => p.authorId === session.user.id
+			);
+			setUserHasCreatedProposal(hasCreated);
+		}
+	}, [proposals, session]);
+
 	// Light polling as backup (SSE handles most real-time updates)
 	// This ensures data consistency if SSE connection temporarily fails
 	useEffect(() => {
@@ -257,7 +268,6 @@ export default function HomePage() {
 		}
 	};
 
-
 	const fetchProposals = async () => {
 		try {
 			const res = await fetch("/api/proposals");
@@ -293,6 +303,7 @@ export default function HomePage() {
 			if (res.ok) {
 				// Don't fetch proposals - Pusher will broadcast the new proposal to all clients
 				// This prevents the creator from seeing their proposal twice
+				setUserHasCreatedProposal(true);
 				setView("home");
 			} else {
 				const data = await res.json();
@@ -305,6 +316,17 @@ export default function HomePage() {
 	};
 
 	const handleThumbsUp = async (proposalId, rating = 5) => {
+		// Gentle nudge if user hasn't created their own proposal yet
+		if (!userHasCreatedProposal) {
+			const shouldContinue = confirm(
+				t("rating.createProposalNudge") ||
+					"Have you considered creating your own proposal first? You can always rate others afterward."
+			);
+			if (!shouldContinue) {
+				return; // User wants to create a proposal first
+			}
+		}
+
 		try {
 			const res = await fetchWithCsrf("/api/thumbsup", {
 				method: "POST",
@@ -684,9 +706,7 @@ export default function HomePage() {
 					</div>
 					<h2 className="text-xl font-medium">
 						{hasActiveSession && placeName
-							? `${t(
-									"proposals.howToImprove"
-							  )} ${placeName}?`
+							? `${t("proposals.howToImprove")} ${placeName}?`
 							: t("proposals.howToImproveYourSpace")}
 					</h2>
 				</div>

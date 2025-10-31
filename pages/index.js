@@ -16,6 +16,7 @@ import {
 import { fetchWithCsrf } from "../lib/fetch-with-csrf";
 import { useTranslation } from "../lib/hooks/useTranslation";
 import { useConfig } from "../lib/contexts/ConfigContext";
+import useSSE from "../lib/hooks/useSSE";
 import LanguageThemeIndicator from "../components/LanguageThemeIndicator";
 
 // Helper function to format date and time consistently
@@ -53,6 +54,53 @@ export default function HomePage() {
 	const [hasActiveSession, setHasActiveSession] = useState(true); // Track if there is an active session
 	const transitionIntervalRef = useRef(null); // Reference to transition checking interval
 
+	// Setup SSE for real-time updates
+	useSSE({
+		onNewProposal: (proposal) => {
+			console.log("[SSE] New proposal received, updating list");
+			setProposals(prev => [proposal, ...prev]);
+		},
+		onNewComment: (comment) => {
+			console.log("[SSE] New comment received");
+			// If we're viewing the proposal details, we might want to refresh
+			// For now, the Discuss component will handle its own SSE or refetch
+		},
+		onVoteUpdate: (voteData) => {
+			console.log("[SSE] Vote update received for proposal:", voteData.proposalId);
+			// Update the specific proposal's vote counts
+			setProposals(prev => prev.map(p =>
+				p._id === voteData.proposalId
+					? { ...p, yesVotes: voteData.yes, noVotes: voteData.no }
+					: p
+			));
+		},
+		onRatingUpdate: (ratingData) => {
+			console.log("[SSE] Rating update received for proposal:", ratingData.proposalId);
+			// Update the specific proposal's rating
+			setProposals(prev => prev.map(p =>
+				p._id === ratingData.proposalId
+					? { ...p, thumbsUpCount: ratingData.thumbsUpCount, averageRating: ratingData.averageRating }
+					: p
+			));
+		},
+		onPhaseChange: async (phaseData) => {
+			console.log("[SSE] Phase change received:", phaseData.phase);
+			setCurrentPhase(phaseData.phase);
+
+			// If session is closed, show results modal
+			if (phaseData.phase === "closed" && !showSessionClosed) {
+				await fetchWinningProposals();
+				setShowSessionClosed(true);
+			}
+		},
+		onConnected: () => {
+			console.log("[SSE] Successfully connected to real-time updates");
+		},
+		onError: (error) => {
+			console.error("[SSE] Connection error, will auto-reconnect:", error);
+		}
+	});
+
 	useEffect(() => {
 		if (status === "unauthenticated") {
 			router.push("/login");
@@ -68,48 +116,31 @@ export default function HomePage() {
 		}
 	}, [session]);
 
-	// Continuous polling in Phase 1 to check for phase transition
+	// Light polling as backup (SSE handles most real-time updates)
+	// This ensures data consistency if SSE connection temporarily fails
 	useEffect(() => {
-		if (!session || currentPhase !== "phase1") {
+		if (!session || !currentPhase) {
 			return;
 		}
 
-		// Poll every 5 seconds in Phase 1 to check for transition status
+		// Poll every 60 seconds as a safety net
+		// SSE will handle immediate updates, this is just for reliability
 		const pollInterval = setInterval(() => {
-			checkPhaseTransition();
-			fetchSessionInfo(); // Also refresh session info
-		}, 5000); // Check every 5 seconds
-
-		// Initial check
-		checkPhaseTransition();
+			fetchSessionInfo();
+			// Only fetch proposals if we're in an active phase
+			if (currentPhase !== "closed") {
+				fetchProposals();
+			}
+		}, 60000); // Check every minute
 
 		return () => {
 			clearInterval(pollInterval);
-			// Also clear transition interval when component unmounts
+			// Clear transition interval when component unmounts
 			if (transitionIntervalRef.current) {
 				clearInterval(transitionIntervalRef.current);
 				transitionIntervalRef.current = null;
 			}
 		};
-	}, [session, currentPhase]);
-
-	// Continuous polling in Phase 2 to check for session closure and updates
-	useEffect(() => {
-		if (!session || !currentPhase || currentPhase === "phase1") {
-			return;
-		}
-
-		// Poll every 10 seconds in Phase 2 and even after closed
-		// This ensures all users see the results modal when session closes
-		const pollInterval = setInterval(() => {
-			fetchSessionInfo();
-			if (currentPhase === "phase2") {
-				fetchProposals(); // Refresh proposals to see updated vote counts
-				checkUserVote(); // Check if user has voted
-			}
-		}, 10000); // Check every 10 seconds
-
-		return () => clearInterval(pollInterval);
 	}, [session, currentPhase]);
 
 	const fetchSessionInfo = async () => {

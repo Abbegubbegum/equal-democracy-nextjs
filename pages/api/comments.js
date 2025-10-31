@@ -4,6 +4,7 @@ import connectDB from "../../lib/mongodb";
 import { Comment } from "../../lib/models";
 import { ensureActiveSession } from "../../lib/session-helper";
 import { csrfProtection } from "../../lib/csrf";
+import broadcaster from "../../lib/sse-broadcaster";
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -88,6 +89,17 @@ export default async function handler(req, res) {
 				authorName: session.user.name,
 				text,
 				type: type || "neutral",
+			});
+
+			// Broadcast new comment event
+			broadcaster.broadcast('new-comment', {
+				_id: comment._id.toString(),
+				proposalId: comment.proposalId.toString(),
+				authorName: comment.authorName,
+				text: comment.text,
+				type: comment.type,
+				averageRating: comment.averageRating || 0,
+				createdAt: comment.createdAt,
 			});
 
 			return res.status(201).json({

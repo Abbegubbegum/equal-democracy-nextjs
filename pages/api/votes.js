@@ -5,6 +5,7 @@ import { FinalVote, Session, Proposal, TopProposal, Settings } from "../../lib/m
 import { ensureActiveSession } from "../../lib/session-helper";
 import { validateObjectId, toObjectId } from "../../lib/validation";
 import { csrfProtection } from "../../lib/csrf";
+import broadcaster from "../../lib/sse-broadcaster";
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -71,8 +72,24 @@ export default async function handler(req, res) {
 				choice: "no",
 			});
 
+			// Broadcast vote update event
+			broadcaster.broadcast('vote-update', {
+				proposalId: proposalId.toString(),
+				yes: yesCount,
+				no: noCount,
+				total: yesCount + noCount,
+			});
+
 			// Check if session should auto-close
 			const shouldClose = await checkAutoClose(activeSession);
+
+			// If session closed, broadcast phase change
+			if (shouldClose) {
+				broadcaster.broadcast('phase-change', {
+					phase: 'closed',
+					sessionId: activeSession._id.toString(),
+				});
+			}
 
 			return res.status(201).json({
 				message: "Röst registrerad",

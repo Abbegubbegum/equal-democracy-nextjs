@@ -4,6 +4,7 @@ import connectDB from "../../lib/mongodb";
 import { ThumbsUp, Proposal, Session } from "../../lib/models";
 import { ensureActiveSession } from "../../lib/session-helper";
 import { csrfProtection } from "../../lib/csrf";
+import broadcaster from "../../lib/sse-broadcaster";
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -55,6 +56,13 @@ export default async function handler(req, res) {
 					averageRating: avgRating,
 				});
 
+				// Broadcast rating update event
+				broadcaster.broadcast('rating-update', {
+					proposalId: proposalId.toString(),
+					thumbsUpCount: count,
+					averageRating: avgRating,
+				});
+
 				return res.status(200).json({
 					message: "Betyg uppdaterat",
 					count,
@@ -77,6 +85,13 @@ export default async function handler(req, res) {
 			const count = ratings.length;
 
 			await Proposal.findByIdAndUpdate(proposalId, {
+				thumbsUpCount: count,
+				averageRating: avgRating,
+			});
+
+			// Broadcast rating update event
+			broadcaster.broadcast('rating-update', {
+				proposalId: proposalId.toString(),
 				thumbsUpCount: count,
 				averageRating: avgRating,
 			});

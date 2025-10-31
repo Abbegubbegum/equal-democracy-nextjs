@@ -22,12 +22,16 @@ export default async function handler(req, res) {
 				settings = await Settings.create({
 					municipalityName: "Vallentuna",
 					phase2DurationHours: 6,
+					language: "sv",
+					theme: "default",
 				});
 			}
 
 			return res.status(200).json({
 				municipalityName: settings.municipalityName,
 				phase2DurationHours: settings.phase2DurationHours || 6,
+				language: settings.language || "sv",
+				theme: settings.theme || "default",
 			});
 		} catch (error) {
 			console.error("Error fetching settings:", error);
@@ -35,7 +39,7 @@ export default async function handler(req, res) {
 		}
 	}
 
-	if (req.method === "PUT") {
+	if (req.method === "PUT" || req.method === "POST") {
 		try {
 			// Check if user is admin
 			const session = await getServerSession(req, res, authOptions);
@@ -43,7 +47,7 @@ export default async function handler(req, res) {
 				return res.status(403).json({ error: "Unauthorized" });
 			}
 
-			const { municipalityName, phase2DurationHours } = req.body;
+			const { municipalityName, phase2DurationHours, language, theme } = req.body;
 
 			if (municipalityName && typeof municipalityName !== "string") {
 				return res.status(400).json({ error: "Invalid municipality name" });
@@ -60,6 +64,14 @@ export default async function handler(req, res) {
 				}
 			}
 
+			if (language && !["sv", "en", "sr", "es", "de"].includes(language)) {
+				return res.status(400).json({ error: "Invalid language (must be sv, en, sr, es, or de)" });
+			}
+
+			if (theme && !["default", "green", "red"].includes(theme)) {
+				return res.status(400).json({ error: "Invalid theme (must be default, green, or red)" });
+			}
+
 			// Update or create settings
 			let settings = await Settings.findOne();
 
@@ -67,6 +79,8 @@ export default async function handler(req, res) {
 				settings = await Settings.create({
 					municipalityName: municipalityName ? municipalityName.trim() : "Vallentuna",
 					phase2DurationHours: phase2DurationHours || 6,
+					language: language || "sv",
+					theme: theme || "default",
 				});
 			} else {
 				if (municipalityName) {
@@ -75,6 +89,12 @@ export default async function handler(req, res) {
 				if (phase2DurationHours !== undefined) {
 					settings.phase2DurationHours = Number(phase2DurationHours);
 				}
+				if (language) {
+					settings.language = language;
+				}
+				if (theme) {
+					settings.theme = theme;
+				}
 				settings.updatedAt = new Date();
 				await settings.save();
 			}
@@ -82,6 +102,8 @@ export default async function handler(req, res) {
 			return res.status(200).json({
 				municipalityName: settings.municipalityName,
 				phase2DurationHours: settings.phase2DurationHours,
+				language: settings.language,
+				theme: settings.theme,
 			});
 		} catch (error) {
 			console.error("Error updating settings:", error);

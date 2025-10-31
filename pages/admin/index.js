@@ -26,7 +26,7 @@ export default function AdminPage() {
 		else if (!session.user?.isAdmin) router.replace("/");
 	}, [status, session, router]);
 
-	if (status === "loading") return <div className="p-8">Laddar…</div>;
+	if (status === "loading") return <div className="p-8">Loading…</div>;
 	if (!session?.user?.isAdmin) return null;
 
 	return (
@@ -40,7 +40,7 @@ export default function AdminPage() {
 						<div>
 							<h1 className="text-2xl font-bold">Admin</h1>
 							<p className="text-slate-300 text-sm">
-								Full kontroll över data
+								Full control over data
 							</p>
 						</div>
 					</div>
@@ -48,7 +48,7 @@ export default function AdminPage() {
 						onClick={() => router.push("/")}
 						className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-medium rounded-lg transition-colors"
 					>
-						Tillbaka till startsidan
+						Back to home
 					</button>
 				</div>
 			</header>
@@ -56,13 +56,13 @@ export default function AdminPage() {
 			<main className="max-w-6xl mx-auto p-6 space-y-6">
 				<nav className="flex gap-2 flex-wrap">
 					<Tab
-						label="Sessioner"
+						label="Sessions"
 						icon={<Calendar className="w-4 h-4" />}
 						active={tab === "sessions"}
 						onClick={() => setTab("sessions")}
 					/>
 					<Tab
-						label="Toppförslag"
+						label="Top Proposals"
 						icon={<Trophy className="w-4 h-4" />}
 						active={tab === "top-proposals"}
 						onClick={() => setTab("top-proposals")}
@@ -74,37 +74,37 @@ export default function AdminPage() {
 						onClick={() => setTab("email")}
 					/>
 					<Tab
-						label="Inställningar"
+						label="Settings"
 						icon={<Settings className="w-4 h-4" />}
 						active={tab === "settings"}
 						onClick={() => setTab("settings")}
 					/>
 					<Tab
-						label="Användare"
+						label="Users"
 						icon={<Users className="w-4 h-4" />}
 						active={tab === "users"}
 						onClick={() => setTab("users")}
 					/>
 					<Tab
-						label="Förslag"
+						label="Proposals"
 						icon={<FileText className="w-4 h-4" />}
 						active={tab === "proposals"}
 						onClick={() => setTab("proposals")}
 					/>
 					<Tab
-						label="Kommentarer"
+						label="Comments"
 						icon={<MessageCircle className="w-4 h-4" />}
 						active={tab === "comments"}
 						onClick={() => setTab("comments")}
 					/>
 					<Tab
-						label="Tummar upp"
+						label="Thumbs Up"
 						icon={<ThumbsUp className="w-4 h-4" />}
 						active={tab === "thumbs"}
 						onClick={() => setTab("thumbs")}
 					/>
 					<Tab
-						label="Slutröster"
+						label="Final Votes"
 						icon={<CheckCircle className="w-4 h-4" />}
 						active={tab === "votes"}
 						onClick={() => setTab("votes")}
@@ -144,9 +144,13 @@ function Tab({ label, icon, active, onClick }) {
 function SettingsPanel() {
 	const [municipalityName, setMunicipalityName] = useState("");
 	const [phase2DurationHours, setPhase2DurationHours] = useState(6);
+	const [language, setLanguage] = useState("sv");
+	const [theme, setTheme] = useState("default");
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [message, setMessage] = useState("");
+	const [migrating, setMigrating] = useState(false);
+	const [migrationMessage, setMigrationMessage] = useState("");
 
 	useEffect(() => {
 		loadSettings();
@@ -159,6 +163,8 @@ function SettingsPanel() {
 			const data = await res.json();
 			setMunicipalityName(data.municipalityName || "");
 			setPhase2DurationHours(data.phase2DurationHours || 6);
+			setLanguage(data.language || "sv");
+			setTheme(data.theme || "default");
 		} catch (error) {
 			console.error("Error loading settings:", error);
 		}
@@ -168,7 +174,7 @@ function SettingsPanel() {
 	const handleSave = async () => {
 		const hours = Number(phase2DurationHours);
 		if (isNaN(hours) || hours < 1 || hours > 168) {
-			setMessage("Fel: Fas 2 varaktighet måste vara mellan 1 och 168 timmar");
+			setMessage("Error: Phase 2 duration must be between 1 and 168 hours");
 			return;
 		}
 
@@ -178,49 +184,120 @@ function SettingsPanel() {
 			const res = await fetchWithCsrf("/api/settings", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ municipalityName, phase2DurationHours: hours }),
+				body: JSON.stringify({
+					municipalityName,
+					phase2DurationHours: hours,
+					language,
+					theme,
+				}),
 			});
 
 			if (res.ok) {
-				setMessage("Inställningar sparade!");
-				setTimeout(() => setMessage(""), 3000);
+				setMessage("Settings saved! Reload the page to see changes.");
+				setTimeout(() => setMessage(""), 5000);
 			} else {
 				const error = await res.json();
-				setMessage(`Fel: ${error.error}`);
+				setMessage(`Error: ${error.error}`);
 			}
 		} catch (error) {
 			console.error("Error saving settings:", error);
-			setMessage("Kunde inte spara inställningar");
+			setMessage("Could not save settings");
 		}
 		setSaving(false);
 	};
 
-	if (loading) return <div className="p-4 bg-white rounded-xl">Laddar…</div>;
+	const handleMigrateCommentRatings = async () => {
+		if (!confirm("Do you want to migrate comment ratings? This will update all existing comments to ensure correct sorting.")) {
+			return;
+		}
+
+		setMigrating(true);
+		setMigrationMessage("");
+		try {
+			const res = await fetchWithCsrf("/api/admin/migrate-comment-ratings", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+			});
+
+			const data = await res.json();
+
+			if (res.ok) {
+				setMigrationMessage(`Success! ${data.modifiedCount} comments updated.`);
+				setTimeout(() => setMigrationMessage(""), 10000);
+			} else {
+				setMigrationMessage(`Error: ${data.message || "Migration failed"}`);
+			}
+		} catch (error) {
+			console.error("Error migrating comment ratings:", error);
+			setMigrationMessage("Could not migrate comment ratings");
+		}
+		setMigrating(false);
+	};
+
+	if (loading) return <div className="p-4 bg-white rounded-xl">Loading…</div>;
 
 	return (
 		<section className="bg-white rounded-xl p-6 shadow">
-			<h2 className="text-xl font-bold mb-4">Inställningar</h2>
+			<h2 className="text-xl font-bold mb-4">Settings</h2>
 
 			<div className="space-y-4">
 				<div>
 					<label className="block text-sm font-medium text-slate-700 mb-2">
-						Kommunnamn
+						Municipality Name
 					</label>
 					<input
 						type="text"
 						value={municipalityName}
 						onChange={(e) => setMunicipalityName(e.target.value)}
 						className="w-full max-w-md border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-						placeholder="T.ex. Vallentuna"
+						placeholder="e.g. Vallentuna"
 					/>
 					<p className="text-sm text-slate-500 mt-1">
-						Detta namn visas på startsidan: "Hur vill du förbättra [kommunnamn]?"
+						This name is shown on the homepage: "How do you want to improve [municipality name]?"
 					</p>
 				</div>
 
 				<div>
 					<label className="block text-sm font-medium text-slate-700 mb-2">
-						Fas 2 Varaktighet (timmar)
+						Language
+					</label>
+					<select
+						value={language}
+						onChange={(e) => setLanguage(e.target.value)}
+						className="w-full max-w-md border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+					>
+						<option value="sv">Svenska</option>
+						<option value="en">English</option>
+						<option value="sr">Српски (Serbian)</option>
+						<option value="es">Español</option>
+						<option value="de">Deutsch</option>
+					</select>
+					<p className="text-sm text-slate-500 mt-1">
+						Select which language to use in the entire application
+					</p>
+				</div>
+
+				<div>
+					<label className="block text-sm font-medium text-slate-700 mb-2">
+						Color Theme
+					</label>
+					<select
+						value={theme}
+						onChange={(e) => setTheme(e.target.value)}
+						className="w-full max-w-md border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+					>
+						<option value="default">Blue/Yellow - Sweden, English (Default)</option>
+						<option value="green">Green - Germany, Activism</option>
+						<option value="red">Red/Gold - Spain, Serbia</option>
+					</select>
+					<p className="text-sm text-slate-500 mt-1">
+						Recommendations: Swedish/English→Blue, German→Green, Spanish/Serbian→Red
+					</p>
+				</div>
+
+				<div>
+					<label className="block text-sm font-medium text-slate-700 mb-2">
+						Phase 2 Duration (hours)
 					</label>
 					<input
 						type="number"
@@ -232,7 +309,7 @@ function SettingsPanel() {
 						placeholder="6"
 					/>
 					<p className="text-sm text-slate-500 mt-1">
-						Fas 2 avslutas automatiskt när alla har röstat eller efter denna tid (1-168 timmar)
+						Phase 2 ends automatically when everyone has voted or after this time (1-168 hours)
 					</p>
 				</div>
 
@@ -241,13 +318,13 @@ function SettingsPanel() {
 					disabled={saving}
 					className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed"
 				>
-					{saving ? "Sparar..." : "Spara inställningar"}
+					{saving ? "Saving..." : "Save settings"}
 				</button>
 
 				{message && (
 					<div
 						className={`p-3 rounded-lg ${
-							message.startsWith("Fel")
+							message.startsWith("Error")
 								? "bg-red-100 text-red-700"
 								: "bg-green-100 text-green-700"
 						}`}
@@ -255,6 +332,38 @@ function SettingsPanel() {
 						{message}
 					</div>
 				)}
+
+				{/* Migration Tools */}
+				<div className="mt-8 pt-8 border-t border-slate-200">
+					<h3 className="text-lg font-bold mb-4 text-slate-700">Database Migration</h3>
+
+					<div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+						<h4 className="font-semibold text-yellow-800 mb-2">Migrate Comment Ratings</h4>
+						<p className="text-sm text-yellow-700 mb-3">
+							If arguments are not sorting correctly by rating, run this migration.
+							It updates all existing comments so that sorting works.
+						</p>
+						<button
+							onClick={handleMigrateCommentRatings}
+							disabled={migrating}
+							className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:bg-slate-400 disabled:cursor-not-allowed"
+						>
+							{migrating ? "Migrating..." : "Run migration"}
+						</button>
+					</div>
+
+					{migrationMessage && (
+						<div
+							className={`p-3 rounded-lg ${
+								migrationMessage.startsWith("Error")
+									? "bg-red-100 text-red-700"
+									: "bg-green-100 text-green-700"
+							}`}
+						>
+							{migrationMessage}
+						</div>
+					)}
+				</div>
 			</div>
 		</section>
 	);
@@ -294,22 +403,22 @@ function UsersPanel() {
 		load();
 	};
 	const remove = async (id) => {
-		if (!confirm("Ta bort användare? Relaterad data raderas.")) return;
+		if (!confirm("Delete user? Related data will be deleted.")) return;
 		await fetchWithCsrf(`/api/admin/users?id=${id}`, { method: "DELETE" });
 		load();
 	};
 
-	if (loading) return <div className="p-4 bg-white rounded-xl">Laddar…</div>;
+	if (loading) return <div className="p-4 bg-white rounded-xl">Loading…</div>;
 
 	return (
 		<section className="bg-white rounded-xl p-4 shadow">
 			<table className="w-full text-sm">
 				<thead>
 					<tr className="text-left text-slate-500">
-						<th>Namn</th>
-						<th>E‑post</th>
+						<th>Name</th>
+						<th>Email</th>
 						<th>Admin</th>
-						<th>Skapad</th>
+						<th>Created</th>
 						<th></th>
 					</tr>
 				</thead>
@@ -376,13 +485,13 @@ function UsersPanel() {
 											onClick={save}
 											className="px-3 py-1 rounded bg-green-600 text-white"
 										>
-											Spara
+											Save
 										</button>
 										<button
 											onClick={cancel}
 											className="px-3 py-1 rounded bg-slate-200"
 										>
-											Avbryt
+											Cancel
 										</button>
 									</div>
 								) : (
@@ -391,13 +500,13 @@ function UsersPanel() {
 											onClick={() => startEdit(u)}
 											className="px-3 py-1 rounded bg-slate-200"
 										>
-											Redigera
+											Edit
 										</button>
 										<button
 											onClick={() => remove(u.id)}
 											className="px-3 py-1 rounded bg-red-600 text-white"
 										>
-											Ta bort
+											Delete
 										</button>
 									</div>
 								)}
@@ -433,13 +542,13 @@ function ProposalsPanel() {
 		load();
 	};
 	const remove = async (id) => {
-		if (!confirm("Ta bort förslag? Relaterade kommentarer/röster raderas."))
+		if (!confirm("Delete proposal? Related comments/votes will be deleted."))
 			return;
 		await fetchWithCsrf(`/api/admin/proposals?id=${id}`, { method: "DELETE" });
 		load();
 	};
 
-	if (loading) return <div className="p-4 bg-white rounded-xl">Laddar…</div>;
+	if (loading) return <div className="p-4 bg-white rounded-xl">Loading…</div>;
 
 	return (
 		<section className="bg-white rounded-xl p-4 shadow space-y-2">
@@ -460,9 +569,9 @@ function ProposalsPanel() {
 							}
 							className="border rounded px-2 py-1"
 						>
-							<option value="active">Aktiv</option>
-							<option value="top3">Topp 3</option>
-							<option value="archived">Arkiverad</option>
+							<option value="active">Active</option>
+							<option value="top3">Top Proposals</option>
+							<option value="archived">Archived</option>
 						</select>
 					</div>
 					<textarea
@@ -480,7 +589,7 @@ function ProposalsPanel() {
 							onClick={() => remove(p.id)}
 							className="px-3 py-1 rounded bg-red-600 text-white"
 						>
-							Ta bort
+							Delete
 						</button>
 					</div>
 				</div>
@@ -494,10 +603,10 @@ function CommentsPanel() {
 		<SimpleList
 			endpoint="/api/admin/comments"
 			columns={[
-				["authorName", "Skribent"],
+				["authorName", "Author"],
 				["text", "Text"],
-				["proposalTitle", "Förslag"],
-				["createdAt", "Tid"],
+				["proposalTitle", "Proposal"],
+				["createdAt", "Time"],
 			]}
 		/>
 	);
@@ -507,9 +616,9 @@ function ThumbsPanel() {
 		<SimpleList
 			endpoint="/api/admin/thumbs"
 			columns={[
-				["userName", "Användare"],
-				["proposalTitle", "Förslag"],
-				["createdAt", "Tid"],
+				["userName", "User"],
+				["proposalTitle", "Proposal"],
+				["createdAt", "Time"],
 			]}
 		/>
 	);
@@ -519,10 +628,10 @@ function VotesPanel() {
 		<SimpleList
 			endpoint="/api/admin/finalvotes"
 			columns={[
-				["userName", "Användare"],
-				["proposalTitle", "Förslag"],
-				["choice", "Val"],
-				["createdAt", "Tid"],
+				["userName", "User"],
+				["proposalTitle", "Proposal"],
+				["choice", "Choice"],
+				["createdAt", "Time"],
 			]}
 		/>
 	);
@@ -543,12 +652,12 @@ function SimpleList({ endpoint, columns }) {
 	}, []);
 
 	const remove = async (id) => {
-		if (!confirm("Ta bort posten?")) return;
+		if (!confirm("Delete this entry?")) return;
 		await fetchWithCsrf(`${endpoint}?id=${id}`, { method: "DELETE" });
 		load();
 	};
 
-	if (loading) return <div className="p-4 bg-white rounded-xl">Laddar…</div>;
+	if (loading) return <div className="p-4 bg-white rounded-xl">Loading…</div>;
 
 	return (
 		<section className="bg-white rounded-xl p-4 shadow overflow-x-auto">
@@ -580,7 +689,7 @@ function SimpleList({ endpoint, columns }) {
 									onClick={() => remove(r.id)}
 									className="px-3 py-1 rounded bg-red-600 text-white"
 								>
-									Ta bort
+									Delete
 								</button>
 							</td>
 						</tr>
@@ -639,7 +748,7 @@ function SessionsPanel() {
 
 	const createSession = async () => {
 		if (!newSessionName || !newMunicipalityName) {
-			setMessage("Namn och kommun krävs");
+			setMessage("Name and municipality required");
 			return;
 		}
 
@@ -657,24 +766,24 @@ function SessionsPanel() {
 			});
 
 			if (res.ok) {
-				setMessage("Session skapad!");
+				setMessage("Session created!");
 				loadSessions();
 				generateSessionName();
 				setTimeout(() => setMessage(""), 3000);
 			} else {
 				const error = await res.json();
-				setMessage(`Fel: ${error.error}`);
+				setMessage(`Error: ${error.error}`);
 			}
 		} catch (error) {
 			console.error("Error creating session:", error);
-			setMessage("Kunde inte skapa session");
+			setMessage("Could not create session");
 		}
 
 		setCreating(false);
 	};
 
 	const advancePhase = async () => {
-		if (!confirm("Är du säker på att du vill avancera till nästa fas?")) {
+		if (!confirm("Are you sure you want to advance to the next phase?")) {
 			return;
 		}
 
@@ -686,20 +795,20 @@ function SessionsPanel() {
 
 			if (res.ok) {
 				const data = await res.json();
-				alert(`Avancerat till ${data.phase}! ${data.topProposalsCount} toppförslag, ${data.archivedCount} arkiverade.`);
+				alert(`Advanced to ${data.phase}! ${data.topProposalsCount} top proposals, ${data.archivedCount} archived.`);
 				loadSessions();
 			} else {
 				const error = await res.json();
-				alert(`Fel: ${error.error}`);
+				alert(`Error: ${error.error}`);
 			}
 		} catch (error) {
 			console.error("Error advancing phase:", error);
-			alert("Kunde inte avancera fas");
+			alert("Could not advance phase");
 		}
 	};
 
 	const closeSession = async (sessionId) => {
-		if (!confirm("Är du säker på att du vill avsluta denna session? Alla förslag arkiveras och vinnande förslag flyttas till toppförslag.")) {
+		if (!confirm("Are you sure you want to close this session? All proposals will be archived and winning proposals moved to top proposals.")) {
 			return;
 		}
 
@@ -712,19 +821,19 @@ function SessionsPanel() {
 
 			if (res.ok) {
 				const data = await res.json();
-				alert(`Session avslutad! ${data.topProposals.length} toppförslag sparade.`);
+				alert(`Session closed! ${data.topProposals.length} top proposals saved.`);
 				loadSessions();
 			} else {
 				const error = await res.json();
-				alert(`Fel: ${error.error}`);
+				alert(`Error: ${error.error}`);
 			}
 		} catch (error) {
 			console.error("Error closing session:", error);
-			alert("Kunde inte avsluta session");
+			alert("Could not close session");
 		}
 	};
 
-	if (loading) return <div className="p-4 bg-white rounded-xl">Laddar…</div>;
+	if (loading) return <div className="p-4 bg-white rounded-xl">Loading…</div>;
 
 	const activeSession = sessions.find((s) => s.status === "active");
 	const closedSessions = sessions.filter((s) => s.status === "closed");
@@ -732,13 +841,13 @@ function SessionsPanel() {
 	return (
 		<section className="bg-white rounded-xl p-6 shadow space-y-6">
 			<div>
-				<h2 className="text-xl font-bold mb-4">Skapa ny session</h2>
+				<h2 className="text-xl font-bold mb-4">Create New Session</h2>
 
 				{!activeSession ? (
 					<div className="space-y-4">
 						<div>
 							<label className="block text-sm font-medium text-slate-700 mb-2">
-								Sessionsnamn
+								Session Name
 							</label>
 							<input
 								type="text"
@@ -751,7 +860,7 @@ function SessionsPanel() {
 
 						<div>
 							<label className="block text-sm font-medium text-slate-700 mb-2">
-								Kommunnamn
+								Municipality Name
 							</label>
 							<input
 								type="text"
@@ -767,13 +876,13 @@ function SessionsPanel() {
 							disabled={creating}
 							className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-slate-400"
 						>
-							{creating ? "Skapar..." : "Skapa session"}
+							{creating ? "Creating..." : "Create session"}
 						</button>
 
 						{message && (
 							<div
 								className={`p-3 rounded-lg ${
-									message.startsWith("Fel")
+									message.startsWith("Error")
 										? "bg-red-100 text-red-700"
 										: "bg-green-100 text-green-700"
 								}`}
@@ -785,14 +894,14 @@ function SessionsPanel() {
 				) : (
 					<div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
 						<p className="text-yellow-800">
-							Det finns redan en aktiv session. Avsluta den innan du skapar en ny.
+							There is already an active session. Close it before creating a new one.
 						</p>
 					</div>
 				)}
 			</div>
 
 			<div>
-				<h2 className="text-xl font-bold mb-4">Aktiv session</h2>
+				<h2 className="text-xl font-bold mb-4">Active Session</h2>
 				{activeSession ? (
 					<div className="p-4 border border-green-300 bg-green-50 rounded-lg space-y-4">
 						<div className="flex items-center justify-between">
@@ -802,14 +911,14 @@ function SessionsPanel() {
 									{activeSession.municipalityName}
 								</p>
 								<p className="text-sm text-slate-600">
-									Startad: {new Date(activeSession.startDate).toLocaleDateString("sv-SE")}
+									Started: {new Date(activeSession.startDate).toLocaleDateString("en-US")}
 								</p>
 								<p className="text-sm font-semibold text-blue-700 mt-2">
-									Aktuell fas: {activeSession.phase === "phase1" ? "Fas 1 (Betygsättning)" : "Fas 2 (Debatt & Omröstning)"}
+									Current phase: {activeSession.phase === "phase1" ? "Phase 1 (Rating)" : "Phase 2 (Debate & Voting)"}
 								</p>
 								{activeSession.userReadyPhase1 && activeSession.userReadyPhase1.length > 0 && (
 									<p className="text-sm text-slate-600">
-										{activeSession.userReadyPhase1.length} användare klara med fas 1
+										{activeSession.userReadyPhase1.length} users ready with phase 1
 									</p>
 								)}
 							</div>
@@ -818,18 +927,18 @@ function SessionsPanel() {
 									onClick={() => closeSession(activeSession._id)}
 									className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
 								>
-									Avsluta session
+									Close session
 								</button>
 							</div>
 						</div>
 					</div>
 				) : (
-					<p className="text-slate-600">Ingen aktiv session</p>
+					<p className="text-slate-600">No active session</p>
 				)}
 			</div>
 
 			<div>
-				<h2 className="text-xl font-bold mb-4">Avslutade sessioner</h2>
+				<h2 className="text-xl font-bold mb-4">Closed Sessions</h2>
 				{closedSessions.length > 0 ? (
 					<div className="space-y-2">
 						{closedSessions.map((session) => (
@@ -840,14 +949,14 @@ function SessionsPanel() {
 								<h3 className="font-bold">{session.name}</h3>
 								<p className="text-sm text-slate-600">{session.municipalityName}</p>
 								<p className="text-sm text-slate-600">
-									{new Date(session.startDate).toLocaleDateString("sv-SE")} -{" "}
-									{new Date(session.endDate).toLocaleDateString("sv-SE")}
+									{new Date(session.startDate).toLocaleDateString("en-US")} -{" "}
+									{new Date(session.endDate).toLocaleDateString("en-US")}
 								</p>
 							</div>
 						))}
 					</div>
 				) : (
-					<p className="text-slate-600">Inga avslutade sessioner</p>
+					<p className="text-slate-600">No closed sessions</p>
 				)}
 			</div>
 		</section>
@@ -874,11 +983,11 @@ function TopProposalsPanel() {
 		setLoading(false);
 	};
 
-	if (loading) return <div className="p-4 bg-white rounded-xl">Laddar…</div>;
+	if (loading) return <div className="p-4 bg-white rounded-xl">Loading…</div>;
 
 	return (
 		<section className="bg-white rounded-xl p-6 shadow">
-			<h2 className="text-xl font-bold mb-4">Toppförslag från alla sessioner</h2>
+			<h2 className="text-xl font-bold mb-4">Top Proposals from All Sessions</h2>
 
 			{topProposals.length > 0 ? (
 				<div className="space-y-4">
@@ -901,11 +1010,11 @@ function TopProposalsPanel() {
 											<p className="text-slate-600">{tp.problem}</p>
 										</div>
 										<div>
-											<span className="font-semibold text-slate-700">Lösning:</span>
+											<span className="font-semibold text-slate-700">Solution:</span>
 											<p className="text-slate-600">{tp.solution}</p>
 										</div>
 										<div>
-											<span className="font-semibold text-slate-700">Kostnad:</span>
+											<span className="font-semibold text-slate-700">Cost:</span>
 											<p className="text-slate-600">{tp.estimatedCost}</p>
 										</div>
 									</div>
@@ -915,13 +1024,13 @@ function TopProposalsPanel() {
 											Session: <strong>{tp.sessionName}</strong>
 										</span>
 										<span className="text-green-700">
-											👍 {tp.yesVotes} ja
+											👍 {tp.yesVotes} yes
 										</span>
 										<span className="text-red-700">
-											👎 {tp.noVotes} nej
+											👎 {tp.noVotes} no
 										</span>
 										<span className="text-slate-600">
-											Författare: {tp.authorName}
+											Author: {tp.authorName}
 										</span>
 									</div>
 								</div>
@@ -930,7 +1039,7 @@ function TopProposalsPanel() {
 					))}
 				</div>
 			) : (
-				<p className="text-slate-600">Inga toppförslag än</p>
+				<p className="text-slate-600">No top proposals yet</p>
 			)}
 		</section>
 	);
@@ -960,11 +1069,11 @@ function EmailPanel() {
 
 	const sendResultsEmail = async () => {
 		if (!selectedSession) {
-			setMessage("Välj en session");
+			setMessage("Select a session");
 			return;
 		}
 
-		if (!confirm("Är du säker på att du vill skicka resultat-email till alla deltagare i denna session?")) {
+		if (!confirm("Are you sure you want to send results email to all participants in this session?")) {
 			return;
 		}
 
@@ -980,14 +1089,14 @@ function EmailPanel() {
 
 			if (res.ok) {
 				const data = await res.json();
-				setMessage(`Email skickad till ${data.successCount} användare! (${data.errorCount} misslyckades)`);
+				setMessage(`Email sent to ${data.successCount} users! (${data.errorCount} failed)`);
 			} else {
 				const error = await res.json();
-				setMessage(`Fel: ${error.error}`);
+				setMessage(`Error: ${error.error}`);
 			}
 		} catch (error) {
 			console.error("Error sending results email:", error);
-			setMessage("Kunde inte skicka email");
+			setMessage("Could not send email");
 		}
 
 		setSending(false);
@@ -995,11 +1104,11 @@ function EmailPanel() {
 
 	const sendBroadcastEmail = async () => {
 		if (!broadcastSubject || !broadcastMessage) {
-			setMessage("Ämne och meddelande krävs");
+			setMessage("Subject and message required");
 			return;
 		}
 
-		if (!confirm("Är du säker på att du vill skicka detta email till ALLA användare?")) {
+		if (!confirm("Are you sure you want to send this email to ALL users?")) {
 			return;
 		}
 
@@ -1018,16 +1127,16 @@ function EmailPanel() {
 
 			if (res.ok) {
 				const data = await res.json();
-				setMessage(`Email skickad till ${data.successCount} användare! (${data.errorCount} misslyckades)`);
+				setMessage(`Email sent to ${data.successCount} users! (${data.errorCount} failed)`);
 				setBroadcastSubject("");
 				setBroadcastMessage("");
 			} else {
 				const error = await res.json();
-				setMessage(`Fel: ${error.error}`);
+				setMessage(`Error: ${error.error}`);
 			}
 		} catch (error) {
 			console.error("Error sending broadcast email:", error);
-			setMessage("Kunde inte skicka email");
+			setMessage("Could not send email");
 		}
 
 		setSending(false);
@@ -1036,22 +1145,22 @@ function EmailPanel() {
 	return (
 		<section className="bg-white rounded-xl p-6 shadow space-y-6">
 			<div>
-				<h2 className="text-xl font-bold mb-4">Skicka resultat-email</h2>
+				<h2 className="text-xl font-bold mb-4">Send Results Email</h2>
 				<p className="text-sm text-slate-600 mb-4">
-					Skicka ett email till alla som deltog i en avslutad session med information om vilka förslag som vann.
+					Send an email to all participants in a closed session with information about which proposals won.
 				</p>
 
 				<div className="space-y-4">
 					<div>
 						<label className="block text-sm font-medium text-slate-700 mb-2">
-							Välj session
+							Select Session
 						</label>
 						<select
 							value={selectedSession}
 							onChange={(e) => setSelectedSession(e.target.value)}
 							className="w-full max-w-md border border-slate-300 rounded-lg px-4 py-2"
 						>
-							<option value="">-- Välj session --</option>
+							<option value="">-- Select session --</option>
 							{sessions.map((s) => (
 								<option key={s._id} value={s._id}>
 									{s.name}
@@ -1065,7 +1174,7 @@ function EmailPanel() {
 						disabled={sending || !selectedSession}
 						className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-slate-400"
 					>
-						{sending ? "Skickar..." : "Skicka resultat-email"}
+						{sending ? "Sending..." : "Send results email"}
 					</button>
 				</div>
 			</div>
@@ -1073,34 +1182,34 @@ function EmailPanel() {
 			<hr className="my-6" />
 
 			<div>
-				<h2 className="text-xl font-bold mb-4">Skicka broadcast-email</h2>
+				<h2 className="text-xl font-bold mb-4">Send Broadcast Email</h2>
 				<p className="text-sm text-slate-600 mb-4">
-					Skicka ett email till ALLA användare i systemet.
+					Send an email to ALL users in the system.
 				</p>
 
 				<div className="space-y-4">
 					<div>
 						<label className="block text-sm font-medium text-slate-700 mb-2">
-							Ämne
+							Subject
 						</label>
 						<input
 							type="text"
 							value={broadcastSubject}
 							onChange={(e) => setBroadcastSubject(e.target.value)}
 							className="w-full border border-slate-300 rounded-lg px-4 py-2"
-							placeholder="T.ex. Viktig information"
+							placeholder="e.g. Important information"
 						/>
 					</div>
 
 					<div>
 						<label className="block text-sm font-medium text-slate-700 mb-2">
-							Meddelande
+							Message
 						</label>
 						<textarea
 							value={broadcastMessage}
 							onChange={(e) => setBroadcastMessage(e.target.value)}
 							className="w-full border border-slate-300 rounded-lg px-4 py-2 h-40"
-							placeholder="Ditt meddelande..."
+							placeholder="Your message..."
 						/>
 					</div>
 
@@ -1109,7 +1218,7 @@ function EmailPanel() {
 						disabled={sending || !broadcastSubject || !broadcastMessage}
 						className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-slate-400"
 					>
-						{sending ? "Skickar..." : "Skicka till alla användare"}
+						{sending ? "Sending..." : "Send to all users"}
 					</button>
 				</div>
 			</div>
@@ -1117,7 +1226,7 @@ function EmailPanel() {
 			{message && (
 				<div
 					className={`p-3 rounded-lg ${
-						message.startsWith("Fel")
+						message.startsWith("Error")
 							? "bg-red-100 text-red-700"
 							: "bg-green-100 text-green-700"
 					}`}

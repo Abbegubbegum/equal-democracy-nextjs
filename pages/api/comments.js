@@ -22,8 +22,14 @@ export default async function handler(req, res) {
 
 		try {
 			const comments = await Comment.find({ proposalId })
-				.sort({ createdAt: -1 })
+				.sort({ averageRating: -1, createdAt: -1 }) // Sort by rating first, then by creation date
 				.lean();
+
+			// Log for debugging
+			console.log("Comments sorting debug:");
+			comments.forEach((c, i) => {
+				console.log(`${i + 1}. Rating: ${c.averageRating || 0}, Text: ${c.text.substring(0, 30)}...`);
+			});
 
 			// Return comments with anonymized data and type
 			const anonymizedComments = comments.map((comment) => ({
@@ -32,6 +38,7 @@ export default async function handler(req, res) {
 				authorName: comment.authorName, // This is the anonymous display name
 				text: comment.text,
 				type: comment.type || "neutral",
+				averageRating: comment.averageRating || 0,
 				createdAt: comment.createdAt,
 			}));
 
@@ -89,6 +96,7 @@ export default async function handler(req, res) {
 				authorName: comment.authorName,
 				text: comment.text,
 				type: comment.type,
+				averageRating: comment.averageRating || 0,
 				createdAt: comment.createdAt,
 			});
 		} catch (error) {

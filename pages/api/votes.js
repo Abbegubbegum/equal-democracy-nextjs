@@ -43,15 +43,16 @@ export default async function handler(req, res) {
 			// Get the active session
 			const activeSession = await ensureActiveSession();
 
-			const existingVote = await FinalVote.findOne({
-				proposalId: toObjectId(proposalId),
+			// Check if user has already voted in this session (limit: 1 vote per session)
+			const existingVoteInSession = await FinalVote.findOne({
+				sessionId: activeSession._id,
 				userId: session.user.id,
 			});
 
-			if (existingVote) {
+			if (existingVoteInSession) {
 				return res
 					.status(400)
-					.json({ message: "Du har redan röstat på detta förslag" });
+					.json({ message: "Du har redan använt din röst i denna omgång. Varje användare får bara rösta på ett (1) förslag." });
 			}
 
 			await FinalVote.create({
@@ -89,7 +90,28 @@ export default async function handler(req, res) {
 	}
 
 	if (req.method === "GET") {
-		const { proposalId, userId } = req.query;
+		const session = await getServerSession(req, res, authOptions);
+		const { proposalId, userId, checkSession } = req.query;
+
+		// Check if user has voted in the current session
+		if (checkSession === "true" && session) {
+			try {
+				const activeSession = await ensureActiveSession();
+				const userVote = await FinalVote.findOne({
+					sessionId: activeSession._id,
+					userId: session.user.id,
+				}).populate("proposalId");
+
+				return res.status(200).json({
+					hasVotedInSession: !!userVote,
+					votedProposalId: userVote?.proposalId?._id?.toString() || null,
+					votedProposalTitle: userVote?.proposalId?.title || null,
+				});
+			} catch (error) {
+				console.error("Error checking session vote:", error);
+				return res.status(500).json({ message: "Ett fel uppstod" });
+			}
+		}
 
 		if (proposalId) {
 			if (!validateObjectId(proposalId)) {
@@ -144,17 +166,18 @@ async function checkAutoClose(activeSession) {
 			return false;
 		}
 
-		// Check condition 1: All users who participated in Phase 1 have voted
-		const phase1UserIds = activeSession.userReadyPhase1 || [];
+		// Check condition 1: All active users have voted
+		// Since each user can only vote once, we check if all active users have used their vote
+		const activeUserIds = activeSession.activeUsers || [];
 
-		if (phase1UserIds.length > 0) {
+		if (activeUserIds.length > 0) {
 			// Get unique users who have voted in Phase 2
 			const votedUserIds = await FinalVote.distinct("userId", {
 				sessionId: activeSession._id,
 			});
 
-			// Check if all phase1 users have voted
-			const allUsersVoted = phase1UserIds.every((userId) =>
+			// Check if all active users have voted
+			const allUsersVoted = activeUserIds.every((userId) =>
 				votedUserIds.some(
 					(votedId) => votedId.toString() === userId.toString()
 				)
@@ -191,21 +214,26 @@ async function checkAutoClose(activeSession) {
 // Helper function to close the session and archive proposals
 async function closeSession(activeSession) {
 	try {
-		// Get all top3 proposals from this session
-		const top3Proposals = await Proposal.find({
+		// Get all top proposals (status "top3") from this session
+		const topProposals = await Proposal.find({
 			sessionId: activeSession._id,
-			status: "top3",
+			status: "top3", // Note: "top3" is the database status, but refers to top 40% of proposals
 		});
 
-		// For each top3 proposal, calculate votes and save if yes-majority
-		for (const proposal of top3Proposals) {
+		console.log(`Closing session ${activeSession.name}. Found ${topProposals.length} top proposals.`);
+
+		// For each top proposal, calculate votes and save if yes-majority
+		for (const proposal of topProposals) {
 			const votes = await FinalVote.find({ proposalId: proposal._id });
 
 			const yesVotes = votes.filter((v) => v.choice === "yes").length;
 			const noVotes = votes.filter((v) => v.choice === "no").length;
 
+			console.log(`Proposal "${proposal.title}": ${yesVotes} yes, ${noVotes} no votes`);
+
 			// Only save proposals with yes-majority
 			if (yesVotes > noVotes) {
+				console.log(`✓ Saving "${proposal.title}" as winning proposal (${yesVotes} > ${noVotes})`);
 				await TopProposal.create({
 					sessionId: activeSession._id,
 					sessionName: activeSession.name,
@@ -219,6 +247,8 @@ async function closeSession(activeSession) {
 					noVotes: noVotes,
 					archivedAt: new Date(),
 				});
+			} else {
+				console.log(`✗ Skipping "${proposal.title}" (${yesVotes} ≤ ${noVotes})`);
 			}
 		}
 

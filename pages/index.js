@@ -1,6 +1,6 @@
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
 	Users,
 	Plus,
@@ -10,12 +10,29 @@ import {
 	TrendingUp,
 	Info,
 	Clock,
+	Star,
 } from "lucide-react";
 import { fetchWithCsrf } from "../lib/fetch-with-csrf";
+import { useTranslation } from "../lib/hooks/useTranslation";
+import { useConfig } from "../lib/contexts/ConfigContext";
+import LanguageThemeIndicator from "../components/LanguageThemeIndicator";
+
+// Helper function to format date and time consistently
+function formatDateTime(dateString) {
+	const date = new Date(dateString);
+	const year = date.getFullYear().toString().slice(2);
+	const month = (date.getMonth() + 1).toString().padStart(2, '0');
+	const day = date.getDate().toString().padStart(2, '0');
+	const hours = date.getHours().toString().padStart(2, '0');
+	const minutes = date.getMinutes().toString().padStart(2, '0');
+	return `${year}${month}${day}, ${hours}:${minutes}`;
+}
 
 export default function HomePage() {
 	const { data: session, status } = useSession();
 	const router = useRouter();
+	const { t } = useTranslation();
+	const { config } = useConfig();
 	const [proposals, setProposals] = useState([]);
 	const [loading, setLoading] = useState(true);
 	const [view, setView] = useState("home"); // 'home', 'create', 'discuss', 'vote'
@@ -29,6 +46,9 @@ export default function HomePage() {
 	const [showSessionClosed, setShowSessionClosed] = useState(false); // Show session closed modal
 	const [winningProposals, setWinningProposals] = useState([]); // Winning proposals with yes-majority
 	const [transitionCountdown, setTransitionCountdown] = useState(null); // Countdown seconds for phase transition
+	const [userHasVotedInSession, setUserHasVotedInSession] = useState(false); // Has user used their one vote
+	const [votedProposalId, setVotedProposalId] = useState(null); // Which proposal user voted on
+	const transitionIntervalRef = useRef(null); // Reference to transition checking interval
 
 	useEffect(() => {
 		if (status === "unauthenticated") {
@@ -41,8 +61,50 @@ export default function HomePage() {
 			fetchProposals();
 			fetchMunicipalityName();
 			fetchSessionInfo();
+			checkUserVote(); // Check if user has already voted
 		}
 	}, [session]);
+
+	// Continuous polling in Phase 1 to check for phase transition
+	useEffect(() => {
+		if (!session || currentPhase !== "phase1") {
+			return;
+		}
+
+		// Poll every 5 seconds in Phase 1 to check for transition status
+		const pollInterval = setInterval(() => {
+			checkPhaseTransition();
+			fetchSessionInfo(); // Also refresh session info
+		}, 5000); // Check every 5 seconds
+
+		// Initial check
+		checkPhaseTransition();
+
+		return () => {
+			clearInterval(pollInterval);
+			// Also clear transition interval when component unmounts
+			if (transitionIntervalRef.current) {
+				clearInterval(transitionIntervalRef.current);
+				transitionIntervalRef.current = null;
+			}
+		};
+	}, [session, currentPhase]);
+
+	// Continuous polling in Phase 2 to check for session closure and updates
+	useEffect(() => {
+		if (!session || currentPhase !== "phase2") {
+			return;
+		}
+
+		// Poll every 10 seconds in Phase 2 to check if session closed
+		const pollInterval = setInterval(() => {
+			fetchSessionInfo();
+			fetchProposals(); // Refresh proposals to see updated vote counts
+			checkUserVote(); // Check if user has voted
+		}, 10000); // Check every 10 seconds
+
+		return () => clearInterval(pollInterval);
+	}, [session, currentPhase]);
 
 	const fetchSessionInfo = async () => {
 		try {
@@ -73,6 +135,21 @@ export default function HomePage() {
 		}
 	};
 
+	const checkUserVote = async () => {
+		try {
+			const res = await fetch("/api/votes?checkSession=true");
+			if (!res.ok) {
+				console.error("Error checking user vote:", res.status);
+				return;
+			}
+			const data = await res.json();
+			setUserHasVotedInSession(data.hasVotedInSession);
+			setVotedProposalId(data.votedProposalId);
+		} catch (error) {
+			console.error("Error checking user vote:", error);
+		}
+	};
+
 	const fetchMunicipalityName = async () => {
 		try {
 			const res = await fetch("/api/settings");
@@ -89,9 +166,11 @@ export default function HomePage() {
 		try {
 			const res = await fetch("/api/proposals");
 			const data = await res.json();
-			setProposals(data);
+			// Ensure data is always an array
+			setProposals(Array.isArray(data) ? data : []);
 		} catch (error) {
 			console.error("Error fetching proposals:", error);
+			setProposals([]); // Set empty array on error
 		} finally {
 			setLoading(false);
 		}
@@ -151,8 +230,14 @@ export default function HomePage() {
 				// Transition is scheduled, show countdown
 				setTransitionCountdown(data.secondsRemaining);
 
+				// Clear any existing interval before starting a new one
+				if (transitionIntervalRef.current) {
+					clearInterval(transitionIntervalRef.current);
+					transitionIntervalRef.current = null;
+				}
+
 				// Start polling for execution
-				const checkInterval = setInterval(async () => {
+				transitionIntervalRef.current = setInterval(async () => {
 					const execRes = await fetchWithCsrf("/api/sessions/execute-scheduled-transition", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
@@ -163,7 +248,10 @@ export default function HomePage() {
 
 						if (execData.transitionExecuted) {
 							// Transition complete!
-							clearInterval(checkInterval);
+							if (transitionIntervalRef.current) {
+								clearInterval(transitionIntervalRef.current);
+								transitionIntervalRef.current = null;
+							}
 							setTransitionCountdown(null);
 							setShowPhaseTransition(true);
 
@@ -181,7 +269,12 @@ export default function HomePage() {
 				}, 1000); // Check every second
 
 				// Clear interval after 110 seconds (safety)
-				setTimeout(() => clearInterval(checkInterval), 110000);
+				setTimeout(() => {
+					if (transitionIntervalRef.current) {
+						clearInterval(transitionIntervalRef.current);
+						transitionIntervalRef.current = null;
+					}
+				}, 110000);
 			}
 		} catch (error) {
 			console.error("Error checking phase transition:", error);
@@ -207,12 +300,12 @@ export default function HomePage() {
 		}
 	};
 
-	const handleMoveToTop3 = async () => {
+	const handleMoveToTopProposals = async () => {
 		const sorted = [...proposals]
 			.filter((p) => p.status === "active")
 			.sort((a, b) => b.thumbsUpCount - a.thumbsUpCount);
 
-		const top3Ids = sorted.slice(0, 3).map((p) => p._id);
+		const topProposalIds = sorted.slice(0, 3).map((p) => p._id);
 
 		try {
 			const res = await fetchWithCsrf("/api/proposals", {
@@ -220,7 +313,7 @@ export default function HomePage() {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					action: "moveToTop3",
-					proposalIds: top3Ids,
+					proposalIds: topProposalIds,
 				}),
 			});
 
@@ -242,6 +335,11 @@ export default function HomePage() {
 
 			if (res.ok) {
 				const data = await res.json();
+
+				// Update user vote status
+				setUserHasVotedInSession(true);
+				setVotedProposalId(proposalId);
+
 				await fetchProposals();
 
 				// Check if session was auto-closed
@@ -251,11 +349,17 @@ export default function HomePage() {
 					setShowSessionClosed(true);
 				}
 			} else {
-				const data = await res.json();
-				alert(data.message);
+				// Try to parse error message, but handle case where response is not JSON
+				try {
+					const data = await res.json();
+					alert(data.message || "Ett fel uppstod vid röstning");
+				} catch (jsonError) {
+					alert("Ett fel uppstod vid röstning");
+				}
 			}
 		} catch (error) {
 			console.error("Error voting:", error);
+			alert("Ett fel uppstod vid röstning");
 		}
 	};
 
@@ -278,10 +382,10 @@ export default function HomePage() {
 				<div className="bg-white rounded-3xl p-12 max-w-lg mx-4 text-center shadow-2xl animate-fade-in">
 					<div className="text-6xl mb-6">🎉</div>
 					<h2 className="text-3xl font-bold text-blue-800 mb-4">
-						Idéfasen är färdig!
+						{t('phases.ideaPhaseComplete')}
 					</h2>
 					<p className="text-xl text-gray-700">
-						Nu till debatt och omröstning
+						{t('phases.nowToDebateAndVoting')}
 					</p>
 				</div>
 			</div>
@@ -296,10 +400,10 @@ export default function HomePage() {
 					<div className="text-center mb-6">
 						<div className="text-6xl mb-4">✅</div>
 						<h2 className="text-3xl font-bold text-blue-800 mb-4">
-							Omröstningen är avslutad
+							{t('voting.votingClosed')}
 						</h2>
 						<p className="text-xl text-gray-700 mb-6">
-							Vi har ett resultat:
+							{t('voting.weHaveResult')}
 						</p>
 					</div>
 
@@ -322,19 +426,19 @@ export default function HomePage() {
 											</h3>
 											<div className="space-y-2 text-sm">
 												<div>
-													<p className="font-semibold text-gray-700">Problem:</p>
+													<p className="font-semibold text-gray-700">{t('proposals.problemColon')}</p>
 													<p className="text-gray-600">{proposal.problem}</p>
 												</div>
 												<div>
-													<p className="font-semibold text-gray-700">Lösning:</p>
+													<p className="font-semibold text-gray-700">{t('proposals.solutionColon')}</p>
 													<p className="text-gray-600">{proposal.solution}</p>
 												</div>
 												<div className="flex gap-4 mt-3 text-sm">
 													<span className="bg-green-200 text-green-800 px-3 py-1 rounded-full font-semibold">
-														JA: {proposal.yesVotes}
+														{t('voting.yes')}: {proposal.yesVotes}
 													</span>
 													<span className="bg-red-200 text-red-800 px-3 py-1 rounded-full font-semibold">
-														NEJ: {proposal.noVotes}
+														{t('voting.no')}: {proposal.noVotes}
 													</span>
 												</div>
 											</div>
@@ -346,14 +450,14 @@ export default function HomePage() {
 					) : (
 						<div className="bg-gray-100 rounded-2xl p-8 text-center mb-8">
 							<p className="text-gray-600">
-								Inga förslag fick majoritet i omröstningen.
+								{t('voting.noMajority')}
 							</p>
 						</div>
 					)}
 
 					<div className="text-center">
 						<p className="text-xl font-semibold text-blue-800 mb-4">
-							Tack för din medverkan!
+							{t('voting.thanksForParticipation')}
 						</p>
 						<button
 							onClick={() => {
@@ -362,7 +466,7 @@ export default function HomePage() {
 							}}
 							className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors"
 						>
-							Stäng
+							{t('common.close')}
 						</button>
 					</div>
 				</div>
@@ -376,6 +480,7 @@ export default function HomePage() {
 			<CreateProposalView
 				onSubmit={handleCreateProposal}
 				onBack={() => setView("home")}
+				t={t}
 			/>
 		);
 	}
@@ -394,38 +499,29 @@ export default function HomePage() {
 		);
 	}
 
-	if (view === "debate") {
-		const top3 = proposals.filter((p) => p.status === "top3");
-		return (
-			<DebateView
-				proposals={top3}
-				currentUser={session.user}
-				onAddComment={handleAddComment}
-				onBack={() => setView("home")}
-			/>
-		);
-	}
+	// Debate view removed - users now click directly on proposals to debate
 
 	if (view === "vote") {
-		const top3 = proposals.filter((p) => p.status === "top3");
+		const topProposals = proposals.filter((p) => p.status === "top3");
 		return (
 			<VoteView
-				proposals={top3}
+				proposals={topProposals}
 				currentUser={session.user}
 				onVote={handleFinalVote}
 				onBack={() => setView("home")}
+				t={t}
 			/>
 		);
 	}
 
 	// Home view
 	// In Phase 1: show active proposals, sorted by creation time (newest first)
-	// In Phase 2: show top3 proposals, sorted by rating (highest first)
+	// In Phase 2: show top proposals (40%), sorted by rating (highest first)
 	const activeProposals = proposals
 		.filter((p) => p.status === "active")
 		.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-	const top3Proposals = proposals
+	const topProposals = proposals
 		.filter((p) => p.status === "top3")
 		.sort((a, b) => {
 			// Sort by average rating first, then by thumbs up count
@@ -436,25 +532,40 @@ export default function HomePage() {
 		});
 
 	// Display proposals based on phase
-	const displayProposals = currentPhase === "phase1" ? activeProposals : top3Proposals;
+	const displayProposals = currentPhase === "phase1" ? activeProposals : topProposals;
 
 	console.log(session.user.isAdmin);
 
+	// Get theme colors
+	const { theme } = useConfig();
+	const primaryColor = theme.colors.primary[600] || '#2563eb';
+	const accentColor = theme.colors.accent[400] || '#facc15';
+	const primaryDark = theme.colors.primary[800] || '#1e40af';
+
 	return (
 		<div className="min-h-screen bg-gray-50">
-			<div className="bg-linear-to-r from-blue-600 to-blue-700 text-white p-6 shadow-lg">
+			<LanguageThemeIndicator />
+			<div
+				className="text-white p-6 shadow-lg"
+				style={{
+					background: `linear-gradient(to right, ${primaryColor}, ${primaryDark})`
+				}}
+			>
 				<div className="max-w-4xl mx-auto">
 					<div className="flex items-center justify-between mb-4">
 						<div className="flex items-center gap-3">
-							<div className="w-12 h-12 bg-yellow-400 rounded-full flex items-center justify-center">
-								<Users className="w-6 h-6 text-blue-800" />
+							<div
+								className="w-12 h-12 rounded-full flex items-center justify-center"
+								style={{ backgroundColor: accentColor }}
+							>
+								<Users className="w-6 h-6" style={{ color: primaryDark }} />
 							</div>
 							<div>
 								<h1 className="text-2xl font-bold">
-									Jämlik Demokrati
+									{t('appName')}
 								</h1>
 								<p className="text-blue-100 text-sm">
-									Hej, {session.user.name}!
+									{t('auth.hello')}, {session.user.name}!
 								</p>
 							</div>
 						</div>
@@ -464,38 +575,42 @@ export default function HomePage() {
 									onClick={() => router.push("/admin")}
 									className="text-white hover:text-yellow-400 text-sm font-medium"
 								>
-									Admin
+									{t('nav.admin')}
 								</button>
 							)}
 							<button
 								onClick={() => router.push("/dashboard")}
 								className="text-white hover:text-yellow-400 text-sm font-medium"
 							>
-								Min aktivitet
+								{t('nav.myActivity')}
 							</button>
 							<button
 								onClick={() => signOut()}
 								className="text-white hover:text-yellow-400 text-sm"
 							>
-								Logga ut
+								{t('auth.logout')}
 							</button>
 						</div>
 					</div>
 					<h2 className="text-xl font-medium">
-						Hur vill du förbättra {municipalityName}?
+						{t('proposals.howToImprove')} {municipalityName}?
 					</h2>
 				</div>
 			</div>
 
 			<div className="max-w-4xl mx-auto p-6 space-y-6">
-				{/* Only allow new proposals in Phase 1 */}
-				{currentPhase === "phase1" && (
+				{/* Only allow new proposals in Phase 1 AND when countdown hasn't started */}
+				{currentPhase === "phase1" && transitionCountdown === null && (
 					<button
 						onClick={() => setView("create")}
-						className="w-full bg-yellow-400 hover:bg-yellow-500 text-blue-800 font-bold py-6 rounded-2xl shadow-lg flex items-center justify-center gap-3 transition-all transform hover:scale-105"
+						className="w-full font-bold py-6 rounded-2xl shadow-lg flex items-center justify-center gap-3 transition-all transform hover:scale-105"
+						style={{
+							backgroundColor: accentColor,
+							color: primaryDark
+						}}
 					>
 						<Plus className="w-6 h-6" />
-						Föreslå en ny idé
+						{t('proposals.proposeNewIdea')}
 					</button>
 				)}
 
@@ -505,50 +620,83 @@ export default function HomePage() {
 						<div className="flex items-center justify-center gap-3">
 							<Clock className="w-6 h-6 text-yellow-600 animate-pulse" />
 							<p className="text-center text-lg font-semibold text-yellow-800">
-								Övergång till Fas 2 om <span className="text-2xl font-bold text-yellow-900">{transitionCountdown}</span> sekunder...
+								{t('phases.transitionToDebate')} <span className="text-2xl font-bold text-yellow-900">{transitionCountdown}</span> {t('common.seconds')}...
 							</p>
 						</div>
 						<p className="text-center text-sm text-yellow-700 mt-2">
-							Tillräckligt många användare och förslag har betygssatts. Systemet övergår snart till Fas 2 där vi diskuterar och röstar om toppförslagen.
+							{t('phases.transitionMessage')}
 						</p>
 					</div>
 				)}
 
-				{top3Proposals.length > 0 && (
+				{/* Information about limited voting rights in Phase 2 */}
+				{currentPhase === "phase2" && !userHasVotedInSession && (
+					<div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-400 rounded-2xl p-6 shadow-md">
+						<div className="flex items-start gap-4">
+							<div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center shrink-0">
+								<Info className="w-6 h-6 text-white" />
+							</div>
+							<div className="flex-1">
+								<h3 className="text-lg font-bold text-blue-900 mb-2">
+									{t('voting.limitedVotingRights')}
+								</h3>
+								<p className="text-gray-700 text-sm leading-relaxed mb-2">
+									{t('voting.oneVotePerSession')}
+								</p>
+								<p className="text-gray-700 text-sm leading-relaxed">
+									{t('voting.votingAdvantages')}
+								</p>
+							</div>
+						</div>
+					</div>
+				)}
+
+				{/* User has voted - show confirmation */}
+				{currentPhase === "phase2" && userHasVotedInSession && (
+					<div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-400 rounded-2xl p-6 shadow-md">
+						<div className="flex items-center justify-center gap-3">
+							<div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+								<span className="text-2xl text-white">✓</span>
+							</div>
+							<div className="text-center">
+								<h3 className="text-lg font-bold text-green-900">
+									{t('voting.thanksForVote')}
+								</h3>
+								<p className="text-gray-700 text-sm">
+									{t('voting.sessionClosesWhen')}
+								</p>
+							</div>
+						</div>
+					</div>
+				)}
+
+				{topProposals.length > 0 && (
 					<div className="bg-yellow-50 border-2 border-yellow-400 rounded-2xl p-6 space-y-4">
 						<div className="flex items-center justify-between">
 							<div className="flex items-center gap-2">
 								<TrendingUp className="w-6 h-6 text-yellow-600" />
 								<h3 className="text-xl font-bold text-blue-800">
-									Toppförslag
+									{t('proposals.topProposals')}
 								</h3>
 							</div>
-							<div className="flex gap-3">
-								<button
-									onClick={() => setView("debate")}
-									className="bg-yellow-500 hover:bg-yellow-600 text-blue-800 px-4 py-2 rounded-lg font-medium"
-								>
-									Debattera
-								</button>
-								<button
-									onClick={() => setView("vote")}
-									className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
-								>
-									Rösta
-								</button>
-							</div>
+							<button
+								onClick={() => setView("vote")}
+								className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
+							>
+								{t('proposals.vote')}
+							</button>
 						</div>
 						<p className="text-gray-700">
-							Diskutera och rösta på de mest populära idéerna
+							{t('proposals.clickToDebateAndVote')}
 						</p>
 					</div>
 				)}
 
 
 				{/* Old button - can be removed after phase system is working */}
-				{activeProposals.length >= 3 && top3Proposals.length === 0 && currentPhase !== "phase1" && (
+				{activeProposals.length >= 3 && topProposals.length === 0 && currentPhase !== "phase1" && (
 					<button
-						onClick={handleMoveToTop3}
+						onClick={handleMoveToTopProposals}
 						className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-2xl shadow-lg"
 					>
 						Lås topp 3 och börja diskutera
@@ -558,15 +706,17 @@ export default function HomePage() {
 				<div className="space-y-4">
 					<h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
 						<MessageCircle className="w-5 h-5" />
-						{currentPhase === "phase1" ? `Alla förslag (${displayProposals.length})` : `Toppförslag (${displayProposals.length})`}
+						{currentPhase === "phase1"
+							? t('proposals.allProposalsCount', { count: displayProposals.length })
+							: t('proposals.topProposalsCount', { count: displayProposals.length })}
 					</h3>
 
 					{displayProposals.length === 0 ? (
 						<div className="bg-white rounded-2xl p-8 text-center text-gray-500">
 							<p>
 								{currentPhase === "phase1"
-									? "Inga förslag än. Var den första att föreslå något!"
-									: "Inga toppförslag än."}
+									? t('proposals.noProposals')
+									: t('proposals.noTopProposals')}
 							</p>
 						</div>
 					) : (
@@ -583,6 +733,9 @@ export default function HomePage() {
 								onThumbsUp={handleThumbsUp}
 								onAddComment={handleAddComment}
 								onVote={() => setView("vote")}
+								userHasVotedInSession={userHasVotedInSession}
+								votedProposalId={votedProposalId}
+								t={t}
 							/>
 						))
 					)}
@@ -596,7 +749,7 @@ export default function HomePage() {
 // PROPOSAL CARD COMPONENT
 // ============================================================================
 
-function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, setExpandedRating, expandedProposal, setExpandedProposal, onThumbsUp, onAddComment, onVote }) {
+function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, setExpandedRating, expandedProposal, setExpandedProposal, onThumbsUp, onAddComment, onVote, userHasVotedInSession, votedProposalId, t }) {
 	const [hasVoted, setHasVoted] = useState(false);
 	const [checking, setChecking] = useState(true);
 	const [userRating, setUserRating] = useState(0);
@@ -607,6 +760,8 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 	const [commentText, setCommentText] = useState("");
 	const [commentType, setCommentType] = useState("neutral");
 	const [submitting, setSubmitting] = useState(false);
+	const [expandedCommentRating, setExpandedCommentRating] = useState(null); // For comment rating expansion
+	const [commentRatings, setCommentRatings] = useState({}); // Store user ratings for comments
 
 	const isExpanded = expandedRating === proposal._id;
 	const isExpandedForDiscuss = expandedProposal === proposal._id;
@@ -673,11 +828,61 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 		}
 	};
 
+	const handleRateComment = async (commentId, rating) => {
+		try {
+			const res = await fetchWithCsrf("/api/comments/rate", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ commentId, rating }),
+			});
+
+			if (res.ok) {
+				const data = await res.json();
+				// Update local state
+				setCommentRatings({ ...commentRatings, [commentId]: rating });
+				// Refresh comments to get updated averages
+				await fetchComments();
+				// Collapse rating UI after rating
+				setExpandedCommentRating(null);
+			}
+		} catch (error) {
+			console.error("Error rating comment:", error);
+		}
+	};
+
+	const fetchCommentRating = async (commentId) => {
+		try {
+			const res = await fetch(`/api/comments/rate?commentId=${commentId}`);
+			if (res.ok) {
+				const data = await res.json();
+				return data.userRating;
+			}
+		} catch (error) {
+			console.error("Error fetching comment rating:", error);
+		}
+		return 0;
+	};
+
+	// Fetch user's ratings for all comments when comments load
+	useEffect(() => {
+		const fetchAllRatings = async () => {
+			const ratings = {};
+			for (const comment of comments) {
+				const rating = await fetchCommentRating(comment._id);
+				ratings[comment._id] = rating;
+			}
+			setCommentRatings(ratings);
+		};
+		if (comments.length > 0) {
+			fetchAllRatings();
+		}
+	}, [comments.length]);
+
 	return (
 		<div className="bg-white rounded-2xl shadow-md p-6 space-y-4">
 			{/* Proposal header - clickable in Phase 2 */}
 			<div
-				className={!isPhase1 ? "cursor-pointer hover:bg-blue-50 -mx-6 -mt-6 px-6 pt-6 pb-4 rounded-t-2xl transition-all duration-200 hover:shadow-sm" : ""}
+				className={!isPhase1 ? "cursor-pointer hover:bg-blue-50 -mx-6 -mt-6 px-6 pt-6 pb-4 rounded-t-2xl transition-all duration-200 hover:shadow-sm relative" : ""}
 				onClick={!isPhase1 ? handleToggleDiscuss : undefined}
 			>
 				<h4 className={`text-lg font-bold text-blue-800 mb-2 ${!isPhase1 ? "group-hover:text-blue-900" : ""}`}>
@@ -686,20 +891,27 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 
 				<div className="space-y-3 text-sm">
 					<div>
-						<p className="font-semibold text-gray-700">Problem:</p>
+						<p className="font-semibold text-gray-700">{t('proposals.problemColon')}</p>
 						<p className="text-gray-600">{proposal.problem}</p>
 					</div>
 
 					<div>
-						<p className="font-semibold text-gray-700">Lösning:</p>
+						<p className="font-semibold text-gray-700">{t('proposals.solutionColon')}</p>
 						<p className="text-gray-600">{proposal.solution}</p>
 					</div>
 
 					<div>
-						<p className="font-semibold text-gray-700">Uppskattad kostnad:</p>
+						<p className="font-semibold text-gray-700">{t('proposals.estimatedCost')}</p>
 						<p className="text-gray-600">{proposal.estimatedCost}</p>
 					</div>
 				</div>
+
+				{/* Show "Visa argument" indicator when collapsed in Phase 2 - inside clickable area */}
+				{!isPhase1 && !isExpandedForDiscuss && (
+					<div className="absolute bottom-2 right-2 text-xs text-gray-500 bg-white px-2 py-1 rounded-lg shadow-sm border border-gray-200 pointer-events-none">
+						▼ {t('comments.showArguments')}
+					</div>
+				)}
 			</div>
 
 			{/* Phase 1: Expandable star rating */}
@@ -716,7 +928,7 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 					>
 						<ThumbsUp className="w-5 h-5" />
 						<span>
-							{hasVoted ? "Ändra betyg" : "Ge betyg"}
+							{hasVoted ? t('rating.changeRating') : t('rating.giveRating')}
 						</span>
 					</button>
 
@@ -739,14 +951,14 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 								);
 							})}
 							<span className="ml-2 text-sm text-gray-600">
-								{showConfirmation ? `Betyg ${confirmedRating} registrerat!` : "Klicka på en stjärna"}
+								{showConfirmation ? t('rating.ratingRegistered', { rating: confirmedRating }) : t('rating.clickStar')}
 							</span>
 						</div>
 					)}
 				</div>
 			)}
 
-			{/* Phase 2: Show rating and expand for discussion */}
+			{/* Phase 2: Show rating */}
 			{!isPhase1 && (
 				<div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-100 text-blue-600 font-medium">
 					<ThumbsUp className="w-5 h-5" />
@@ -754,9 +966,6 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 					{proposal.averageRating > 0 && (
 						<span className="ml-2">⭐ {proposal.averageRating.toFixed(1)}</span>
 					)}
-					<span className="ml-auto text-sm">
-						{isExpandedForDiscuss ? "▲ Dölj" : "▼ Visa argument"}
-					</span>
 				</div>
 			)}
 
@@ -774,7 +983,7 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 							}`}
 						>
-							Neutral
+							{t('comments.neutral')}
 						</button>
 						<button
 							type="button"
@@ -785,7 +994,7 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 							}`}
 						>
-							👍 För
+							👍 {t('comments.for')}
 						</button>
 						<button
 							type="button"
@@ -796,7 +1005,7 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 							}`}
 						>
-							👎 Emot
+							👎 {t('comments.against')}
 						</button>
 					</div>
 
@@ -807,7 +1016,7 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 							value={commentText}
 							onChange={(e) => setCommentText(e.target.value)}
 							className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
-							placeholder="Skriv ett argument..."
+							placeholder={t('comments.writeArgument')}
 							maxLength={1000}
 						/>
 						<button
@@ -815,7 +1024,7 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 							disabled={!commentText.trim() || submitting}
 							className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white px-4 py-2 rounded-xl font-medium transition-colors text-sm"
 						>
-							{submitting ? "..." : "Skicka"}
+							{submitting ? t('comments.sending') : t('comments.send')}
 						</button>
 					</form>
 
@@ -824,7 +1033,7 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 						<div className="text-center text-gray-500 py-4">Laddar...</div>
 					) : comments.length === 0 ? (
 						<div className="text-center text-gray-500 py-4">
-							Inga argument än. Var först!
+							{t('comments.noArgumentsYet')}
 						</div>
 					) : (
 						<div className="space-y-3">
@@ -835,32 +1044,80 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 									? "bg-red-50"
 									: "bg-white";
 
+								const isCommentRatingExpanded = expandedCommentRating === comment._id;
+								const userCommentRating = commentRatings[comment._id] || 0;
+								const avgRating = comment.averageRating || 0;
+
 								return (
 									<div
 										key={comment._id}
 										className={`rounded-xl shadow-sm p-4 ${bgColor}`}
 									>
 										<div className="flex items-start gap-3">
-											{comment.type === "for" ? (
-												<div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center shrink-0">
+											{/* Left side: Clickable thumbs-up icon for rating */}
+											<div className="flex flex-col items-center gap-1 shrink-0">
+												<button
+													onClick={() => setExpandedCommentRating(isCommentRatingExpanded ? null : comment._id)}
+													className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+														userCommentRating > 0
+															? comment.type === "for"
+																? "bg-green-500 hover:bg-green-600"
+																: comment.type === "against"
+																? "bg-red-500 hover:bg-red-600"
+																: "bg-blue-500 hover:bg-blue-600"
+															: "bg-gray-300 hover:bg-gray-400"
+													}`}
+												>
 													<ThumbsUp className="w-5 h-5 text-white" />
-												</div>
-											) : comment.type === "against" ? (
-												<div className="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center shrink-0">
-													<ThumbsDown className="w-5 h-5 text-white" />
-												</div>
-											) : (
-												<div className="w-10 h-10 bg-gray-400 rounded-full flex items-center justify-center shrink-0">
-													<MessageCircle className="w-5 h-5 text-white" />
-												</div>
-											)}
+												</button>
+												{/* Show average rating with stars */}
+												{avgRating > 0 && (
+													<div className="flex gap-0.5">
+														{[1, 2, 3, 4, 5].map((star) => (
+															<Star
+																key={star}
+																className={`w-3 h-3 ${
+																	star <= Math.round(avgRating)
+																		? "fill-yellow-400 text-yellow-400"
+																		: "text-gray-300"
+																}`}
+															/>
+														))}
+													</div>
+												)}
+											</div>
+
+											{/* Right side: Comment content */}
 											<div className="flex-1">
 												<p className="text-gray-700 text-sm leading-relaxed">
 													{comment.text}
 												</p>
 												<p className="text-xs text-gray-400 mt-1">
-													{new Date(comment.createdAt).toLocaleDateString("sv-SE")}
+													{formatDateTime(comment.createdAt)}
+													{avgRating > 0 && ` • ${avgRating.toFixed(1)} ⭐`}
 												</p>
+
+												{/* Expandable star rating UI */}
+												{isCommentRatingExpanded && (
+													<div className="mt-3 flex items-center gap-2 bg-white p-3 rounded-lg shadow-sm border border-gray-200">
+														<span className="text-sm text-gray-600">{t('rating.clickStar')}:</span>
+														{[1, 2, 3, 4, 5].map((star) => (
+															<button
+																key={star}
+																onClick={() => handleRateComment(comment._id, star)}
+																className="transition-transform hover:scale-125"
+															>
+																<Star
+																	className={`w-6 h-6 ${
+																		star <= userCommentRating
+																			? "fill-yellow-400 text-yellow-400"
+																			: "text-gray-300 hover:text-yellow-400"
+																	}`}
+																/>
+															</button>
+														))}
+													</div>
+												)}
 											</div>
 										</div>
 									</div>
@@ -869,13 +1126,32 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 						</div>
 					)}
 
-					{/* Vote button */}
-					<button
-						onClick={onVote}
-						className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors"
-					>
-						Rösta
-					</button>
+					{/* Vote button and collapse indicator */}
+					<div className="flex items-center gap-3">
+						{userHasVotedInSession && votedProposalId === proposal._id ? (
+							<div className="flex-1 bg-green-100 border-2 border-green-500 text-green-800 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2">
+								<span className="text-xl">✓</span>
+								<span>{t('voting.youHaveVoted')}</span>
+							</div>
+						) : userHasVotedInSession ? (
+							<div className="flex-1 bg-gray-100 text-gray-500 font-bold py-3 px-4 rounded-xl text-center cursor-not-allowed">
+								{t('voting.alreadyUsedVote')}
+							</div>
+						) : (
+							<button
+								onClick={onVote}
+								className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors"
+							>
+								{t('voting.vote')}
+							</button>
+						)}
+						<button
+							onClick={handleToggleDiscuss}
+							className="text-xs text-gray-500 hover:text-gray-700 bg-white px-3 py-3 rounded-lg shadow-sm border border-gray-200 hover:border-gray-300 transition-colors"
+						>
+							▲ {t('comments.hide')}
+						</button>
+					</div>
 				</div>
 			)}
 		</div>
@@ -886,7 +1162,7 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 // CREATE PROPOSAL VIEW
 // ============================================================================
 
-function CreateProposalView({ onSubmit, onBack }) {
+function CreateProposalView({ onSubmit, onBack, t }) {
 	const [title, setTitle] = useState("");
 	const [problem, setProblem] = useState("");
 	const [solution, setSolution] = useState("");
@@ -909,25 +1185,25 @@ function CreateProposalView({ onSubmit, onBack }) {
 					onClick={onBack}
 					className="mb-6 text-blue-600 hover:text-blue-700 font-medium"
 				>
-					← Tillbaka
+					← {t('common.back')}
 				</button>
 
 				<div className="bg-white rounded-2xl shadow-lg p-8">
 					<h2 className="text-2xl font-bold text-blue-800 mb-6">
-						Föreslå en ny idé
+						{t('createProposal.title')}
 					</h2>
 
 					<form onSubmit={handleSubmit} className="space-y-6">
 						<div>
 							<label className="block text-sm font-medium text-gray-700 mb-2">
-								Namn på ditt förslag *
+								{t('createProposal.nameOfProposal')}
 							</label>
 							<input
 								type="text"
 								value={title}
 								onChange={(e) => setTitle(e.target.value)}
 								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none"
-								placeholder="T.ex. 'Fler cykelbanor i centrum'"
+								placeholder={t('createProposal.nameExample')}
 								autoFocus
 								maxLength={200}
 								required
@@ -936,14 +1212,14 @@ function CreateProposalView({ onSubmit, onBack }) {
 
 						<div>
 							<label className="block text-sm font-medium text-gray-700 mb-2">
-								Vad är problemet? *
+								{t('createProposal.problemLabel')}
 							</label>
 							<textarea
 								value={problem}
 								onChange={(e) => setProblem(e.target.value)}
 								rows={4}
 								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none resize-none"
-								placeholder="Beskriv vilket problem detta förslag löser..."
+								placeholder={t('createProposal.problemPlaceholder')}
 								maxLength={1000}
 								required
 							/>
@@ -952,14 +1228,14 @@ function CreateProposalView({ onSubmit, onBack }) {
 
 						<div>
 							<label className="block text-sm font-medium text-gray-700 mb-2">
-								Hur ser lösningen ut? *
+								{t('createProposal.solutionLabel')}
 							</label>
 							<textarea
 								value={solution}
 								onChange={(e) => setSolution(e.target.value)}
 								rows={4}
 								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none resize-none"
-								placeholder="Beskriv din lösning i detalj..."
+								placeholder={t('createProposal.solutionPlaceholder')}
 								maxLength={1000}
 								required
 							/>
@@ -968,14 +1244,14 @@ function CreateProposalView({ onSubmit, onBack }) {
 
 						<div>
 							<label className="block text-sm font-medium text-gray-700 mb-2">
-								Uppskattad kostnad *
+								{t('createProposal.costLabel')}
 							</label>
 							<input
 								type="text"
 								value={estimatedCost}
 								onChange={(e) => setEstimatedCost(e.target.value)}
 								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none"
-								placeholder="T.ex. '100 000 kr', 'Låg kostnad', 'Ingen extra kostnad'"
+								placeholder={t('createProposal.costPlaceholder')}
 								maxLength={100}
 								required
 							/>
@@ -992,7 +1268,7 @@ function CreateProposalView({ onSubmit, onBack }) {
 							}
 							className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-bold py-4 rounded-xl transition-colors shadow-lg"
 						>
-							{submitting ? "Skickar..." : "Skicka in förslag"}
+							{submitting ? t('createProposal.submitting') : t('createProposal.submit')}
 						</button>
 					</form>
 				</div>
@@ -1054,7 +1330,7 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 						onClick={onBack}
 						className="mb-4 text-white hover:text-yellow-400 font-medium"
 					>
-						← Tillbaka
+						← {t('common.back')}
 					</button>
 					<h2 className="text-2xl font-bold">{proposal.title}</h2>
 				</div>
@@ -1063,12 +1339,12 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 			<div className="max-w-2xl mx-auto p-6 space-y-6">
 				<div className="bg-white rounded-2xl shadow-md p-6 space-y-4">
 					<div>
-						<p className="font-semibold text-gray-700">Problem:</p>
+						<p className="font-semibold text-gray-700">{t('proposals.problemColon')}</p>
 						<p className="text-gray-600">{proposal.problem}</p>
 					</div>
 
 					<div>
-						<p className="font-semibold text-gray-700">Lösning:</p>
+						<p className="font-semibold text-gray-700">{t('proposals.solutionColon')}</p>
 						<p className="text-gray-600">{proposal.solution}</p>
 					</div>
 
@@ -1110,7 +1386,7 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 							}`}
 						>
-							För ({comments.filter(c => c.type === "for").length})
+							{t('comments.for')} ({comments.filter(c => c.type === "for").length})
 						</button>
 						<button
 							onClick={() => setActiveTab("against")}
@@ -1120,7 +1396,7 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 							}`}
 						>
-							Emot ({comments.filter(c => c.type === "against").length})
+							{t('comments.against')} ({comments.filter(c => c.type === "against").length})
 						</button>
 					</div>
 
@@ -1132,8 +1408,10 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 						<div className="bg-white rounded-2xl p-8 text-center text-gray-500">
 							<p>
 								{activeTab === "all"
-									? "Inga kommentarer än. Var den första att diskutera!"
-									: `Inga ${activeTab === "for" ? "för" : "emot"}-argument än.`}
+									? t('comments.noCommentsYet')
+									: activeTab === "for"
+								? t('comments.noForArgumentsYet')
+								: t('comments.noAgainstArgumentsYet')}
 							</p>
 						</div>
 					) : (
@@ -1169,9 +1447,7 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 												{comment.text}
 											</p>
 											<p className="text-xs text-gray-400 mt-2">
-												{new Date(
-													comment.createdAt
-												).toLocaleDateString("sv-SE")}
+												{formatDateTime(comment.createdAt)}
 											</p>
 										</div>
 									</div>
@@ -1195,7 +1471,7 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 							}`}
 						>
-							Neutral
+							{t('comments.neutral')}
 						</button>
 						<button
 							type="button"
@@ -1206,7 +1482,7 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 							}`}
 						>
-							👍 För
+							👍 {t('comments.for')}
 						</button>
 						<button
 							type="button"
@@ -1217,7 +1493,7 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 							}`}
 						>
-							👎 Emot
+							👎 {t('comments.against')}
 						</button>
 					</div>
 
@@ -1238,7 +1514,7 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 							disabled={!commentText.trim() || submitting}
 							className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white px-6 py-3 rounded-xl font-medium transition-colors"
 						>
-							{submitting ? "Skickar..." : "Skicka"}
+							{submitting ? t('comments.sending') : t('comments.send')}
 						</button>
 					</form>
 				</div>
@@ -1251,7 +1527,7 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 // DEBATE VIEW - Streamlined debate with For/Against buttons
 // ============================================================================
 
-function DebateView({ proposals, currentUser, onAddComment, onBack }) {
+function DebateView({ proposals, currentUser, onAddComment, onBack, t }) {
 	const [selectedProposal, setSelectedProposal] = useState(null);
 	const [selectedType, setSelectedType] = useState(null); // "for" or "against"
 	const [commentText, setCommentText] = useState("");
@@ -1302,11 +1578,11 @@ function DebateView({ proposals, currentUser, onAddComment, onBack }) {
 							onClick={onBack}
 							className="mb-4 text-white hover:text-yellow-400 font-medium"
 						>
-							← Tillbaka
+							← {t('common.back')}
 						</button>
-						<h2 className="text-2xl font-bold">Debattera Toppförslagen</h2>
+						<h2 className="text-2xl font-bold">{t('proposals.debateTopProposals')}</h2>
 						<p className="text-blue-100 mt-2">
-							Välj ett förslag att debattera
+							{t('proposals.selectToDebate')}
 						</p>
 					</div>
 				</div>
@@ -1330,11 +1606,11 @@ function DebateView({ proposals, currentUser, onAddComment, onBack }) {
 									</h4>
 									<div className="space-y-2 text-sm">
 										<div>
-											<p className="font-semibold text-gray-700">Problem:</p>
+											<p className="font-semibold text-gray-700">{t('proposals.problemColon')}</p>
 											<p className="text-gray-600">{proposal.problem}</p>
 										</div>
 										<div>
-											<p className="font-semibold text-gray-700">Lösning:</p>
+											<p className="font-semibold text-gray-700">{t('proposals.solutionColon')}</p>
 											<p className="text-gray-600">{proposal.solution}</p>
 										</div>
 									</div>
@@ -1357,11 +1633,11 @@ function DebateView({ proposals, currentUser, onAddComment, onBack }) {
 							onClick={() => setSelectedProposal(null)}
 							className="mb-4 text-white hover:text-yellow-400 font-medium"
 						>
-							← Tillbaka
+							← {t('common.back')}
 						</button>
 						<h2 className="text-2xl font-bold">{selectedProposal.title}</h2>
 						<p className="text-blue-100 mt-2">
-							Välj om du vill argumentera för eller emot
+							{t('proposals.selectForOrAgainst')}
 						</p>
 					</div>
 				</div>
@@ -1369,15 +1645,15 @@ function DebateView({ proposals, currentUser, onAddComment, onBack }) {
 				<div className="max-w-2xl mx-auto p-6 space-y-4">
 					<div className="bg-white rounded-2xl shadow-md p-6 space-y-4">
 						<div>
-							<p className="font-semibold text-gray-700">Problem:</p>
+							<p className="font-semibold text-gray-700">{t('proposals.problemColon')}</p>
 							<p className="text-gray-600">{selectedProposal.problem}</p>
 						</div>
 						<div>
-							<p className="font-semibold text-gray-700">Lösning:</p>
+							<p className="font-semibold text-gray-700">{t('proposals.solutionColon')}</p>
 							<p className="text-gray-600">{selectedProposal.solution}</p>
 						</div>
 						<div>
-							<p className="font-semibold text-gray-700">Kostnad:</p>
+							<p className="font-semibold text-gray-700">{t('proposals.estimatedCost')}</p>
 							<p className="text-gray-600">{selectedProposal.estimatedCost}</p>
 						</div>
 					</div>
@@ -1388,21 +1664,21 @@ function DebateView({ proposals, currentUser, onAddComment, onBack }) {
 							className="flex-1 bg-green-400 hover:bg-green-500 text-white font-bold py-8 rounded-xl transition-colors flex flex-col items-center justify-center gap-3"
 						>
 							<ThumbsUp className="w-12 h-12" />
-							<span className="text-xl">För</span>
+							<span className="text-xl">{t('comments.for')}</span>
 						</button>
 						<button
 							onClick={() => setSelectedType("against")}
 							className="flex-1 bg-red-400 hover:bg-red-500 text-white font-bold py-8 rounded-xl transition-colors flex flex-col items-center justify-center gap-3"
 						>
 							<ThumbsDown className="w-12 h-12" />
-							<span className="text-xl">Emot</span>
+							<span className="text-xl">{t('comments.against')}</span>
 						</button>
 					</div>
 
 					{/* Show existing arguments */}
 					{loading ? (
 						<div className="bg-white rounded-2xl p-8 text-center text-gray-500">
-							Laddar argument...
+							{t('comments.loading')}
 						</div>
 					) : (
 						<div className="space-y-4">
@@ -1411,7 +1687,7 @@ function DebateView({ proposals, currentUser, onAddComment, onBack }) {
 								<div className="bg-white rounded-2xl shadow-md p-6">
 									<h3 className="font-bold text-green-700 mb-3 flex items-center gap-2">
 										<ThumbsUp className="w-5 h-5" />
-										Förargument ({comments.filter(c => c.type === "for").length})
+										{t('comments.forArguments')} ({comments.filter(c => c.type === "for").length})
 									</h3>
 									<div className="space-y-3">
 										{comments.filter(c => c.type === "for").slice(0, 3).map((comment) => (
@@ -1430,7 +1706,7 @@ function DebateView({ proposals, currentUser, onAddComment, onBack }) {
 								<div className="bg-white rounded-2xl shadow-md p-6">
 									<h3 className="font-bold text-red-700 mb-3 flex items-center gap-2">
 										<ThumbsDown className="w-5 h-5" />
-										Motargument ({comments.filter(c => c.type === "against").length})
+										{t('comments.againstArguments')} ({comments.filter(c => c.type === "against").length})
 									</h3>
 									<div className="space-y-3">
 										{comments.filter(c => c.type === "against").slice(0, 3).map((comment) => (
@@ -1452,8 +1728,8 @@ function DebateView({ proposals, currentUser, onAddComment, onBack }) {
 
 	// Show debate view with pre-selected type
 	const headerBgColor = selectedType === "for" ? "bg-green-600" : "bg-red-600";
-	const headerText = selectedType === "for" ? "Förargument" : "Motargument";
-	const placeholderText = selectedType === "for" ? "Skriv förargument..." : "Skriv motargument...";
+	const headerText = selectedType === "for" ? t('comments.forArguments') : t('comments.againstArguments');
+	const placeholderText = selectedType === "for" ? t('comments.writeFor') : t('comments.writeAgainst');
 
 	return (
 		<div className="min-h-screen bg-gray-50 pb-32">
@@ -1463,7 +1739,7 @@ function DebateView({ proposals, currentUser, onAddComment, onBack }) {
 						onClick={() => setSelectedType(null)}
 						className="mb-4 text-white hover:text-yellow-400 font-medium"
 					>
-						← Tillbaka
+						← {t('common.back')}
 					</button>
 					<h2 className="text-2xl font-bold">{selectedProposal.title}</h2>
 					<p className="text-white opacity-90 mt-2">
@@ -1476,15 +1752,15 @@ function DebateView({ proposals, currentUser, onAddComment, onBack }) {
 				{/* Proposal details */}
 				<div className="bg-white rounded-2xl shadow-md p-6 space-y-4">
 					<div>
-						<p className="font-semibold text-gray-700">Problem:</p>
+						<p className="font-semibold text-gray-700">{t('proposals.problemColon')}</p>
 						<p className="text-gray-600">{selectedProposal.problem}</p>
 					</div>
 					<div>
-						<p className="font-semibold text-gray-700">Lösning:</p>
+						<p className="font-semibold text-gray-700">{t('proposals.solutionColon')}</p>
 						<p className="text-gray-600">{selectedProposal.solution}</p>
 					</div>
 					<div>
-						<p className="font-semibold text-gray-700">Kostnad:</p>
+						<p className="font-semibold text-gray-700">{t('proposals.estimatedCost')}</p>
 						<p className="text-gray-600">{selectedProposal.estimatedCost}</p>
 					</div>
 				</div>
@@ -1492,16 +1768,16 @@ function DebateView({ proposals, currentUser, onAddComment, onBack }) {
 				{/* Previous arguments */}
 				<div className="space-y-4">
 					<h3 className="text-lg font-semibold text-gray-700">
-						Tidigare {selectedType === "for" ? "förargument" : "motargument"} ({filteredComments.length})
+						{selectedType === "for" ? t('comments.previousFor') : t('comments.previousAgainst')} ({filteredComments.length})
 					</h3>
 
 					{loading ? (
 						<div className="bg-white rounded-2xl p-8 text-center text-gray-500">
-							Laddar...
+							{t('common.loading')}
 						</div>
 					) : filteredComments.length === 0 ? (
 						<div className="bg-white rounded-2xl p-8 text-center text-gray-500">
-							<p>Inga {selectedType === "for" ? "förargument" : "motargument"} än. Var först!</p>
+							<p>{selectedType === "for" ? t('comments.noForArgumentsYet') : t('comments.noAgainstArgumentsYet')}</p>
 						</div>
 					) : (
 						filteredComments.map((comment) => {
@@ -1524,7 +1800,7 @@ function DebateView({ proposals, currentUser, onAddComment, onBack }) {
 												{comment.text}
 											</p>
 											<p className="text-xs text-gray-400 mt-2">
-												{new Date(comment.createdAt).toLocaleDateString("sv-SE")}
+												{formatDateTime(comment.createdAt)}
 											</p>
 										</div>
 									</div>
@@ -1542,7 +1818,7 @@ function DebateView({ proposals, currentUser, onAddComment, onBack }) {
 					className="max-w-2xl mx-auto space-y-3"
 				>
 					<div className="text-sm font-semibold text-gray-700">
-						{selectedType === "for" ? "Skriv förargument" : "Skriv motargument"}
+						{selectedType === "for" ? t('comments.writeFor') : t('comments.writeAgainst')}
 					</div>
 					<div className="flex gap-3">
 						<input
@@ -1558,7 +1834,7 @@ function DebateView({ proposals, currentUser, onAddComment, onBack }) {
 							disabled={!commentText.trim() || submitting}
 							className={`${selectedType === "for" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"} disabled:bg-gray-300 text-white px-6 py-3 rounded-xl font-medium transition-colors`}
 						>
-							{submitting ? "Skickar..." : "Skicka"}
+							{submitting ? t('comments.sending') : t('comments.send')}
 						</button>
 					</div>
 				</form>
@@ -1571,7 +1847,7 @@ function DebateView({ proposals, currentUser, onAddComment, onBack }) {
 // VOTE VIEW
 // ============================================================================
 
-function VoteView({ proposals, currentUser, onVote, onBack }) {
+function VoteView({ proposals, currentUser, onVote, onBack, t }) {
 	const [votedProposals, setVotedProposals] = useState(new Set());
 	const [voteResults, setVoteResults] = useState({});
 	const [loading, setLoading] = useState(true);
@@ -1624,11 +1900,11 @@ function VoteView({ proposals, currentUser, onVote, onBack }) {
 						onClick={onBack}
 						className="mb-4 text-white hover:text-yellow-400 font-medium"
 					>
-						← Tillbaka
+						← {t('common.back')}
 					</button>
-					<h2 className="text-2xl font-bold">Rösta på Toppförslagen</h2>
+					<h2 className="text-2xl font-bold">{t('voting.voteOnTopProposals')}</h2>
 					<p className="text-green-100 mt-2">
-						Välj vilka idéer som ska förverkligas
+						{t('voting.chooseIdeasToImplement')}
 					</p>
 				</div>
 			</div>
@@ -1636,7 +1912,7 @@ function VoteView({ proposals, currentUser, onVote, onBack }) {
 			<div className="max-w-2xl mx-auto p-6 space-y-6">
 				{loading ? (
 					<div className="bg-white rounded-2xl p-8 text-center text-gray-500">
-						Laddar...
+						{t('common.loading')}
 					</div>
 				) : (
 					proposals.map((proposal, index) => {
@@ -1665,17 +1941,17 @@ function VoteView({ proposals, currentUser, onVote, onBack }) {
 
 										<div className="space-y-2 text-sm">
 											<div>
-												<p className="font-semibold text-gray-700">Problem:</p>
+												<p className="font-semibold text-gray-700">{t('proposals.problemColon')}</p>
 												<p className="text-gray-600">{proposal.problem}</p>
 											</div>
 
 											<div>
-												<p className="font-semibold text-gray-700">Lösning:</p>
+												<p className="font-semibold text-gray-700">{t('proposals.solutionColon')}</p>
 												<p className="text-gray-600">{proposal.solution}</p>
 											</div>
 
 											<div>
-												<p className="font-semibold text-gray-700">Kostnad:</p>
+												<p className="font-semibold text-gray-700">{t('proposals.estimatedCost')}</p>
 												<p className="text-gray-600">{proposal.estimatedCost}</p>
 											</div>
 										</div>
@@ -1691,7 +1967,7 @@ function VoteView({ proposals, currentUser, onVote, onBack }) {
 											className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
 										>
 											<ThumbsUp className="w-6 h-6" />
-											JA
+											{t('voting.yes')}
 										</button>
 										<button
 											onClick={() =>
@@ -1700,14 +1976,14 @@ function VoteView({ proposals, currentUser, onVote, onBack }) {
 											className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
 										>
 											<ThumbsDown className="w-6 h-6" />
-											NEJ
+											{t('voting.no')}
 										</button>
 									</div>
 								) : (
 									<div className="space-y-2">
 										<div className="flex items-center justify-between text-sm text-gray-600 mb-1">
-											<span>Resultat</span>
-											<span>{results.total} röster</span>
+											<span>{t('voting.results')}</span>
+											<span>{t('voting.votesCount', { count: results.total })}</span>
 										</div>
 										<div className="flex gap-2">
 											<div className="flex-1 bg-green-100 rounded-lg p-3 text-center">
@@ -1715,7 +1991,7 @@ function VoteView({ proposals, currentUser, onVote, onBack }) {
 													{results.yes}
 												</p>
 												<p className="text-xs text-green-600">
-													Ja
+													{t('voting.yesShort')}
 												</p>
 											</div>
 											<div className="flex-1 bg-red-100 rounded-lg p-3 text-center">
@@ -1723,12 +1999,12 @@ function VoteView({ proposals, currentUser, onVote, onBack }) {
 													{results.no}
 												</p>
 												<p className="text-xs text-red-600">
-													Nej
+													{t('voting.noShort')}
 												</p>
 											</div>
 										</div>
 										<p className="text-center text-sm text-green-600 font-medium">
-											✓ Du har röstat
+											✓ {t('voting.youHaveVoted')}
 										</p>
 									</div>
 								)}

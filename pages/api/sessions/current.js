@@ -2,7 +2,7 @@ import dbConnect from "@/lib/mongodb";
 import { Session } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
-import { ensureActiveSession } from "@/lib/session-helper";
+import { getActiveSession } from "@/lib/session-helper";
 
 export default async function handler(req, res) {
 	await dbConnect();
@@ -17,25 +17,16 @@ export default async function handler(req, res) {
 	}
 
 	try {
-		const activeSession = await ensureActiveSession();
+		const activeSession = await getActiveSession();
 
 		// If no active session exists, return null
 		if (!activeSession) {
-			console.log("🔍 NO ACTIVE SESSION");
 			return res.status(200).json({
 				noActiveSession: true,
 				phase: null,
-				status: null
+				status: null,
 			});
 		}
-
-		// DEBUG: Log what session we're returning
-		console.log("🔍 CURRENT SESSION RETURNED:", {
-			name: activeSession.name,
-			status: activeSession.status,
-			municipalityName: activeSession.municipalityName,
-			_id: activeSession._id.toString()
-		});
 
 		// Register user as active in session (on first visit)
 		// Initialize activeUsers array if it doesn't exist
@@ -52,7 +43,9 @@ export default async function handler(req, res) {
 			// Add user to activeUsers array
 			activeSession.activeUsers.push(session.user.id);
 			await activeSession.save();
-			console.log(`User ${session.user.name} (${session.user.id}) registered as active in session ${activeSession.name}`);
+			console.log(
+				`User ${session.user.name} (${session.user.id}) registered as active in session ${activeSession.name}`
+			);
 		}
 
 		// Check if current user has marked ready for phase 1
@@ -73,7 +66,7 @@ export default async function handler(req, res) {
 			debug: {
 				currentUserId: session.user.id,
 				isActiveUser: isAlreadyActive,
-			}
+			},
 		});
 	} catch (error) {
 		console.error("Error fetching current session:", error);

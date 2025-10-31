@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
 import connectDB from "../../lib/mongodb";
 import { Comment } from "../../lib/models";
-import { ensureActiveSession } from "../../lib/session-helper";
+import { getActiveSession } from "../../lib/session-helper";
 import { csrfProtection } from "../../lib/csrf";
 import broadcaster from "../../lib/sse-broadcaster";
 
@@ -29,7 +29,11 @@ export default async function handler(req, res) {
 			// Log for debugging
 			console.log("Comments sorting debug:");
 			comments.forEach((c, i) => {
-				console.log(`${i + 1}. Rating: ${c.averageRating || 0}, Text: ${c.text.substring(0, 30)}...`);
+				console.log(
+					`${i + 1}. Rating: ${
+						c.averageRating || 0
+					}, Text: ${c.text.substring(0, 30)}...`
+				);
 			});
 
 			// Return comments with anonymized data and type
@@ -73,18 +77,18 @@ export default async function handler(req, res) {
 
 		// Validate type
 		if (type && !["for", "against", "neutral"].includes(type)) {
-			return res
-				.status(400)
-				.json({ message: "Ogiltig kommentarstyp" });
+			return res.status(400).json({ message: "Ogiltig kommentarstyp" });
 		}
 
 		try {
 			// Get the active session
-			const activeSession = await ensureActiveSession();
+			const activeSession = await getActiveSession();
 
 			// If no active session, cannot create comment
 			if (!activeSession) {
-				return res.status(400).json({ message: "Ingen aktiv session finns" });
+				return res
+					.status(400)
+					.json({ message: "Ingen aktiv session finns" });
 			}
 
 			const comment = await Comment.create({
@@ -97,7 +101,7 @@ export default async function handler(req, res) {
 			});
 
 			// Broadcast new comment event
-			broadcaster.broadcast('new-comment', {
+			broadcaster.broadcast("new-comment", {
 				_id: comment._id.toString(),
 				proposalId: comment.proposalId.toString(),
 				authorName: comment.authorName,

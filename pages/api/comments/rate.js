@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "../../../lib/mongodb";
 import { Comment, CommentRating } from "../../../lib/models";
-import { ensureActiveSession } from "../../../lib/session-helper";
+import { getActiveSession } from "../../../lib/session-helper";
 import { csrfProtection } from "../../../lib/csrf";
 
 export default async function handler(req, res) {
@@ -23,27 +23,35 @@ export default async function handler(req, res) {
 		const { commentId, rating } = req.body;
 
 		if (!commentId || !rating) {
-			return res.status(400).json({ message: "Comment ID och betyg krävs" });
+			return res
+				.status(400)
+				.json({ message: "Comment ID och betyg krävs" });
 		}
 
 		// Validate rating
 		if (typeof rating !== "number" || rating < 1 || rating > 5) {
-			return res.status(400).json({ message: "Betyget måste vara mellan 1 och 5" });
+			return res
+				.status(400)
+				.json({ message: "Betyget måste vara mellan 1 och 5" });
 		}
 
 		try {
 			// Get the active session
-			const activeSession = await ensureActiveSession();
+			const activeSession = await getActiveSession();
 
 			// If no active session, cannot rate
 			if (!activeSession) {
-				return res.status(400).json({ message: "Ingen aktiv session finns" });
+				return res
+					.status(400)
+					.json({ message: "Ingen aktiv session finns" });
 			}
 
 			// Check if comment exists
 			const comment = await Comment.findById(commentId);
 			if (!comment) {
-				return res.status(404).json({ message: "Kommentar hittades inte" });
+				return res
+					.status(404)
+					.json({ message: "Kommentar hittades inte" });
 			}
 
 			// Check if user has already rated this comment
@@ -85,7 +93,9 @@ export default async function handler(req, res) {
 			console.error("Error rating comment:", error);
 			return res
 				.status(500)
-				.json({ message: "Ett fel uppstod vid betygsättning av kommentar" });
+				.json({
+					message: "Ett fel uppstod vid betygsättning av kommentar",
+				});
 		}
 	}
 

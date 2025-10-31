@@ -1,8 +1,14 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
 import connectDB from "../../lib/mongodb";
-import { FinalVote, Session, Proposal, TopProposal, Settings } from "../../lib/models";
-import { ensureActiveSession } from "../../lib/session-helper";
+import {
+	FinalVote,
+	Session,
+	Proposal,
+	TopProposal,
+	Settings,
+} from "../../lib/models";
+import { getActiveSession } from "../../lib/session-helper";
 import { validateObjectId, toObjectId } from "../../lib/validation";
 import { csrfProtection } from "../../lib/csrf";
 import broadcaster from "../../lib/sse-broadcaster";
@@ -19,7 +25,9 @@ export default async function handler(req, res) {
 		const session = await getServerSession(req, res, authOptions);
 
 		if (!session) {
-			return res.status(401).json({ message: "Du måste vara inloggad" });
+			return res
+				.status(401)
+				.json({ message: "You have to be logged in" });
 		}
 
 		const { proposalId, choice } = req.body;
@@ -27,26 +35,30 @@ export default async function handler(req, res) {
 		if (!proposalId || !choice) {
 			return res
 				.status(400)
-				.json({ message: "Proposal ID och val krävs" });
+				.json({ message: "Proposal ID and choice is required" });
 		}
 
 		if (!validateObjectId(proposalId)) {
-			return res.status(400).json({ message: "Invalid proposal ID format" });
+			return res
+				.status(400)
+				.json({ message: "Invalid proposal ID format" });
 		}
 
 		if (!["yes", "no"].includes(choice)) {
 			return res
 				.status(400)
-				.json({ message: 'Val måste vara "yes" eller "no"' });
+				.json({ message: 'Choice needs to be "yes" or "no"' });
 		}
 
 		try {
 			// Get the active session
-			const activeSession = await ensureActiveSession();
+			const activeSession = await getActiveSession();
 
 			// If no active session, cannot vote
 			if (!activeSession) {
-				return res.status(400).json({ message: "Ingen aktiv session finns" });
+				return res
+					.status(400)
+					.json({ message: "Ingen aktiv session finns" });
 			}
 
 			// Check if user has already voted in this session (limit: 1 vote per session)
@@ -56,9 +68,10 @@ export default async function handler(req, res) {
 			});
 
 			if (existingVoteInSession) {
-				return res
-					.status(400)
-					.json({ message: "Du har redan använt din röst i denna omgång. Varje användare får bara rösta på ett (1) förslag." });
+				return res.status(400).json({
+					message:
+						"Du har redan använt din röst i denna omgång. Varje användare får bara rösta på ett (1) förslag.",
+				});
 			}
 
 			await FinalVote.create({
@@ -78,7 +91,7 @@ export default async function handler(req, res) {
 			});
 
 			// Broadcast vote update event
-			broadcaster.broadcast('vote-update', {
+			broadcaster.broadcast("vote-update", {
 				proposalId: proposalId.toString(),
 				yes: yesCount,
 				no: noCount,
@@ -90,8 +103,8 @@ export default async function handler(req, res) {
 
 			// If session closed, broadcast phase change
 			if (shouldClose) {
-				broadcaster.broadcast('phase-change', {
-					phase: 'closed',
+				broadcaster.broadcast("phase-change", {
+					phase: "closed",
 					sessionId: activeSession._id.toString(),
 				});
 			}
@@ -118,7 +131,15 @@ export default async function handler(req, res) {
 		// Check if user has voted in the current session
 		if (checkSession === "true" && session) {
 			try {
-				const activeSession = await ensureActiveSession();
+				const activeSession = await getActiveSession();
+
+				// If no active session, cannot vote
+				if (!activeSession) {
+					return res
+						.status(400)
+						.json({ message: "Ingen aktiv session finns" });
+				}
+
 				const userVote = await FinalVote.findOne({
 					sessionId: activeSession._id,
 					userId: session.user.id,
@@ -126,7 +147,8 @@ export default async function handler(req, res) {
 
 				return res.status(200).json({
 					hasVotedInSession: !!userVote,
-					votedProposalId: userVote?.proposalId?._id?.toString() || null,
+					votedProposalId:
+						userVote?.proposalId?._id?.toString() || null,
 					votedProposalTitle: userVote?.proposalId?.title || null,
 				});
 			} catch (error) {
@@ -137,11 +159,15 @@ export default async function handler(req, res) {
 
 		if (proposalId) {
 			if (!validateObjectId(proposalId)) {
-				return res.status(400).json({ message: "Invalid proposal ID format" });
+				return res
+					.status(400)
+					.json({ message: "Invalid proposal ID format" });
 			}
 
 			if (userId && !validateObjectId(userId)) {
-				return res.status(400).json({ message: "Invalid user ID format" });
+				return res
+					.status(400)
+					.json({ message: "Invalid user ID format" });
 			}
 
 			try {
@@ -218,7 +244,8 @@ async function checkAutoClose(activeSession) {
 
 			const phase2StartTime = new Date(activeSession.phase2StartTime);
 			const currentTime = new Date();
-			const elapsedHours = (currentTime - phase2StartTime) / (1000 * 60 * 60);
+			const elapsedHours =
+				(currentTime - phase2StartTime) / (1000 * 60 * 60);
 
 			if (elapsedHours >= durationHours) {
 				await closeSession(activeSession);
@@ -242,7 +269,9 @@ async function closeSession(activeSession) {
 			status: "top3", // Note: "top3" is the database status, but refers to top 40% of proposals
 		});
 
-		console.log(`Closing session ${activeSession.name}. Found ${topProposals.length} top proposals.`);
+		console.log(
+			`Closing session ${activeSession.name}. Found ${topProposals.length} top proposals.`
+		);
 
 		// For each top proposal, calculate votes and save if yes-majority
 		for (const proposal of topProposals) {
@@ -251,11 +280,15 @@ async function closeSession(activeSession) {
 			const yesVotes = votes.filter((v) => v.choice === "yes").length;
 			const noVotes = votes.filter((v) => v.choice === "no").length;
 
-			console.log(`Proposal "${proposal.title}": ${yesVotes} yes, ${noVotes} no votes`);
+			console.log(
+				`Proposal "${proposal.title}": ${yesVotes} yes, ${noVotes} no votes`
+			);
 
 			// Only save proposals with yes-majority
 			if (yesVotes > noVotes) {
-				console.log(`✓ Saving "${proposal.title}" as winning proposal (${yesVotes} > ${noVotes})`);
+				console.log(
+					`✓ Saving "${proposal.title}" as winning proposal (${yesVotes} > ${noVotes})`
+				);
 				await TopProposal.create({
 					sessionId: activeSession._id,
 					sessionName: activeSession.name,
@@ -270,7 +303,9 @@ async function closeSession(activeSession) {
 					archivedAt: new Date(),
 				});
 			} else {
-				console.log(`✗ Skipping "${proposal.title}" (${yesVotes} ≤ ${noVotes})`);
+				console.log(
+					`✗ Skipping "${proposal.title}" (${yesVotes} ≤ ${noVotes})`
+				);
 			}
 		}
 

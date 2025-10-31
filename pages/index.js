@@ -23,10 +23,10 @@ import LanguageThemeIndicator from "../components/LanguageThemeIndicator";
 function formatDateTime(dateString) {
 	const date = new Date(dateString);
 	const year = date.getFullYear().toString().slice(2);
-	const month = (date.getMonth() + 1).toString().padStart(2, '0');
-	const day = date.getDate().toString().padStart(2, '0');
-	const hours = date.getHours().toString().padStart(2, '0');
-	const minutes = date.getMinutes().toString().padStart(2, '0');
+	const month = (date.getMonth() + 1).toString().padStart(2, "0");
+	const day = date.getDate().toString().padStart(2, "0");
+	const hours = date.getHours().toString().padStart(2, "0");
+	const minutes = date.getMinutes().toString().padStart(2, "0");
 	return `${year}${month}${day}, ${hours}:${minutes}`;
 }
 
@@ -58,7 +58,7 @@ export default function HomePage() {
 	useSSE({
 		onNewProposal: (proposal) => {
 			console.log("[SSE] New proposal received, updating list");
-			setProposals(prev => [proposal, ...prev]);
+			setProposals((prev) => [proposal, ...prev]);
 		},
 		onNewComment: (comment) => {
 			console.log("[SSE] New comment received");
@@ -66,22 +66,36 @@ export default function HomePage() {
 			// For now, the Discuss component will handle its own SSE or refetch
 		},
 		onVoteUpdate: (voteData) => {
-			console.log("[SSE] Vote update received for proposal:", voteData.proposalId);
+			console.log(
+				"[SSE] Vote update received for proposal:",
+				voteData.proposalId
+			);
 			// Update the specific proposal's vote counts
-			setProposals(prev => prev.map(p =>
-				p._id === voteData.proposalId
-					? { ...p, yesVotes: voteData.yes, noVotes: voteData.no }
-					: p
-			));
+			setProposals((prev) =>
+				prev.map((p) =>
+					p._id === voteData.proposalId
+						? { ...p, yesVotes: voteData.yes, noVotes: voteData.no }
+						: p
+				)
+			);
 		},
 		onRatingUpdate: (ratingData) => {
-			console.log("[SSE] Rating update received for proposal:", ratingData.proposalId);
+			console.log(
+				"[SSE] Rating update received for proposal:",
+				ratingData.proposalId
+			);
 			// Update the specific proposal's rating
-			setProposals(prev => prev.map(p =>
-				p._id === ratingData.proposalId
-					? { ...p, thumbsUpCount: ratingData.thumbsUpCount, averageRating: ratingData.averageRating }
-					: p
-			));
+			setProposals((prev) =>
+				prev.map((p) =>
+					p._id === ratingData.proposalId
+						? {
+								...p,
+								thumbsUpCount: ratingData.thumbsUpCount,
+								averageRating: ratingData.averageRating,
+						  }
+						: p
+				)
+			);
 		},
 		onPhaseChange: async (phaseData) => {
 			console.log("[SSE] Phase change received:", phaseData.phase);
@@ -97,8 +111,11 @@ export default function HomePage() {
 			console.log("[SSE] Successfully connected to real-time updates");
 		},
 		onError: (error) => {
-			console.error("[SSE] Connection error, will auto-reconnect:", error);
-		}
+			console.error(
+				"[SSE] Connection error, will auto-reconnect:",
+				error
+			);
+		},
 	});
 
 	useEffect(() => {
@@ -231,12 +248,22 @@ export default function HomePage() {
 		}
 	};
 
-	const handleCreateProposal = async (title, problem, solution, estimatedCost) => {
+	const handleCreateProposal = async (
+		title,
+		problem,
+		solution,
+		estimatedCost
+	) => {
 		try {
 			const res = await fetchWithCsrf("/api/proposals", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ title, problem, solution, estimatedCost }),
+				body: JSON.stringify({
+					title,
+					problem,
+					solution,
+					estimatedCost,
+				}),
 			});
 
 			if (res.ok) {
@@ -293,10 +320,13 @@ export default function HomePage() {
 
 				// Start polling for execution
 				transitionIntervalRef.current = setInterval(async () => {
-					const execRes = await fetchWithCsrf("/api/sessions/execute-scheduled-transition", {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-					});
+					const execRes = await fetchWithCsrf(
+						"/api/sessions/execute-scheduled-transition",
+						{
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+						}
+					);
 
 					if (execRes.ok) {
 						const execData = await execRes.json();
@@ -437,10 +467,10 @@ export default function HomePage() {
 				<div className="bg-white rounded-3xl p-12 max-w-lg mx-4 text-center shadow-2xl animate-fade-in">
 					<div className="text-6xl mb-6">🎉</div>
 					<h2 className="text-3xl font-bold text-blue-800 mb-4">
-						{t('phases.ideaPhaseComplete')}
+						{t("phases.ideaPhaseComplete")}
 					</h2>
 					<p className="text-xl text-gray-700">
-						{t('phases.nowToDebateAndVoting')}
+						{t("phases.nowToDebateAndVoting")}
 					</p>
 				</div>
 			</div>
@@ -455,10 +485,10 @@ export default function HomePage() {
 					<div className="text-center mb-6">
 						<div className="text-6xl mb-4">✅</div>
 						<h2 className="text-3xl font-bold text-blue-800 mb-4">
-							{t('voting.votingClosed')}
+							{t("voting.votingClosed")}
 						</h2>
 						<p className="text-xl text-gray-700 mb-6">
-							{t('voting.weHaveResult')}
+							{t("voting.weHaveResult")}
 						</p>
 					</div>
 
@@ -481,19 +511,33 @@ export default function HomePage() {
 											</h3>
 											<div className="space-y-2 text-sm">
 												<div>
-													<p className="font-semibold text-gray-700">{t('proposals.problemColon')}</p>
-													<p className="text-gray-600">{proposal.problem}</p>
+													<p className="font-semibold text-gray-700">
+														{t(
+															"proposals.problemColon"
+														)}
+													</p>
+													<p className="text-gray-600">
+														{proposal.problem}
+													</p>
 												</div>
 												<div>
-													<p className="font-semibold text-gray-700">{t('proposals.solutionColon')}</p>
-													<p className="text-gray-600">{proposal.solution}</p>
+													<p className="font-semibold text-gray-700">
+														{t(
+															"proposals.solutionColon"
+														)}
+													</p>
+													<p className="text-gray-600">
+														{proposal.solution}
+													</p>
 												</div>
 												<div className="flex gap-4 mt-3 text-sm">
 													<span className="bg-green-200 text-green-800 px-3 py-1 rounded-full font-semibold">
-														{t('voting.yes')}: {proposal.yesVotes}
+														{t("voting.yes")}:{" "}
+														{proposal.yesVotes}
 													</span>
 													<span className="bg-red-200 text-red-800 px-3 py-1 rounded-full font-semibold">
-														{t('voting.no')}: {proposal.noVotes}
+														{t("voting.no")}:{" "}
+														{proposal.noVotes}
 													</span>
 												</div>
 											</div>
@@ -505,14 +549,14 @@ export default function HomePage() {
 					) : (
 						<div className="bg-gray-100 rounded-2xl p-8 text-center mb-8">
 							<p className="text-gray-600">
-								{t('voting.noMajority')}
+								{t("voting.noMajority")}
 							</p>
 						</div>
 					)}
 
 					<div className="text-center">
 						<p className="text-xl font-semibold text-blue-800 mb-4">
-							{t('voting.thanksForParticipation')}
+							{t("voting.thanksForParticipation")}
 						</p>
 						<button
 							onClick={() => {
@@ -521,7 +565,7 @@ export default function HomePage() {
 							}}
 							className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors"
 						>
-							{t('common.close')}
+							{t("common.close")}
 						</button>
 					</div>
 				</div>
@@ -587,15 +631,16 @@ export default function HomePage() {
 		});
 
 	// Display proposals based on phase
-	const displayProposals = currentPhase === "phase1" ? activeProposals : topProposals;
+	const displayProposals =
+		currentPhase === "phase1" ? activeProposals : topProposals;
 
 	console.log(session.user.isAdmin);
 
 	// Get theme colors
 	const { theme } = useConfig();
-	const primaryColor = theme.colors.primary[600] || '#2563eb';
-	const accentColor = theme.colors.accent[400] || '#facc15';
-	const primaryDark = theme.colors.primary[800] || '#1e40af';
+	const primaryColor = theme.colors.primary[600] || "#2563eb";
+	const accentColor = theme.colors.accent[400] || "#facc15";
+	const primaryDark = theme.colors.primary[800] || "#1e40af";
 
 	return (
 		<div className="min-h-screen bg-gray-50">
@@ -603,7 +648,7 @@ export default function HomePage() {
 			<div
 				className="text-white p-6 shadow-lg"
 				style={{
-					background: `linear-gradient(to right, ${primaryColor}, ${primaryDark})`
+					background: `linear-gradient(to right, ${primaryColor}, ${primaryDark})`,
 				}}
 			>
 				<div className="max-w-4xl mx-auto">
@@ -613,14 +658,17 @@ export default function HomePage() {
 								className="w-12 h-12 rounded-full flex items-center justify-center"
 								style={{ backgroundColor: accentColor }}
 							>
-								<Users className="w-6 h-6" style={{ color: primaryDark }} />
+								<Users
+									className="w-6 h-6"
+									style={{ color: primaryDark }}
+								/>
 							</div>
 							<div>
 								<h1 className="text-2xl font-bold">
-									{t('appName')}
+									{t("appName")}
 								</h1>
 								<p className="text-blue-100 text-sm">
-									{t('auth.hello')}, {session.user.name}!
+									{t("auth.hello")}, {session.user.name}!
 								</p>
 							</div>
 						</div>
@@ -630,25 +678,25 @@ export default function HomePage() {
 									onClick={() => router.push("/admin")}
 									className="text-white hover:text-yellow-400 text-sm font-medium"
 								>
-									{t('nav.admin')}
+									{t("nav.admin")}
 								</button>
 							)}
 							<button
 								onClick={() => router.push("/dashboard")}
 								className="text-white hover:text-yellow-400 text-sm font-medium"
 							>
-								{t('nav.myActivity')}
+								{t("nav.myActivity")}
 							</button>
 							<button
 								onClick={() => signOut()}
 								className="text-white hover:text-yellow-400 text-sm"
 							>
-								{t('auth.logout')}
+								{t("auth.logout")}
 							</button>
 						</div>
 					</div>
 					<h2 className="text-xl font-medium">
-						{t('proposals.howToImprove')} {municipalityName}?
+						{t("proposals.howToImprove")} {municipalityName}?
 					</h2>
 				</div>
 			</div>
@@ -661,28 +709,30 @@ export default function HomePage() {
 						className="w-full font-bold py-6 rounded-2xl shadow-lg flex items-center justify-center gap-3 cursor-not-allowed opacity-75"
 						style={{
 							backgroundColor: accentColor,
-							color: primaryDark
+							color: primaryDark,
 						}}
 					>
 						<AlertCircle className="w-6 h-6" />
-						{t('proposals.noActiveSession')}
+						{t("proposals.noActiveSession")}
 					</button>
 				)}
 
 				{/* Only allow new proposals in Phase 1 AND when countdown hasn't started AND session exists */}
-				{hasActiveSession && currentPhase === "phase1" && transitionCountdown === null && (
-					<button
-						onClick={() => setView("create")}
-						className="w-full font-bold py-6 rounded-2xl shadow-lg flex items-center justify-center gap-3 transition-all transform hover:scale-105"
-						style={{
-							backgroundColor: accentColor,
-							color: primaryDark
-						}}
-					>
-						<Plus className="w-6 h-6" />
-						{t('proposals.proposeNewIdea')}
-					</button>
-				)}
+				{hasActiveSession &&
+					currentPhase === "phase1" &&
+					transitionCountdown === null && (
+						<button
+							onClick={() => setView("create")}
+							className="w-full font-bold py-6 rounded-2xl shadow-lg flex items-center justify-center gap-3 transition-all transform hover:scale-105"
+							style={{
+								backgroundColor: accentColor,
+								color: primaryDark,
+							}}
+						>
+							<Plus className="w-6 h-6" />
+							{t("proposals.proposeNewIdea")}
+						</button>
+					)}
 
 				{/* Countdown banner for phase transition */}
 				{transitionCountdown !== null && currentPhase === "phase1" && (
@@ -690,11 +740,15 @@ export default function HomePage() {
 						<div className="flex items-center justify-center gap-3">
 							<Clock className="w-6 h-6 text-yellow-600 animate-pulse" />
 							<p className="text-center text-lg font-semibold text-yellow-800">
-								{t('phases.transitionToDebate')} <span className="text-2xl font-bold text-yellow-900">{transitionCountdown}</span> {t('common.seconds')}...
+								{t("phases.transitionToDebate")}{" "}
+								<span className="text-2xl font-bold text-yellow-900">
+									{transitionCountdown}
+								</span>{" "}
+								{t("common.seconds")}...
 							</p>
 						</div>
 						<p className="text-center text-sm text-yellow-700 mt-2">
-							{t('phases.transitionMessage')}
+							{t("phases.transitionMessage")}
 						</p>
 					</div>
 				)}
@@ -708,13 +762,13 @@ export default function HomePage() {
 							</div>
 							<div className="flex-1">
 								<h3 className="text-lg font-bold text-blue-900 mb-2">
-									{t('voting.limitedVotingRights')}
+									{t("voting.limitedVotingRights")}
 								</h3>
 								<p className="text-gray-700 text-sm leading-relaxed mb-2">
-									{t('voting.oneVotePerSession')}
+									{t("voting.oneVotePerSession")}
 								</p>
 								<p className="text-gray-700 text-sm leading-relaxed">
-									{t('voting.votingAdvantages')}
+									{t("voting.votingAdvantages")}
 								</p>
 							</div>
 						</div>
@@ -730,10 +784,10 @@ export default function HomePage() {
 							</div>
 							<div className="text-center">
 								<h3 className="text-lg font-bold text-green-900">
-									{t('voting.thanksForVote')}
+									{t("voting.thanksForVote")}
 								</h3>
 								<p className="text-gray-700 text-sm">
-									{t('voting.sessionClosesWhen')}
+									{t("voting.sessionClosesWhen")}
 								</p>
 							</div>
 						</div>
@@ -746,47 +800,40 @@ export default function HomePage() {
 							<div className="flex items-center gap-2">
 								<TrendingUp className="w-6 h-6 text-yellow-600" />
 								<h3 className="text-xl font-bold text-blue-800">
-									{t('proposals.topProposals')}
+									{t("proposals.topProposals")}
 								</h3>
 							</div>
 							<button
 								onClick={() => setView("vote")}
 								className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
 							>
-								{t('proposals.vote')}
+								{t("proposals.vote")}
 							</button>
 						</div>
 						<p className="text-gray-700">
-							{t('proposals.clickToDebateAndVote')}
+							{t("proposals.clickToDebateAndVote")}
 						</p>
 					</div>
-				)}
-
-
-				{/* Old button - can be removed after phase system is working */}
-				{activeProposals.length >= 3 && topProposals.length === 0 && currentPhase !== "phase1" && (
-					<button
-						onClick={handleMoveToTopProposals}
-						className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-4 rounded-2xl shadow-lg"
-					>
-						Lås topp 3 och börja diskutera
-					</button>
 				)}
 
 				<div className="space-y-4">
 					<h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
 						<MessageCircle className="w-5 h-5" />
 						{currentPhase === "phase1"
-							? t('proposals.allProposalsCount', { count: displayProposals.length })
-							: t('proposals.topProposalsCount', { count: displayProposals.length })}
+							? t("proposals.allProposalsCount", {
+									count: displayProposals.length,
+							  })
+							: t("proposals.topProposalsCount", {
+									count: displayProposals.length,
+							  })}
 					</h3>
 
 					{displayProposals.length === 0 ? (
 						<div className="bg-white rounded-2xl p-8 text-center text-gray-500">
 							<p>
 								{currentPhase === "phase1"
-									? t('proposals.noProposals')
-									: t('proposals.noTopProposals')}
+									? t("proposals.noProposals")
+									: t("proposals.noTopProposals")}
 							</p>
 						</div>
 					) : (
@@ -819,7 +866,21 @@ export default function HomePage() {
 // PROPOSAL CARD COMPONENT
 // ============================================================================
 
-function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, setExpandedRating, expandedProposal, setExpandedProposal, onThumbsUp, onAddComment, onVote, userHasVotedInSession, votedProposalId, t }) {
+function ProposalCard({
+	proposal,
+	currentUser,
+	currentPhase,
+	expandedRating,
+	setExpandedRating,
+	expandedProposal,
+	setExpandedProposal,
+	onThumbsUp,
+	onAddComment,
+	onVote,
+	userHasVotedInSession,
+	votedProposalId,
+	t,
+}) {
 	const [hasVoted, setHasVoted] = useState(false);
 	const [checking, setChecking] = useState(true);
 	const [userRating, setUserRating] = useState(0);
@@ -852,6 +913,7 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 			const res = await fetch(`/api/thumbsup?proposalId=${proposal._id}`);
 			const data = await res.json();
 			setHasVoted(data.voted);
+			setUserRating(data.rating || 0);
 		} catch (error) {
 			console.error("Error checking vote status:", error);
 		} finally {
@@ -876,6 +938,9 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 		setConfirmedRating(rating);
 		setShowConfirmation(true);
 		await onThumbsUp(proposal._id, rating);
+		// Update local state to reflect that user has now voted
+		setHasVoted(true);
+		setUserRating(rating);
 		setTimeout(() => {
 			setShowConfirmation(false);
 			setConfirmedRating(0);
@@ -922,7 +987,9 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 
 	const fetchCommentRating = async (commentId) => {
 		try {
-			const res = await fetch(`/api/comments/rate?commentId=${commentId}`);
+			const res = await fetch(
+				`/api/comments/rate?commentId=${commentId}`
+			);
 			if (res.ok) {
 				const data = await res.json();
 				return data.userRating;
@@ -952,34 +1019,50 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 		<div className="bg-white rounded-2xl shadow-md p-6 space-y-4">
 			{/* Proposal header - clickable in Phase 2 */}
 			<div
-				className={!isPhase1 ? "cursor-pointer hover:bg-blue-50 -mx-6 -mt-6 px-6 pt-6 pb-4 rounded-t-2xl transition-all duration-200 hover:shadow-sm relative" : ""}
+				className={
+					!isPhase1
+						? "cursor-pointer hover:bg-blue-50 -mx-6 -mt-6 px-6 pt-6 pb-4 rounded-t-2xl transition-all duration-200 hover:shadow-sm relative"
+						: ""
+				}
 				onClick={!isPhase1 ? handleToggleDiscuss : undefined}
 			>
-				<h4 className={`text-lg font-bold text-blue-800 mb-2 ${!isPhase1 ? "group-hover:text-blue-900" : ""}`}>
+				<h4
+					className={`text-lg font-bold text-blue-800 mb-2 ${
+						!isPhase1 ? "group-hover:text-blue-900" : ""
+					}`}
+				>
 					{proposal.title}
 				</h4>
 
 				<div className="space-y-3 text-sm">
 					<div>
-						<p className="font-semibold text-gray-700">{t('proposals.problemColon')}</p>
+						<p className="font-semibold text-gray-700">
+							{t("proposals.problemColon")}
+						</p>
 						<p className="text-gray-600">{proposal.problem}</p>
 					</div>
 
 					<div>
-						<p className="font-semibold text-gray-700">{t('proposals.solutionColon')}</p>
+						<p className="font-semibold text-gray-700">
+							{t("proposals.solutionColon")}
+						</p>
 						<p className="text-gray-600">{proposal.solution}</p>
 					</div>
 
 					<div>
-						<p className="font-semibold text-gray-700">{t('proposals.estimatedCost')}</p>
-						<p className="text-gray-600">{proposal.estimatedCost}</p>
+						<p className="font-semibold text-gray-700">
+							{t("proposals.estimatedCost")}
+						</p>
+						<p className="text-gray-600">
+							{proposal.estimatedCost}
+						</p>
 					</div>
 				</div>
 
 				{/* Show "Visa argument" indicator when collapsed in Phase 2 - inside clickable area */}
 				{!isPhase1 && !isExpandedForDiscuss && (
 					<div className="absolute bottom-2 right-2 text-xs text-gray-500 bg-white px-2 py-1 rounded-lg shadow-sm border border-gray-200 pointer-events-none">
-						▼ {t('comments.showArguments')}
+						▼ {t("comments.showArguments")}
 					</div>
 				)}
 			</div>
@@ -988,7 +1071,9 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 			{isPhase1 && (
 				<div>
 					<button
-						onClick={() => setExpandedRating(isExpanded ? null : proposal._id)}
+						onClick={() =>
+							setExpandedRating(isExpanded ? null : proposal._id)
+						}
 						disabled={checking}
 						className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-colors ${
 							hasVoted
@@ -998,30 +1083,61 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 					>
 						<ThumbsUp className="w-5 h-5" />
 						<span>
-							{hasVoted ? t('rating.changeRating') : t('rating.giveRating')}
+							{hasVoted
+								? t("rating.changeRating")
+								: t("rating.giveRating")}
 						</span>
 					</button>
+
+					{/* Show user's current rating */}
+					{hasVoted && userRating > 0 && !isExpanded && (
+						<div className="mt-2 flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-lg">
+							<span className="text-sm text-blue-800 font-medium">
+								{t("rating.yourRating")}:
+							</span>
+							<div className="flex gap-0.5">
+								{[1, 2, 3, 4, 5].map((star) => (
+									<span key={star} className="text-lg">
+										{star <= userRating ? "⭐" : "☆"}
+									</span>
+								))}
+							</div>
+						</div>
+					)}
 
 					{isExpanded && (
 						<div className="mt-2 flex items-center gap-2 p-3 bg-gray-50 rounded-xl">
 							{[1, 2, 3, 4, 5].map((star) => {
-								const isConfirmed = showConfirmation && star <= confirmedRating;
+								const isConfirmed =
+									showConfirmation && star <= confirmedRating;
 								return (
 									<button
 										key={star}
 										onClick={() => handleStarClick(star)}
 										className="text-3xl hover:scale-110 transition-transform"
 										style={{
-											color: isConfirmed ? '#dc2626' : 'inherit',
-											filter: isConfirmed ? 'brightness(1.2)' : 'none',
+											color: isConfirmed
+												? "#dc2626"
+												: "inherit",
+											filter: isConfirmed
+												? "brightness(1.2)"
+												: "none",
 										}}
 									>
-										{isConfirmed ? "⭐" : (star <= userRating ? "⭐" : "☆")}
+										{isConfirmed
+											? "⭐"
+											: star <= userRating
+											? "⭐"
+											: "☆"}
 									</button>
 								);
 							})}
 							<span className="ml-2 text-sm text-gray-600">
-								{showConfirmation ? t('rating.ratingRegistered', { rating: confirmedRating }) : t('rating.clickStar')}
+								{showConfirmation
+									? t("rating.ratingRegistered", {
+											rating: confirmedRating,
+									  })
+									: t("rating.clickStar")}
 							</span>
 						</div>
 					)}
@@ -1034,7 +1150,9 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 					<ThumbsUp className="w-5 h-5" />
 					<span className="font-bold">{proposal.thumbsUpCount}</span>
 					{proposal.averageRating > 0 && (
-						<span className="ml-2">⭐ {proposal.averageRating.toFixed(1)}</span>
+						<span className="ml-2">
+							⭐ {proposal.averageRating.toFixed(1)}
+						</span>
 					)}
 				</div>
 			)}
@@ -1053,7 +1171,7 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 							}`}
 						>
-							{t('comments.neutral')}
+							{t("comments.neutral")}
 						</button>
 						<button
 							type="button"
@@ -1064,7 +1182,7 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 							}`}
 						>
-							👍 {t('comments.for')}
+							👍 {t("comments.for")}
 						</button>
 						<button
 							type="button"
@@ -1075,7 +1193,7 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 							}`}
 						>
-							👎 {t('comments.against')}
+							👎 {t("comments.against")}
 						</button>
 					</div>
 
@@ -1086,7 +1204,7 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 							value={commentText}
 							onChange={(e) => setCommentText(e.target.value)}
 							className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
-							placeholder={t('comments.writeArgument')}
+							placeholder={t("comments.writeArgument")}
 							maxLength={1000}
 						/>
 						<button
@@ -1094,28 +1212,35 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 							disabled={!commentText.trim() || submitting}
 							className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white px-4 py-2 rounded-xl font-medium transition-colors text-sm"
 						>
-							{submitting ? t('comments.sending') : t('comments.send')}
+							{submitting
+								? t("comments.sending")
+								: t("comments.send")}
 						</button>
 					</form>
 
 					{/* Comments list */}
 					{loadingComments ? (
-						<div className="text-center text-gray-500 py-4">Laddar...</div>
+						<div className="text-center text-gray-500 py-4">
+							Laddar...
+						</div>
 					) : comments.length === 0 ? (
 						<div className="text-center text-gray-500 py-4">
-							{t('comments.noArgumentsYet')}
+							{t("comments.noArgumentsYet")}
 						</div>
 					) : (
 						<div className="space-y-3">
 							{comments.map((comment) => {
-								const bgColor = comment.type === "for"
-									? "bg-green-50"
-									: comment.type === "against"
-									? "bg-red-50"
-									: "bg-white";
+								const bgColor =
+									comment.type === "for"
+										? "bg-green-50"
+										: comment.type === "against"
+										? "bg-red-50"
+										: "bg-white";
 
-								const isCommentRatingExpanded = expandedCommentRating === comment._id;
-								const userCommentRating = commentRatings[comment._id] || 0;
+								const isCommentRatingExpanded =
+									expandedCommentRating === comment._id;
+								const userCommentRating =
+									commentRatings[comment._id] || 0;
 								const avgRating = comment.averageRating || 0;
 
 								return (
@@ -1127,12 +1252,20 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 											{/* Left side: Clickable thumbs-up icon for rating */}
 											<div className="flex flex-col items-center gap-1 shrink-0">
 												<button
-													onClick={() => setExpandedCommentRating(isCommentRatingExpanded ? null : comment._id)}
+													onClick={() =>
+														setExpandedCommentRating(
+															isCommentRatingExpanded
+																? null
+																: comment._id
+														)
+													}
 													className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
 														userCommentRating > 0
-															? comment.type === "for"
+															? comment.type ===
+															  "for"
 																? "bg-green-500 hover:bg-green-600"
-																: comment.type === "against"
+																: comment.type ===
+																  "against"
 																? "bg-red-500 hover:bg-red-600"
 																: "bg-blue-500 hover:bg-blue-600"
 															: "bg-gray-300 hover:bg-gray-400"
@@ -1143,16 +1276,21 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 												{/* Show average rating with stars */}
 												{avgRating > 0 && (
 													<div className="flex gap-0.5">
-														{[1, 2, 3, 4, 5].map((star) => (
-															<Star
-																key={star}
-																className={`w-3 h-3 ${
-																	star <= Math.round(avgRating)
-																		? "fill-yellow-400 text-yellow-400"
-																		: "text-gray-300"
-																}`}
-															/>
-														))}
+														{[1, 2, 3, 4, 5].map(
+															(star) => (
+																<Star
+																	key={star}
+																	className={`w-3 h-3 ${
+																		star <=
+																		Math.round(
+																			avgRating
+																		)
+																			? "fill-yellow-400 text-yellow-400"
+																			: "text-gray-300"
+																	}`}
+																/>
+															)
+														)}
 													</div>
 												)}
 											</div>
@@ -1163,29 +1301,47 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 													{comment.text}
 												</p>
 												<p className="text-xs text-gray-400 mt-1">
-													{formatDateTime(comment.createdAt)}
-													{avgRating > 0 && ` • ${avgRating.toFixed(1)} ⭐`}
+													{formatDateTime(
+														comment.createdAt
+													)}
+													{avgRating > 0 &&
+														` • ${avgRating.toFixed(
+															1
+														)} ⭐`}
 												</p>
 
 												{/* Expandable star rating UI */}
 												{isCommentRatingExpanded && (
 													<div className="mt-3 flex items-center gap-2 bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-														<span className="text-sm text-gray-600">{t('rating.clickStar')}:</span>
-														{[1, 2, 3, 4, 5].map((star) => (
-															<button
-																key={star}
-																onClick={() => handleRateComment(comment._id, star)}
-																className="transition-transform hover:scale-125"
-															>
-																<Star
-																	className={`w-6 h-6 ${
-																		star <= userCommentRating
-																			? "fill-yellow-400 text-yellow-400"
-																			: "text-gray-300 hover:text-yellow-400"
-																	}`}
-																/>
-															</button>
-														))}
+														<span className="text-sm text-gray-600">
+															{t(
+																"rating.clickStar"
+															)}
+															:
+														</span>
+														{[1, 2, 3, 4, 5].map(
+															(star) => (
+																<button
+																	key={star}
+																	onClick={() =>
+																		handleRateComment(
+																			comment._id,
+																			star
+																		)
+																	}
+																	className="transition-transform hover:scale-125"
+																>
+																	<Star
+																		className={`w-6 h-6 ${
+																			star <=
+																			userCommentRating
+																				? "fill-yellow-400 text-yellow-400"
+																				: "text-gray-300 hover:text-yellow-400"
+																		}`}
+																	/>
+																</button>
+															)
+														)}
 													</div>
 												)}
 											</div>
@@ -1198,28 +1354,29 @@ function ProposalCard({ proposal, currentUser, currentPhase, expandedRating, set
 
 					{/* Vote button and collapse indicator */}
 					<div className="flex items-center gap-3">
-						{userHasVotedInSession && votedProposalId === proposal._id ? (
+						{userHasVotedInSession &&
+						votedProposalId === proposal._id ? (
 							<div className="flex-1 bg-green-100 border-2 border-green-500 text-green-800 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2">
 								<span className="text-xl">✓</span>
-								<span>{t('voting.youHaveVoted')}</span>
+								<span>{t("voting.youHaveVoted")}</span>
 							</div>
 						) : userHasVotedInSession ? (
 							<div className="flex-1 bg-gray-100 text-gray-500 font-bold py-3 px-4 rounded-xl text-center cursor-not-allowed">
-								{t('voting.alreadyUsedVote')}
+								{t("voting.alreadyUsedVote")}
 							</div>
 						) : (
 							<button
 								onClick={onVote}
 								className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors"
 							>
-								{t('voting.vote')}
+								{t("voting.vote")}
 							</button>
 						)}
 						<button
 							onClick={handleToggleDiscuss}
 							className="text-xs text-gray-500 hover:text-gray-700 bg-white px-3 py-3 rounded-lg shadow-sm border border-gray-200 hover:border-gray-300 transition-colors"
 						>
-							▲ {t('comments.hide')}
+							▲ {t("comments.hide")}
 						</button>
 					</div>
 				</div>
@@ -1241,9 +1398,19 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 
 	const handleSubmit = async (e) => {
 		e.preventDefault();
-		if (title.trim() && problem.trim() && solution.trim() && estimatedCost.trim()) {
+		if (
+			title.trim() &&
+			problem.trim() &&
+			solution.trim() &&
+			estimatedCost.trim()
+		) {
 			setSubmitting(true);
-			await onSubmit(title.trim(), problem.trim(), solution.trim(), estimatedCost.trim());
+			await onSubmit(
+				title.trim(),
+				problem.trim(),
+				solution.trim(),
+				estimatedCost.trim()
+			);
 			setSubmitting(false);
 		}
 	};
@@ -1255,25 +1422,25 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 					onClick={onBack}
 					className="mb-6 text-blue-600 hover:text-blue-700 font-medium"
 				>
-					← {t('common.back')}
+					← {t("common.back")}
 				</button>
 
 				<div className="bg-white rounded-2xl shadow-lg p-8">
 					<h2 className="text-2xl font-bold text-blue-800 mb-6">
-						{t('createProposal.title')}
+						{t("createProposal.title")}
 					</h2>
 
 					<form onSubmit={handleSubmit} className="space-y-6">
 						<div>
 							<label className="block text-sm font-medium text-gray-700 mb-2">
-								{t('createProposal.nameOfProposal')}
+								{t("createProposal.nameOfProposal")}
 							</label>
 							<input
 								type="text"
 								value={title}
 								onChange={(e) => setTitle(e.target.value)}
 								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none"
-								placeholder={t('createProposal.nameExample')}
+								placeholder={t("createProposal.nameExample")}
 								autoFocus
 								maxLength={200}
 								required
@@ -1282,46 +1449,58 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 
 						<div>
 							<label className="block text-sm font-medium text-gray-700 mb-2">
-								{t('createProposal.problemLabel')}
+								{t("createProposal.problemLabel")}
 							</label>
 							<textarea
 								value={problem}
 								onChange={(e) => setProblem(e.target.value)}
 								rows={4}
 								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none resize-none"
-								placeholder={t('createProposal.problemPlaceholder')}
+								placeholder={t(
+									"createProposal.problemPlaceholder"
+								)}
 								maxLength={1000}
 								required
 							/>
-							<p className="text-xs text-gray-500 mt-1">{problem.length}/1000</p>
+							<p className="text-xs text-gray-500 mt-1">
+								{problem.length}/1000
+							</p>
 						</div>
 
 						<div>
 							<label className="block text-sm font-medium text-gray-700 mb-2">
-								{t('createProposal.solutionLabel')}
+								{t("createProposal.solutionLabel")}
 							</label>
 							<textarea
 								value={solution}
 								onChange={(e) => setSolution(e.target.value)}
 								rows={4}
 								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none resize-none"
-								placeholder={t('createProposal.solutionPlaceholder')}
+								placeholder={t(
+									"createProposal.solutionPlaceholder"
+								)}
 								maxLength={1000}
 								required
 							/>
-							<p className="text-xs text-gray-500 mt-1">{solution.length}/1000</p>
+							<p className="text-xs text-gray-500 mt-1">
+								{solution.length}/1000
+							</p>
 						</div>
 
 						<div>
 							<label className="block text-sm font-medium text-gray-700 mb-2">
-								{t('createProposal.costLabel')}
+								{t("createProposal.costLabel")}
 							</label>
 							<input
 								type="text"
 								value={estimatedCost}
-								onChange={(e) => setEstimatedCost(e.target.value)}
+								onChange={(e) =>
+									setEstimatedCost(e.target.value)
+								}
 								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none"
-								placeholder={t('createProposal.costPlaceholder')}
+								placeholder={t(
+									"createProposal.costPlaceholder"
+								)}
 								maxLength={100}
 								required
 							/>
@@ -1338,7 +1517,9 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 							}
 							className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-bold py-4 rounded-xl transition-colors shadow-lg"
 						>
-							{submitting ? t('createProposal.submitting') : t('createProposal.submit')}
+							{submitting
+								? t("createProposal.submitting")
+								: t("createProposal.submit")}
 						</button>
 					</form>
 				</div>
@@ -1388,9 +1569,10 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 	};
 
 	// Filter comments based on active tab
-	const filteredComments = activeTab === "all"
-		? comments
-		: comments.filter(c => c.type === activeTab);
+	const filteredComments =
+		activeTab === "all"
+			? comments
+			: comments.filter((c) => c.type === activeTab);
 
 	return (
 		<div className="min-h-screen bg-gray-50 pb-24">
@@ -1400,7 +1582,7 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 						onClick={onBack}
 						className="mb-4 text-white hover:text-yellow-400 font-medium"
 					>
-						← {t('common.back')}
+						← {t("common.back")}
 					</button>
 					<h2 className="text-2xl font-bold">{proposal.title}</h2>
 				</div>
@@ -1409,18 +1591,26 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 			<div className="max-w-2xl mx-auto p-6 space-y-6">
 				<div className="bg-white rounded-2xl shadow-md p-6 space-y-4">
 					<div>
-						<p className="font-semibold text-gray-700">{t('proposals.problemColon')}</p>
+						<p className="font-semibold text-gray-700">
+							{t("proposals.problemColon")}
+						</p>
 						<p className="text-gray-600">{proposal.problem}</p>
 					</div>
 
 					<div>
-						<p className="font-semibold text-gray-700">{t('proposals.solutionColon')}</p>
+						<p className="font-semibold text-gray-700">
+							{t("proposals.solutionColon")}
+						</p>
 						<p className="text-gray-600">{proposal.solution}</p>
 					</div>
 
 					<div>
-						<p className="font-semibold text-gray-700">Uppskattad kostnad:</p>
-						<p className="text-gray-600">{proposal.estimatedCost}</p>
+						<p className="font-semibold text-gray-700">
+							Uppskattad kostnad:
+						</p>
+						<p className="text-gray-600">
+							{proposal.estimatedCost}
+						</p>
 					</div>
 
 					<div className="flex items-center gap-4 text-sm text-gray-500 pt-2 border-t">
@@ -1456,7 +1646,8 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 							}`}
 						>
-							{t('comments.for')} ({comments.filter(c => c.type === "for").length})
+							{t("comments.for")} (
+							{comments.filter((c) => c.type === "for").length})
 						</button>
 						<button
 							onClick={() => setActiveTab("against")}
@@ -1466,7 +1657,12 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 							}`}
 						>
-							{t('comments.against')} ({comments.filter(c => c.type === "against").length})
+							{t("comments.against")} (
+							{
+								comments.filter((c) => c.type === "against")
+									.length
+							}
+							)
 						</button>
 					</div>
 
@@ -1478,19 +1674,20 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 						<div className="bg-white rounded-2xl p-8 text-center text-gray-500">
 							<p>
 								{activeTab === "all"
-									? t('comments.noCommentsYet')
+									? t("comments.noCommentsYet")
 									: activeTab === "for"
-								? t('comments.noForArgumentsYet')
-								: t('comments.noAgainstArgumentsYet')}
+									? t("comments.noForArgumentsYet")
+									: t("comments.noAgainstArgumentsYet")}
 							</p>
 						</div>
 					) : (
 						filteredComments.map((comment) => {
-							const typeColor = comment.type === "for"
-								? "bg-green-50"
-								: comment.type === "against"
-								? "bg-red-50"
-								: "bg-white";
+							const typeColor =
+								comment.type === "for"
+									? "bg-green-50"
+									: comment.type === "against"
+									? "bg-red-50"
+									: "bg-white";
 
 							return (
 								<div
@@ -1517,7 +1714,9 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 												{comment.text}
 											</p>
 											<p className="text-xs text-gray-400 mt-2">
-												{formatDateTime(comment.createdAt)}
+												{formatDateTime(
+													comment.createdAt
+												)}
 											</p>
 										</div>
 									</div>
@@ -1541,7 +1740,7 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 							}`}
 						>
-							{t('comments.neutral')}
+							{t("comments.neutral")}
 						</button>
 						<button
 							type="button"
@@ -1552,7 +1751,7 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 							}`}
 						>
-							👍 {t('comments.for')}
+							👍 {t("comments.for")}
 						</button>
 						<button
 							type="button"
@@ -1563,14 +1762,11 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 									: "bg-gray-100 text-gray-700 hover:bg-gray-200"
 							}`}
 						>
-							👎 {t('comments.against')}
+							👎 {t("comments.against")}
 						</button>
 					</div>
 
-					<form
-						onSubmit={handleSubmit}
-						className="flex gap-3"
-					>
+					<form onSubmit={handleSubmit} className="flex gap-3">
 						<input
 							type="text"
 							value={commentText}
@@ -1584,7 +1780,9 @@ function DiscussView({ proposal, currentUser, onAddComment, onBack }) {
 							disabled={!commentText.trim() || submitting}
 							className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white px-6 py-3 rounded-xl font-medium transition-colors"
 						>
-							{submitting ? t('comments.sending') : t('comments.send')}
+							{submitting
+								? t("comments.sending")
+								: t("comments.send")}
 						</button>
 					</form>
 				</div>
@@ -1615,7 +1813,9 @@ function DebateView({ proposals, currentUser, onAddComment, onBack, t }) {
 		if (!selectedProposal) return;
 		setLoading(true);
 		try {
-			const res = await fetch(`/api/comments?proposalId=${selectedProposal._id}`);
+			const res = await fetch(
+				`/api/comments?proposalId=${selectedProposal._id}`
+			);
 			const data = await res.json();
 			setComments(data);
 		} catch (error) {
@@ -1629,14 +1829,18 @@ function DebateView({ proposals, currentUser, onAddComment, onBack, t }) {
 		e.preventDefault();
 		if (commentText.trim() && selectedType) {
 			setSubmitting(true);
-			await onAddComment(selectedProposal._id, commentText.trim(), selectedType);
+			await onAddComment(
+				selectedProposal._id,
+				commentText.trim(),
+				selectedType
+			);
 			setCommentText("");
 			await fetchComments();
 			setSubmitting(false);
 		}
 	};
 
-	const filteredComments = comments.filter(c => c.type === selectedType);
+	const filteredComments = comments.filter((c) => c.type === selectedType);
 
 	// Show proposal selection
 	if (!selectedProposal) {
@@ -1648,11 +1852,13 @@ function DebateView({ proposals, currentUser, onAddComment, onBack, t }) {
 							onClick={onBack}
 							className="mb-4 text-white hover:text-yellow-400 font-medium"
 						>
-							← {t('common.back')}
+							← {t("common.back")}
 						</button>
-						<h2 className="text-2xl font-bold">{t('proposals.debateTopProposals')}</h2>
+						<h2 className="text-2xl font-bold">
+							{t("proposals.debateTopProposals")}
+						</h2>
 						<p className="text-blue-100 mt-2">
-							{t('proposals.selectToDebate')}
+							{t("proposals.selectToDebate")}
 						</p>
 					</div>
 				</div>
@@ -1676,12 +1882,20 @@ function DebateView({ proposals, currentUser, onAddComment, onBack, t }) {
 									</h4>
 									<div className="space-y-2 text-sm">
 										<div>
-											<p className="font-semibold text-gray-700">{t('proposals.problemColon')}</p>
-											<p className="text-gray-600">{proposal.problem}</p>
+											<p className="font-semibold text-gray-700">
+												{t("proposals.problemColon")}
+											</p>
+											<p className="text-gray-600">
+												{proposal.problem}
+											</p>
 										</div>
 										<div>
-											<p className="font-semibold text-gray-700">{t('proposals.solutionColon')}</p>
-											<p className="text-gray-600">{proposal.solution}</p>
+											<p className="font-semibold text-gray-700">
+												{t("proposals.solutionColon")}
+											</p>
+											<p className="text-gray-600">
+												{proposal.solution}
+											</p>
 										</div>
 									</div>
 								</div>
@@ -1703,11 +1917,13 @@ function DebateView({ proposals, currentUser, onAddComment, onBack, t }) {
 							onClick={() => setSelectedProposal(null)}
 							className="mb-4 text-white hover:text-yellow-400 font-medium"
 						>
-							← {t('common.back')}
+							← {t("common.back")}
 						</button>
-						<h2 className="text-2xl font-bold">{selectedProposal.title}</h2>
+						<h2 className="text-2xl font-bold">
+							{selectedProposal.title}
+						</h2>
 						<p className="text-blue-100 mt-2">
-							{t('proposals.selectForOrAgainst')}
+							{t("proposals.selectForOrAgainst")}
 						</p>
 					</div>
 				</div>
@@ -1715,16 +1931,28 @@ function DebateView({ proposals, currentUser, onAddComment, onBack, t }) {
 				<div className="max-w-2xl mx-auto p-6 space-y-4">
 					<div className="bg-white rounded-2xl shadow-md p-6 space-y-4">
 						<div>
-							<p className="font-semibold text-gray-700">{t('proposals.problemColon')}</p>
-							<p className="text-gray-600">{selectedProposal.problem}</p>
+							<p className="font-semibold text-gray-700">
+								{t("proposals.problemColon")}
+							</p>
+							<p className="text-gray-600">
+								{selectedProposal.problem}
+							</p>
 						</div>
 						<div>
-							<p className="font-semibold text-gray-700">{t('proposals.solutionColon')}</p>
-							<p className="text-gray-600">{selectedProposal.solution}</p>
+							<p className="font-semibold text-gray-700">
+								{t("proposals.solutionColon")}
+							</p>
+							<p className="text-gray-600">
+								{selectedProposal.solution}
+							</p>
 						</div>
 						<div>
-							<p className="font-semibold text-gray-700">{t('proposals.estimatedCost')}</p>
-							<p className="text-gray-600">{selectedProposal.estimatedCost}</p>
+							<p className="font-semibold text-gray-700">
+								{t("proposals.estimatedCost")}
+							</p>
+							<p className="text-gray-600">
+								{selectedProposal.estimatedCost}
+							</p>
 						</div>
 					</div>
 
@@ -1734,58 +1962,86 @@ function DebateView({ proposals, currentUser, onAddComment, onBack, t }) {
 							className="flex-1 bg-green-400 hover:bg-green-500 text-white font-bold py-8 rounded-xl transition-colors flex flex-col items-center justify-center gap-3"
 						>
 							<ThumbsUp className="w-12 h-12" />
-							<span className="text-xl">{t('comments.for')}</span>
+							<span className="text-xl">{t("comments.for")}</span>
 						</button>
 						<button
 							onClick={() => setSelectedType("against")}
 							className="flex-1 bg-red-400 hover:bg-red-500 text-white font-bold py-8 rounded-xl transition-colors flex flex-col items-center justify-center gap-3"
 						>
 							<ThumbsDown className="w-12 h-12" />
-							<span className="text-xl">{t('comments.against')}</span>
+							<span className="text-xl">
+								{t("comments.against")}
+							</span>
 						</button>
 					</div>
 
 					{/* Show existing arguments */}
 					{loading ? (
 						<div className="bg-white rounded-2xl p-8 text-center text-gray-500">
-							{t('comments.loading')}
+							{t("comments.loading")}
 						</div>
 					) : (
 						<div className="space-y-4">
 							{/* For arguments */}
-							{comments.filter(c => c.type === "for").length > 0 && (
+							{comments.filter((c) => c.type === "for").length >
+								0 && (
 								<div className="bg-white rounded-2xl shadow-md p-6">
 									<h3 className="font-bold text-green-700 mb-3 flex items-center gap-2">
 										<ThumbsUp className="w-5 h-5" />
-										{t('comments.forArguments')} ({comments.filter(c => c.type === "for").length})
+										{t("comments.forArguments")} (
+										{
+											comments.filter(
+												(c) => c.type === "for"
+											).length
+										}
+										)
 									</h3>
 									<div className="space-y-3">
-										{comments.filter(c => c.type === "for").slice(0, 3).map((comment) => (
-											<div key={comment._id} className="bg-green-50 rounded-lg p-4">
-												<p className="text-gray-700 text-sm leading-relaxed">
-													{comment.text}
-												</p>
-											</div>
-										))}
+										{comments
+											.filter((c) => c.type === "for")
+											.slice(0, 3)
+											.map((comment) => (
+												<div
+													key={comment._id}
+													className="bg-green-50 rounded-lg p-4"
+												>
+													<p className="text-gray-700 text-sm leading-relaxed">
+														{comment.text}
+													</p>
+												</div>
+											))}
 									</div>
 								</div>
 							)}
 
 							{/* Against arguments */}
-							{comments.filter(c => c.type === "against").length > 0 && (
+							{comments.filter((c) => c.type === "against")
+								.length > 0 && (
 								<div className="bg-white rounded-2xl shadow-md p-6">
 									<h3 className="font-bold text-red-700 mb-3 flex items-center gap-2">
 										<ThumbsDown className="w-5 h-5" />
-										{t('comments.againstArguments')} ({comments.filter(c => c.type === "against").length})
+										{t("comments.againstArguments")} (
+										{
+											comments.filter(
+												(c) => c.type === "against"
+											).length
+										}
+										)
 									</h3>
 									<div className="space-y-3">
-										{comments.filter(c => c.type === "against").slice(0, 3).map((comment) => (
-											<div key={comment._id} className="bg-red-50 rounded-lg p-4">
-												<p className="text-gray-700 text-sm leading-relaxed">
-													{comment.text}
-												</p>
-											</div>
-										))}
+										{comments
+											.filter((c) => c.type === "against")
+											.slice(0, 3)
+											.map((comment) => (
+												<div
+													key={comment._id}
+													className="bg-red-50 rounded-lg p-4"
+												>
+													<p className="text-gray-700 text-sm leading-relaxed">
+														{comment.text}
+													</p>
+												</div>
+											))}
 									</div>
 								</div>
 							)}
@@ -1797,9 +2053,16 @@ function DebateView({ proposals, currentUser, onAddComment, onBack, t }) {
 	}
 
 	// Show debate view with pre-selected type
-	const headerBgColor = selectedType === "for" ? "bg-green-600" : "bg-red-600";
-	const headerText = selectedType === "for" ? t('comments.forArguments') : t('comments.againstArguments');
-	const placeholderText = selectedType === "for" ? t('comments.writeFor') : t('comments.writeAgainst');
+	const headerBgColor =
+		selectedType === "for" ? "bg-green-600" : "bg-red-600";
+	const headerText =
+		selectedType === "for"
+			? t("comments.forArguments")
+			: t("comments.againstArguments");
+	const placeholderText =
+		selectedType === "for"
+			? t("comments.writeFor")
+			: t("comments.writeAgainst");
 
 	return (
 		<div className="min-h-screen bg-gray-50 pb-32">
@@ -1809,12 +2072,12 @@ function DebateView({ proposals, currentUser, onAddComment, onBack, t }) {
 						onClick={() => setSelectedType(null)}
 						className="mb-4 text-white hover:text-yellow-400 font-medium"
 					>
-						← {t('common.back')}
+						← {t("common.back")}
 					</button>
-					<h2 className="text-2xl font-bold">{selectedProposal.title}</h2>
-					<p className="text-white opacity-90 mt-2">
-						{headerText}
-					</p>
+					<h2 className="text-2xl font-bold">
+						{selectedProposal.title}
+					</h2>
+					<p className="text-white opacity-90 mt-2">{headerText}</p>
 				</div>
 			</div>
 
@@ -1822,43 +2085,71 @@ function DebateView({ proposals, currentUser, onAddComment, onBack, t }) {
 				{/* Proposal details */}
 				<div className="bg-white rounded-2xl shadow-md p-6 space-y-4">
 					<div>
-						<p className="font-semibold text-gray-700">{t('proposals.problemColon')}</p>
-						<p className="text-gray-600">{selectedProposal.problem}</p>
+						<p className="font-semibold text-gray-700">
+							{t("proposals.problemColon")}
+						</p>
+						<p className="text-gray-600">
+							{selectedProposal.problem}
+						</p>
 					</div>
 					<div>
-						<p className="font-semibold text-gray-700">{t('proposals.solutionColon')}</p>
-						<p className="text-gray-600">{selectedProposal.solution}</p>
+						<p className="font-semibold text-gray-700">
+							{t("proposals.solutionColon")}
+						</p>
+						<p className="text-gray-600">
+							{selectedProposal.solution}
+						</p>
 					</div>
 					<div>
-						<p className="font-semibold text-gray-700">{t('proposals.estimatedCost')}</p>
-						<p className="text-gray-600">{selectedProposal.estimatedCost}</p>
+						<p className="font-semibold text-gray-700">
+							{t("proposals.estimatedCost")}
+						</p>
+						<p className="text-gray-600">
+							{selectedProposal.estimatedCost}
+						</p>
 					</div>
 				</div>
 
 				{/* Previous arguments */}
 				<div className="space-y-4">
 					<h3 className="text-lg font-semibold text-gray-700">
-						{selectedType === "for" ? t('comments.previousFor') : t('comments.previousAgainst')} ({filteredComments.length})
+						{selectedType === "for"
+							? t("comments.previousFor")
+							: t("comments.previousAgainst")}{" "}
+						({filteredComments.length})
 					</h3>
 
 					{loading ? (
 						<div className="bg-white rounded-2xl p-8 text-center text-gray-500">
-							{t('common.loading')}
+							{t("common.loading")}
 						</div>
 					) : filteredComments.length === 0 ? (
 						<div className="bg-white rounded-2xl p-8 text-center text-gray-500">
-							<p>{selectedType === "for" ? t('comments.noForArgumentsYet') : t('comments.noAgainstArgumentsYet')}</p>
+							<p>
+								{selectedType === "for"
+									? t("comments.noForArgumentsYet")
+									: t("comments.noAgainstArgumentsYet")}
+							</p>
 						</div>
 					) : (
 						filteredComments.map((comment) => {
-							const bgColor = selectedType === "for" ? "bg-green-50" : "bg-red-50";
+							const bgColor =
+								selectedType === "for"
+									? "bg-green-50"
+									: "bg-red-50";
 							return (
 								<div
 									key={comment._id}
 									className={`rounded-2xl shadow-md p-6 ${bgColor}`}
 								>
 									<div className="flex items-start gap-4">
-										<div className={`w-12 h-12 ${selectedType === "for" ? "bg-green-500" : "bg-red-500"} rounded-full flex items-center justify-center shrink-0`}>
+										<div
+											className={`w-12 h-12 ${
+												selectedType === "for"
+													? "bg-green-500"
+													: "bg-red-500"
+											} rounded-full flex items-center justify-center shrink-0`}
+										>
 											{selectedType === "for" ? (
 												<ThumbsUp className="w-6 h-6 text-white" />
 											) : (
@@ -1870,7 +2161,9 @@ function DebateView({ proposals, currentUser, onAddComment, onBack, t }) {
 												{comment.text}
 											</p>
 											<p className="text-xs text-gray-400 mt-2">
-												{formatDateTime(comment.createdAt)}
+												{formatDateTime(
+													comment.createdAt
+												)}
 											</p>
 										</div>
 									</div>
@@ -1888,7 +2181,9 @@ function DebateView({ proposals, currentUser, onAddComment, onBack, t }) {
 					className="max-w-2xl mx-auto space-y-3"
 				>
 					<div className="text-sm font-semibold text-gray-700">
-						{selectedType === "for" ? t('comments.writeFor') : t('comments.writeAgainst')}
+						{selectedType === "for"
+							? t("comments.writeFor")
+							: t("comments.writeAgainst")}
 					</div>
 					<div className="flex gap-3">
 						<input
@@ -1902,9 +2197,15 @@ function DebateView({ proposals, currentUser, onAddComment, onBack, t }) {
 						<button
 							type="submit"
 							disabled={!commentText.trim() || submitting}
-							className={`${selectedType === "for" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"} disabled:bg-gray-300 text-white px-6 py-3 rounded-xl font-medium transition-colors`}
+							className={`${
+								selectedType === "for"
+									? "bg-green-600 hover:bg-green-700"
+									: "bg-red-600 hover:bg-red-700"
+							} disabled:bg-gray-300 text-white px-6 py-3 rounded-xl font-medium transition-colors`}
 						>
-							{submitting ? t('comments.sending') : t('comments.send')}
+							{submitting
+								? t("comments.sending")
+								: t("comments.send")}
 						</button>
 					</div>
 				</form>
@@ -1970,11 +2271,13 @@ function VoteView({ proposals, currentUser, onVote, onBack, t }) {
 						onClick={onBack}
 						className="mb-4 text-white hover:text-yellow-400 font-medium"
 					>
-						← {t('common.back')}
+						← {t("common.back")}
 					</button>
-					<h2 className="text-2xl font-bold">{t('voting.voteOnTopProposals')}</h2>
+					<h2 className="text-2xl font-bold">
+						{t("voting.voteOnTopProposals")}
+					</h2>
 					<p className="text-green-100 mt-2">
-						{t('voting.chooseIdeasToImplement')}
+						{t("voting.chooseIdeasToImplement")}
 					</p>
 				</div>
 			</div>
@@ -1982,7 +2285,7 @@ function VoteView({ proposals, currentUser, onVote, onBack, t }) {
 			<div className="max-w-2xl mx-auto p-6 space-y-6">
 				{loading ? (
 					<div className="bg-white rounded-2xl p-8 text-center text-gray-500">
-						{t('common.loading')}
+						{t("common.loading")}
 					</div>
 				) : (
 					proposals.map((proposal, index) => {
@@ -2011,18 +2314,36 @@ function VoteView({ proposals, currentUser, onVote, onBack, t }) {
 
 										<div className="space-y-2 text-sm">
 											<div>
-												<p className="font-semibold text-gray-700">{t('proposals.problemColon')}</p>
-												<p className="text-gray-600">{proposal.problem}</p>
+												<p className="font-semibold text-gray-700">
+													{t(
+														"proposals.problemColon"
+													)}
+												</p>
+												<p className="text-gray-600">
+													{proposal.problem}
+												</p>
 											</div>
 
 											<div>
-												<p className="font-semibold text-gray-700">{t('proposals.solutionColon')}</p>
-												<p className="text-gray-600">{proposal.solution}</p>
+												<p className="font-semibold text-gray-700">
+													{t(
+														"proposals.solutionColon"
+													)}
+												</p>
+												<p className="text-gray-600">
+													{proposal.solution}
+												</p>
 											</div>
 
 											<div>
-												<p className="font-semibold text-gray-700">{t('proposals.estimatedCost')}</p>
-												<p className="text-gray-600">{proposal.estimatedCost}</p>
+												<p className="font-semibold text-gray-700">
+													{t(
+														"proposals.estimatedCost"
+													)}
+												</p>
+												<p className="text-gray-600">
+													{proposal.estimatedCost}
+												</p>
 											</div>
 										</div>
 									</div>
@@ -2037,7 +2358,7 @@ function VoteView({ proposals, currentUser, onVote, onBack, t }) {
 											className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
 										>
 											<ThumbsUp className="w-6 h-6" />
-											{t('voting.yes')}
+											{t("voting.yes")}
 										</button>
 										<button
 											onClick={() =>
@@ -2046,14 +2367,18 @@ function VoteView({ proposals, currentUser, onVote, onBack, t }) {
 											className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
 										>
 											<ThumbsDown className="w-6 h-6" />
-											{t('voting.no')}
+											{t("voting.no")}
 										</button>
 									</div>
 								) : (
 									<div className="space-y-2">
 										<div className="flex items-center justify-between text-sm text-gray-600 mb-1">
-											<span>{t('voting.results')}</span>
-											<span>{t('voting.votesCount', { count: results.total })}</span>
+											<span>{t("voting.results")}</span>
+											<span>
+												{t("voting.votesCount", {
+													count: results.total,
+												})}
+											</span>
 										</div>
 										<div className="flex gap-2">
 											<div className="flex-1 bg-green-100 rounded-lg p-3 text-center">
@@ -2061,7 +2386,7 @@ function VoteView({ proposals, currentUser, onVote, onBack, t }) {
 													{results.yes}
 												</p>
 												<p className="text-xs text-green-600">
-													{t('voting.yesShort')}
+													{t("voting.yesShort")}
 												</p>
 											</div>
 											<div className="flex-1 bg-red-100 rounded-lg p-3 text-center">
@@ -2069,12 +2394,12 @@ function VoteView({ proposals, currentUser, onVote, onBack, t }) {
 													{results.no}
 												</p>
 												<p className="text-xs text-red-600">
-													{t('voting.noShort')}
+													{t("voting.noShort")}
 												</p>
 											</div>
 										</div>
 										<p className="text-center text-sm text-green-600 font-medium">
-											✓ {t('voting.youHaveVoted')}
+											✓ {t("voting.youHaveVoted")}
 										</p>
 									</div>
 								)}

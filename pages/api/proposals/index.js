@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "../../../lib/mongodb";
 import { Proposal, ThumbsUp, Comment } from "../../../lib/models";
-import { ensureActiveSession } from "../../../lib/session-helper";
+import { getActiveSession } from "../../../lib/session-helper";
 import { csrfProtection } from "../../../lib/csrf";
 import broadcaster from "../../../lib/sse-broadcaster";
 
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
 	if (req.method === "GET") {
 		try {
 			// Get the active session
-			const activeSession = await ensureActiveSession();
+			const activeSession = await getActiveSession();
 
 			// If no active session, return empty array
 			if (!activeSession) {
@@ -25,7 +25,9 @@ export default async function handler(req, res) {
 			}
 
 			// Only get proposals from the active session
-			const proposals = await Proposal.find({ sessionId: activeSession._id })
+			const proposals = await Proposal.find({
+				sessionId: activeSession._id,
+			})
 				.sort({ createdAt: -1 })
 				.lean();
 
@@ -65,18 +67,18 @@ export default async function handler(req, res) {
 		const { title, problem, solution, estimatedCost } = req.body;
 
 		if (!title || !problem || !solution || !estimatedCost) {
-			return res
-				.status(400)
-				.json({ message: "Alla fält krävs" });
+			return res.status(400).json({ message: "Alla fält krävs" });
 		}
 
 		try {
 			// Get the active session
-			const activeSession = await ensureActiveSession();
+			const activeSession = await getActiveSession();
 
 			// If no active session, cannot create proposal
 			if (!activeSession) {
-				return res.status(400).json({ message: "Ingen aktiv session finns" });
+				return res
+					.status(400)
+					.json({ message: "Ingen aktiv session finns" });
 			}
 
 			const proposal = await Proposal.create({
@@ -92,7 +94,7 @@ export default async function handler(req, res) {
 			});
 
 			// Broadcast new proposal event to all connected clients
-			broadcaster.broadcast('new-proposal', {
+			broadcaster.broadcast("new-proposal", {
 				_id: proposal._id.toString(),
 				sessionId: proposal.sessionId.toString(),
 				title: proposal.title,

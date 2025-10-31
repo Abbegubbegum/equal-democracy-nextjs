@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
 import connectDB from "../../lib/mongodb";
 import { ThumbsUp, Proposal, Session } from "../../lib/models";
-import { ensureActiveSession } from "../../lib/session-helper";
+import { getActiveSession } from "../../lib/session-helper";
 import { csrfProtection } from "../../lib/csrf";
 import broadcaster from "../../lib/sse-broadcaster";
 
@@ -29,16 +29,20 @@ export default async function handler(req, res) {
 
 		// Validate rating (1-5)
 		if (rating && (rating < 1 || rating > 5)) {
-			return res.status(400).json({ message: "Betyg måste vara mellan 1 och 5" });
+			return res
+				.status(400)
+				.json({ message: "Betyg måste vara mellan 1 och 5" });
 		}
 
 		try {
 			// Get the active session
-			const activeSession = await ensureActiveSession();
+			const activeSession = await getActiveSession();
 
 			// If no active session, cannot rate
 			if (!activeSession) {
-				return res.status(400).json({ message: "Ingen aktiv session finns" });
+				return res
+					.status(400)
+					.json({ message: "Ingen aktiv session finns" });
 			}
 
 			const existingVote = await ThumbsUp.findOne({
@@ -53,7 +57,9 @@ export default async function handler(req, res) {
 
 				// Recalculate average rating
 				const ratings = await ThumbsUp.find({ proposalId });
-				const avgRating = ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length;
+				const avgRating =
+					ratings.reduce((sum, r) => sum + r.rating, 0) /
+					ratings.length;
 				const count = ratings.length;
 
 				await Proposal.findByIdAndUpdate(proposalId, {
@@ -62,7 +68,7 @@ export default async function handler(req, res) {
 				});
 
 				// Broadcast rating update event
-				broadcaster.broadcast('rating-update', {
+				broadcaster.broadcast("rating-update", {
 					proposalId: proposalId.toString(),
 					thumbsUpCount: count,
 					averageRating: avgRating,
@@ -72,7 +78,7 @@ export default async function handler(req, res) {
 					message: "Betyg uppdaterat",
 					count,
 					averageRating: avgRating,
-					userRating: existingVote.rating
+					userRating: existingVote.rating,
 				});
 			}
 
@@ -86,7 +92,8 @@ export default async function handler(req, res) {
 
 			// Calculate average rating
 			const ratings = await ThumbsUp.find({ proposalId });
-			const avgRating = ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length;
+			const avgRating =
+				ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length;
 			const count = ratings.length;
 
 			await Proposal.findByIdAndUpdate(proposalId, {
@@ -95,7 +102,7 @@ export default async function handler(req, res) {
 			});
 
 			// Broadcast rating update event
-			broadcaster.broadcast('rating-update', {
+			broadcaster.broadcast("rating-update", {
 				proposalId: proposalId.toString(),
 				thumbsUpCount: count,
 				averageRating: avgRating,
@@ -105,7 +112,7 @@ export default async function handler(req, res) {
 				message: "Betyg registrerat",
 				count,
 				averageRating: avgRating,
-				userRating: rating || 5
+				userRating: rating || 5,
 			});
 		} catch (error) {
 			console.error("Error adding thumbs up:", error);
@@ -123,12 +130,15 @@ export default async function handler(req, res) {
 		const { proposalId } = req.query;
 
 		if (proposalId) {
-			const voted = await ThumbsUp.exists({
+			const vote = await ThumbsUp.findOne({
 				proposalId,
 				userId: session.user.id,
 			});
 
-			return res.status(200).json({ voted: !!voted });
+			return res.status(200).json({
+				voted: !!vote,
+				rating: vote ? vote.rating : 0
+			});
 		}
 
 		const votes = await ThumbsUp.find({ userId: session.user.id })

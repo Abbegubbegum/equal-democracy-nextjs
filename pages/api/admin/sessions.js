@@ -32,10 +32,10 @@ export default async function handler(req, res) {
 
 	if (req.method === "POST") {
 		try {
-			const { name, municipalityName } = req.body;
+			const { place } = req.body;
 
-			if (!name || !municipalityName) {
-				return res.status(400).json({ error: "Name and municipality name are required" });
+			if (!place) {
+				return res.status(400).json({ error: "Place is required" });
 			}
 
 			// Check if there's already an active session
@@ -48,8 +48,7 @@ export default async function handler(req, res) {
 
 			// Create new session
 			const newSession = await Session.create({
-				name: name.trim(),
-				municipalityName: municipalityName.trim(),
+				place: place.trim(),
 				status: "active",
 				startDate: new Date(),
 			});
@@ -57,8 +56,7 @@ export default async function handler(req, res) {
 			// Broadcast new session event to all connected clients
 			await broadcaster.broadcast("new-session", {
 				_id: newSession._id.toString(),
-				name: newSession.name,
-				municipalityName: newSession.municipalityName,
+				place: newSession.place,
 				status: newSession.status,
 				phase: newSession.phase,
 				startDate: newSession.startDate,

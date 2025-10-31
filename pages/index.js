@@ -17,7 +17,6 @@ import { fetchWithCsrf } from "../lib/fetch-with-csrf";
 import { useTranslation } from "../lib/hooks/useTranslation";
 import { useConfig } from "../lib/contexts/ConfigContext";
 import useSSE from "../lib/hooks/useSSE";
-import LanguageThemeIndicator from "../components/LanguageThemeIndicator";
 
 // Helper function to format date and time consistently
 function formatDateTime(dateString) {
@@ -39,7 +38,7 @@ export default function HomePage() {
 	const [loading, setLoading] = useState(true);
 	const [view, setView] = useState("home"); // 'home', 'create', 'vote'
 	const [selectedProposal, setSelectedProposal] = useState(null);
-	const [municipalityName, setMunicipalityName] = useState("Vallentuna");
+	const [placeName, setPlaceName] = useState("");
 	const [currentPhase, setCurrentPhase] = useState("phase1"); // 'phase1', 'phase2', 'closed'
 	const [expandedRating, setExpandedRating] = useState(null); // proposalId currently showing star rating
 	const [expandedProposal, setExpandedProposal] = useState(null); // proposalId currently showing arguments
@@ -129,9 +128,9 @@ export default function HomePage() {
 			checkPhaseTransition(); // This will start the countdown polling
 		},
 		onNewSession: async (sessionData) => {
-			console.log("New session created:", sessionData.name);
-			// Update municipality name
-			setMunicipalityName(sessionData.municipalityName);
+			console.log("New session created:", sessionData.place);
+			// Update place name
+			setPlaceName(sessionData.place);
 			// Clear old data and refresh
 			setProposals([]);
 			setHasActiveSession(true);
@@ -158,7 +157,6 @@ export default function HomePage() {
 	useEffect(() => {
 		if (session) {
 			fetchProposals();
-			fetchMunicipalityName();
 			fetchSessionInfo();
 			checkUserVote(); // Check if user has already voted
 		}
@@ -200,11 +198,17 @@ export default function HomePage() {
 			if (data.noActiveSession) {
 				setHasActiveSession(false);
 				setCurrentPhase(null);
+				setPlaceName("");
 				return;
 			}
 
 			// Active session exists
 			setHasActiveSession(true);
+
+			// Set place name from session
+			if (data.place) {
+				setPlaceName(data.place);
+			}
 
 			if (data.phase) {
 				const previousPhase = currentPhase;
@@ -253,17 +257,6 @@ export default function HomePage() {
 		}
 	};
 
-	const fetchMunicipalityName = async () => {
-		try {
-			const res = await fetch("/api/settings");
-			const data = await res.json();
-			if (data.municipalityName) {
-				setMunicipalityName(data.municipalityName);
-			}
-		} catch (error) {
-			console.error("Error fetching municipality name:", error);
-		}
-	};
 
 	const fetchProposals = async () => {
 		try {
@@ -639,7 +632,6 @@ export default function HomePage() {
 
 	return (
 		<div className="min-h-screen bg-gray-50">
-			<LanguageThemeIndicator />
 			<div
 				className="text-white p-6 shadow-lg"
 				style={{
@@ -691,7 +683,11 @@ export default function HomePage() {
 						</div>
 					</div>
 					<h2 className="text-xl font-medium">
-						{t("proposals.howToImprove")} {municipalityName}?
+						{hasActiveSession && placeName
+							? `${t(
+									"proposals.howToImprove"
+							  )} ${placeName}?`
+							: t("proposals.howToImproveYourSpace")}
 					</h2>
 				</div>
 			</div>

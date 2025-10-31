@@ -81,6 +81,19 @@ export default async function handler(req, res) {
 					.json({ message: "Ingen aktiv session finns" });
 			}
 
+			// Check for duplicate proposal title in current session
+			const existingProposal = await Proposal.findOne({
+				sessionId: activeSession._id,
+				title: { $regex: new RegExp(`^${title.trim()}$`, 'i') },
+				status: { $in: ['active', 'top3'] }
+			});
+
+			if (existingProposal) {
+				return res.status(400).json({
+					message: "Ett förslag med detta namn finns redan. Vänligen välj ett annat namn."
+				});
+			}
+
 			const proposal = await Proposal.create({
 				sessionId: activeSession._id,
 				title,

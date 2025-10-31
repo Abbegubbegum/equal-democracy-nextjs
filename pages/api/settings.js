@@ -20,7 +20,6 @@ export default async function handler(req, res) {
 			if (!settings) {
 				// Create default settings if none exist
 				settings = await Settings.create({
-					municipalityName: "Vallentuna",
 					phase2DurationHours: 6,
 					language: "sv",
 					theme: "default",
@@ -28,7 +27,6 @@ export default async function handler(req, res) {
 			}
 
 			return res.status(200).json({
-				municipalityName: settings.municipalityName,
 				phase2DurationHours: settings.phase2DurationHours || 6,
 				language: settings.language || "sv",
 				theme: settings.theme || "default",
@@ -47,15 +45,7 @@ export default async function handler(req, res) {
 				return res.status(403).json({ error: "Unauthorized" });
 			}
 
-			const { municipalityName, phase2DurationHours, language, theme } = req.body;
-
-			if (municipalityName && typeof municipalityName !== "string") {
-				return res.status(400).json({ error: "Invalid municipality name" });
-			}
-
-			if (municipalityName && municipalityName.length > 100) {
-				return res.status(400).json({ error: "Municipality name too long (max 100 characters)" });
-			}
+			const { phase2DurationHours, language, theme } = req.body;
 
 			if (phase2DurationHours !== undefined) {
 				const hours = Number(phase2DurationHours);
@@ -77,15 +67,11 @@ export default async function handler(req, res) {
 
 			if (!settings) {
 				settings = await Settings.create({
-					municipalityName: municipalityName ? municipalityName.trim() : "Vallentuna",
 					phase2DurationHours: phase2DurationHours || 6,
 					language: language || "sv",
 					theme: theme || "default",
 				});
 			} else {
-				if (municipalityName) {
-					settings.municipalityName = municipalityName.trim();
-				}
 				if (phase2DurationHours !== undefined) {
 					settings.phase2DurationHours = Number(phase2DurationHours);
 				}
@@ -100,7 +86,6 @@ export default async function handler(req, res) {
 			}
 
 			return res.status(200).json({
-				municipalityName: settings.municipalityName,
 				phase2DurationHours: settings.phase2DurationHours,
 				language: settings.language,
 				theme: settings.theme,

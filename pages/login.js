@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Users, Info } from "lucide-react";
 import { useTranslation } from "../lib/hooks/useTranslation";
 import { useConfig } from "../lib/contexts/ConfigContext";
-import LanguageThemeIndicator from "../components/LanguageThemeIndicator";
 
 export default function LoginPage() {
 	const router = useRouter();
@@ -31,8 +30,8 @@ export default function LoginPage() {
 			});
 			const data = await res.json();
 			if (!res.ok)
-				throw new Error(data.message || t('login.couldNotSendCode'));
-			setInfo(t('login.codeSent'));
+				throw new Error(data.message || t("login.couldNotSendCode"));
+			setInfo(t("login.codeSent"));
 			setStep("code");
 		} catch (err) {
 			setError(err.message);
@@ -54,7 +53,7 @@ export default function LoginPage() {
 			if (result?.error) throw new Error(result.error);
 			router.push("/");
 		} catch (err) {
-			setError(err.message || t('login.loginError'));
+			setError(err.message || t("login.loginError"));
 		} finally {
 			setLoading(false);
 		}
@@ -62,19 +61,16 @@ export default function LoginPage() {
 
 	return (
 		<div className="min-h-screen bg-linear-to-br from-blue-600 to-blue-800 flex flex-col items-center justify-center p-6">
-			{/* Language/Theme Indicator */}
-			<LanguageThemeIndicator />
-
 			<div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 space-y-6">
 				<div className="text-center space-y-2">
 					<div className="w-20 h-20 bg-yellow-400 rounded-full mx-auto flex items-center justify-center">
 						<Users className="w-10 h-10 text-blue-800" />
 					</div>
 					<h1 className="text-3xl font-bold text-blue-800">
-						{t('appName')}
+						{t("appName")}
 					</h1>
 					<p className="text-lg text-gray-600">
-						{t('login.subtitle')}
+						{t("login.subtitle")}
 					</p>
 				</div>
 
@@ -93,14 +89,14 @@ export default function LoginPage() {
 
 						<div>
 							<label className="block text-sm font-medium text-gray-700 mb-2">
-								{t('login.email')}
+								{t("login.email")}
 							</label>
 							<input
 								type="email"
 								value={email}
 								onChange={(e) => setEmail(e.target.value)}
 								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none text-lg"
-								placeholder={t('login.emailPlaceholder')}
+								placeholder={t("login.emailPlaceholder")}
 								required
 								autoFocus
 							/>
@@ -111,7 +107,7 @@ export default function LoginPage() {
 							disabled={loading}
 							className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-semibold py-4 rounded-xl transition-colors text-lg shadow-lg"
 						>
-							{loading ? t('login.sending') : t('login.sendCode')}
+							{loading ? t("login.sending") : t("login.sendCode")}
 						</button>
 					</form>
 				)}
@@ -126,7 +122,7 @@ export default function LoginPage() {
 
 						<div>
 							<label className="block text-sm font-medium text-gray-700 mb-2">
-								{t('login.code')}
+								{t("login.code")}
 							</label>
 							<input
 								inputMode="numeric"
@@ -142,7 +138,8 @@ export default function LoginPage() {
 								autoFocus
 							/>
 							<p className="text-xs text-gray-500 mt-2">
-								{t('login.codeSentTo')} <span className="font-medium">{email}</span>
+								{t("login.codeSentTo")}{" "}
+								<span className="font-medium">{email}</span>
 							</p>
 						</div>
 
@@ -151,7 +148,7 @@ export default function LoginPage() {
 							disabled={loading || code.length !== 6}
 							className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-semibold py-4 rounded-xl transition-colors text-lg shadow-lg"
 						>
-							{loading ? t('login.verifying') : t('login.login')}
+							{loading ? t("login.verifying") : t("login.login")}
 						</button>
 
 						<button
@@ -159,26 +156,26 @@ export default function LoginPage() {
 							onClick={() => setStep("email")}
 							className="w-full text-blue-600 hover:text-blue-700 font-medium"
 						>
-							{t('login.changeEmail')}
+							{t("login.changeEmail")}
 						</button>
 					</form>
 				)}
 
 				<div className="text-center space-y-3">
 					<p className="text-gray-600">
-						{t('login.newHere')}{" "}
+						{t("login.newHere")}{" "}
 						<Link
 							href="/register"
 							className="text-blue-600 hover:text-blue-700 font-medium"
 						>
-							{t('login.createAccount')}
+							{t("login.createAccount")}
 						</Link>
 					</p>
 					<Link
 						href="/about"
 						className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
 					>
-						<Info className="w-4 h-4" /> {t('login.aboutLink')}
+						<Info className="w-4 h-4" /> {t("login.aboutLink")}
 					</Link>
 				</div>
 			</div>

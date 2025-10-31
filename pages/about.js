@@ -2,8 +2,6 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
 import { useTranslation } from "../lib/hooks/useTranslation";
 import { useConfig } from "../lib/contexts/ConfigContext";
-import LanguageThemeIndicator from "../components/LanguageThemeIndicator";
-
 export default function AboutPage() {
 	const { data: session } = useSession();
 	const router = useRouter();
@@ -12,8 +10,6 @@ export default function AboutPage() {
 
 	return (
 		<div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
-			{/* Language/Theme Indicator */}
-			<LanguageThemeIndicator />
 
 			{/* Header */}
 			<div className="bg-blue-600 text-white p-6 shadow-lg">

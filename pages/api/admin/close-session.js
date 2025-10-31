@@ -58,7 +58,8 @@ export default async function handler(req, res) {
 			if (yesVotes > noVotes) {
 				const topProposal = await TopProposal.create({
 					sessionId: sessionToClose._id,
-					sessionName: sessionToClose.name,
+					sessionPlace: sessionToClose.place,
+					sessionStartDate: sessionToClose.startDate,
 					proposalId: proposal._id,
 					title: proposal.title,
 					problem: proposal.problem,

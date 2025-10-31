@@ -44,7 +44,7 @@ export default async function handler(req, res) {
 			activeSession.activeUsers.push(session.user.id);
 			await activeSession.save();
 			console.log(
-				`User ${session.user.name} (${session.user.id}) registered as active in session ${activeSession.name}`
+				`User ${session.user.name} (${session.user.id}) registered as active in session for ${activeSession.place}`
 			);
 		}
 
@@ -55,8 +55,7 @@ export default async function handler(req, res) {
 
 		return res.status(200).json({
 			_id: activeSession._id.toString(),
-			name: activeSession.name,
-			municipalityName: activeSession.municipalityName,
+			place: activeSession.place,
 			status: activeSession.status,
 			phase: activeSession.phase,
 			userReady,

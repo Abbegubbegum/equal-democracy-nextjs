@@ -142,7 +142,6 @@ function Tab({ label, icon, active, onClick }) {
 }
 
 function SettingsPanel() {
-	const [municipalityName, setMunicipalityName] = useState("");
 	const [phase2DurationHours, setPhase2DurationHours] = useState(6);
 	const [language, setLanguage] = useState("sv");
 	const [theme, setTheme] = useState("default");
@@ -161,7 +160,6 @@ function SettingsPanel() {
 		try {
 			const res = await fetch("/api/settings");
 			const data = await res.json();
-			setMunicipalityName(data.municipalityName || "");
 			setPhase2DurationHours(data.phase2DurationHours || 6);
 			setLanguage(data.language || "sv");
 			setTheme(data.theme || "default");
@@ -185,7 +183,6 @@ function SettingsPanel() {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					municipalityName,
 					phase2DurationHours: hours,
 					language,
 					theme,
@@ -241,22 +238,6 @@ function SettingsPanel() {
 			<h2 className="text-xl font-bold mb-4">Settings</h2>
 
 			<div className="space-y-4">
-				<div>
-					<label className="block text-sm font-medium text-slate-700 mb-2">
-						Municipality Name
-					</label>
-					<input
-						type="text"
-						value={municipalityName}
-						onChange={(e) => setMunicipalityName(e.target.value)}
-						className="w-full max-w-md border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-						placeholder="e.g. Vallentuna"
-					/>
-					<p className="text-sm text-slate-500 mt-1">
-						This name is shown on the homepage: "How do you want to improve [municipality name]?"
-					</p>
-				</div>
-
 				<div>
 					<label className="block text-sm font-medium text-slate-700 mb-2">
 						Language
@@ -704,13 +685,12 @@ function SessionsPanel() {
 	const [sessions, setSessions] = useState([]);
 	const [loading, setLoading] = useState(true);
 	const [creating, setCreating] = useState(false);
-	const [newSessionName, setNewSessionName] = useState("");
-	const [newMunicipalityName, setNewMunicipalityName] = useState("");
+	const [newPlace, setNewPlace] = useState("");
 	const [message, setMessage] = useState("");
 
 	useEffect(() => {
 		loadSessions();
-		generateSessionName();
+		setNewPlace("Vallentuna");
 	}, []);
 
 	const loadSessions = async () => {
@@ -725,30 +705,9 @@ function SessionsPanel() {
 		setLoading(false);
 	};
 
-	const generateSessionName = async () => {
-		// Get municipality name from settings
-		try {
-			const res = await fetch("/api/settings");
-			const data = await res.json();
-			const municipality = data.municipalityName || "Vallentuna";
-
-			// Generate date string YYMMDD
-			const today = new Date();
-			const year = today.getFullYear().toString().slice(-2);
-			const month = (today.getMonth() + 1).toString().padStart(2, "0");
-			const day = today.getDate().toString().padStart(2, "0");
-			const dateStr = `${year}${month}${day}`;
-
-			setNewSessionName(`${dateStr}-${municipality}`);
-			setNewMunicipalityName(municipality);
-		} catch (error) {
-			console.error("Error generating session name:", error);
-		}
-	};
-
 	const createSession = async () => {
-		if (!newSessionName || !newMunicipalityName) {
-			setMessage("Name and municipality required");
+		if (!newPlace) {
+			setMessage("Place required");
 			return;
 		}
 
@@ -760,15 +719,14 @@ function SessionsPanel() {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
-					name: newSessionName,
-					municipalityName: newMunicipalityName,
+					place: newPlace,
 				}),
 			});
 
 			if (res.ok) {
 				setMessage("Session created!");
 				loadSessions();
-				generateSessionName();
+				setNewPlace("Vallentuna");
 				setTimeout(() => setMessage(""), 3000);
 			} else {
 				const error = await res.json();
@@ -847,25 +805,12 @@ function SessionsPanel() {
 					<div className="space-y-4">
 						<div>
 							<label className="block text-sm font-medium text-slate-700 mb-2">
-								Session Name
+								Place Name
 							</label>
 							<input
 								type="text"
-								value={newSessionName}
-								onChange={(e) => setNewSessionName(e.target.value)}
-								className="w-full max-w-md border border-slate-300 rounded-lg px-4 py-2"
-								placeholder="251129-Vallentuna"
-							/>
-						</div>
-
-						<div>
-							<label className="block text-sm font-medium text-slate-700 mb-2">
-								Municipality Name
-							</label>
-							<input
-								type="text"
-								value={newMunicipalityName}
-								onChange={(e) => setNewMunicipalityName(e.target.value)}
+								value={newPlace}
+								onChange={(e) => setNewPlace(e.target.value)}
 								className="w-full max-w-md border border-slate-300 rounded-lg px-4 py-2"
 								placeholder="Vallentuna"
 							/>
@@ -906,12 +851,18 @@ function SessionsPanel() {
 					<div className="p-4 border border-green-300 bg-green-50 rounded-lg space-y-4">
 						<div className="flex items-center justify-between">
 							<div>
-								<h3 className="font-bold text-lg">{activeSession.name}</h3>
+								<h3 className="font-bold text-lg">{activeSession.place}</h3>
 								<p className="text-sm text-slate-600">
-									{activeSession.municipalityName}
+									Started: {new Date(activeSession.startDate).toLocaleString("sv-SE", {
+										year: 'numeric',
+										month: 'short',
+										day: 'numeric',
+										hour: '2-digit',
+										minute: '2-digit'
+									})}
 								</p>
-								<p className="text-sm text-slate-600">
-									Started: {new Date(activeSession.startDate).toLocaleDateString("en-US")}
+								<p className="text-sm text-slate-500">
+									Duration: {Math.floor((new Date() - new Date(activeSession.startDate)) / (1000 * 60 * 60))} hours
 								</p>
 								<p className="text-sm font-semibold text-blue-700 mt-2">
 									Current phase: {activeSession.phase === "phase1" ? "Phase 1 (Rating)" : "Phase 2 (Debate & Voting)"}
@@ -941,19 +892,43 @@ function SessionsPanel() {
 				<h2 className="text-xl font-bold mb-4">Closed Sessions</h2>
 				{closedSessions.length > 0 ? (
 					<div className="space-y-2">
-						{closedSessions.map((session) => (
-							<div
-								key={session._id}
-								className="p-4 border border-slate-200 rounded-lg"
-							>
-								<h3 className="font-bold">{session.name}</h3>
-								<p className="text-sm text-slate-600">{session.municipalityName}</p>
-								<p className="text-sm text-slate-600">
-									{new Date(session.startDate).toLocaleDateString("en-US")} -{" "}
-									{new Date(session.endDate).toLocaleDateString("en-US")}
-								</p>
-							</div>
-						))}
+						{closedSessions.map((session) => {
+							const startDate = new Date(session.startDate);
+							const endDate = new Date(session.endDate);
+							const durationHours = Math.floor((endDate - startDate) / (1000 * 60 * 60));
+							const durationDays = Math.floor(durationHours / 24);
+							const remainingHours = durationHours % 24;
+
+							return (
+								<div
+									key={session._id}
+									className="p-4 border border-slate-200 rounded-lg"
+								>
+									<h3 className="font-bold text-lg">{session.place}</h3>
+									<p className="text-sm text-slate-600">
+										Started: {startDate.toLocaleString("sv-SE", {
+											year: 'numeric',
+											month: 'short',
+											day: 'numeric',
+											hour: '2-digit',
+											minute: '2-digit'
+										})}
+									</p>
+									<p className="text-sm text-slate-600">
+										Ended: {endDate.toLocaleString("sv-SE", {
+											year: 'numeric',
+											month: 'short',
+											day: 'numeric',
+											hour: '2-digit',
+											minute: '2-digit'
+										})}
+									</p>
+									<p className="text-sm text-slate-500">
+										Duration: {durationDays > 0 ? `${durationDays}d ${remainingHours}h` : `${remainingHours}h`}
+									</p>
+								</div>
+							);
+						})}
 					</div>
 				) : (
 					<p className="text-slate-600">No closed sessions</p>
@@ -1021,7 +996,7 @@ function TopProposalsPanel() {
 
 									<div className="flex items-center gap-4 text-sm">
 										<span className="text-slate-600">
-											Session: <strong>{tp.sessionName}</strong>
+											Place: <strong>{tp.sessionPlace}</strong> • {new Date(tp.sessionStartDate).toLocaleDateString("sv-SE")}
 										</span>
 										<span className="text-green-700">
 											👍 {tp.yesVotes} yes

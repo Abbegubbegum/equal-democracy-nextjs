@@ -19,6 +19,16 @@ export default async function handler(req, res) {
 	try {
 		const activeSession = await ensureActiveSession();
 
+		// If no active session exists, return null
+		if (!activeSession) {
+			console.log("🔍 NO ACTIVE SESSION");
+			return res.status(200).json({
+				noActiveSession: true,
+				phase: null,
+				status: null
+			});
+		}
+
 		// DEBUG: Log what session we're returning
 		console.log("🔍 CURRENT SESSION RETURNED:", {
 			name: activeSession.name,

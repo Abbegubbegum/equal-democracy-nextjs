@@ -11,6 +11,7 @@ import {
 	Info,
 	Clock,
 	Star,
+	AlertCircle,
 } from "lucide-react";
 import { fetchWithCsrf } from "../lib/fetch-with-csrf";
 import { useTranslation } from "../lib/hooks/useTranslation";
@@ -49,6 +50,7 @@ export default function HomePage() {
 	const [userHasVotedInSession, setUserHasVotedInSession] = useState(false); // Has user used their one vote
 	const [votedProposalId, setVotedProposalId] = useState(null); // Which proposal user voted on
 	const [isInitialLoad, setIsInitialLoad] = useState(true); // Track if this is the first session info fetch
+	const [hasActiveSession, setHasActiveSession] = useState(true); // Track if there is an active session
 	const transitionIntervalRef = useRef(null); // Reference to transition checking interval
 
 	useEffect(() => {
@@ -93,15 +95,18 @@ export default function HomePage() {
 
 	// Continuous polling in Phase 2 to check for session closure and updates
 	useEffect(() => {
-		if (!session || currentPhase !== "phase2") {
+		if (!session || !currentPhase || currentPhase === "phase1") {
 			return;
 		}
 
-		// Poll every 10 seconds in Phase 2 to check if session closed
+		// Poll every 10 seconds in Phase 2 and even after closed
+		// This ensures all users see the results modal when session closes
 		const pollInterval = setInterval(() => {
 			fetchSessionInfo();
-			fetchProposals(); // Refresh proposals to see updated vote counts
-			checkUserVote(); // Check if user has voted
+			if (currentPhase === "phase2") {
+				fetchProposals(); // Refresh proposals to see updated vote counts
+				checkUserVote(); // Check if user has voted
+			}
 		}, 10000); // Check every 10 seconds
 
 		return () => clearInterval(pollInterval);
@@ -111,17 +116,28 @@ export default function HomePage() {
 		try {
 			const res = await fetch("/api/sessions/current");
 			const data = await res.json();
+
+			// Check if there's no active session
+			if (data.noActiveSession) {
+				setHasActiveSession(false);
+				setCurrentPhase(null);
+				return;
+			}
+
+			// Active session exists
+			setHasActiveSession(true);
+
 			if (data.phase) {
 				const previousPhase = currentPhase;
-				setCurrentPhase(data.phase);
 
-				// Show results modal if:
-				// 1. Session just closed (phase changed to closed during this session)
-				// 2. Session is already closed when user first loads the page
-				if (data.phase === "closed" && (previousPhase !== "closed" || isInitialLoad)) {
+				// Show results modal if session is closed and we haven't shown it yet
+				// This covers both: users on the page when it closes, and users loading after it's closed
+				if (data.phase === "closed" && !showSessionClosed) {
 					await fetchWinningProposals();
 					setShowSessionClosed(true);
 				}
+
+				setCurrentPhase(data.phase);
 
 				// Mark that initial load is complete
 				if (isInitialLoad) {
@@ -607,8 +623,23 @@ export default function HomePage() {
 			</div>
 
 			<div className="max-w-4xl mx-auto p-6 space-y-6">
-				{/* Only allow new proposals in Phase 1 AND when countdown hasn't started */}
-				{currentPhase === "phase1" && transitionCountdown === null && (
+				{/* Show "No active session" button when there's no active session */}
+				{!hasActiveSession && (
+					<button
+						disabled
+						className="w-full font-bold py-6 rounded-2xl shadow-lg flex items-center justify-center gap-3 cursor-not-allowed opacity-75"
+						style={{
+							backgroundColor: accentColor,
+							color: primaryDark
+						}}
+					>
+						<AlertCircle className="w-6 h-6" />
+						{t('proposals.noActiveSession')}
+					</button>
+				)}
+
+				{/* Only allow new proposals in Phase 1 AND when countdown hasn't started AND session exists */}
+				{hasActiveSession && currentPhase === "phase1" && transitionCountdown === null && (
 					<button
 						onClick={() => setView("create")}
 						className="w-full font-bold py-6 rounded-2xl shadow-lg flex items-center justify-center gap-3 transition-all transform hover:scale-105"

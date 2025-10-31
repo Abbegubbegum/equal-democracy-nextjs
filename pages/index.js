@@ -298,7 +298,8 @@ export default function HomePage() {
 			});
 
 			if (res.ok) {
-				await fetchProposals();
+				// Don't fetch proposals - Pusher will broadcast the new proposal to all clients
+				// This prevents the creator from seeing their proposal twice
 				setView("home");
 			} else {
 				const data = await res.json();
@@ -319,7 +320,7 @@ export default function HomePage() {
 			});
 
 			if (res.ok) {
-				fetchProposals();
+				// Don't fetch proposals - Pusher will broadcast the rating update to all clients
 				setExpandedRating(null); // Collapse after rating
 				setUserHasRated(true); // Mark that user has rated at least one proposal
 
@@ -406,7 +407,7 @@ export default function HomePage() {
 			});
 
 			if (res.ok) {
-				await fetchProposals();
+				// Don't fetch proposals - Pusher will broadcast the new comment to all clients
 			} else {
 				const data = await res.json();
 				alert(data.message);
@@ -431,7 +432,7 @@ export default function HomePage() {
 				setUserHasVotedInSession(true);
 				setVotedProposalId(proposalId);
 
-				await fetchProposals();
+				// Don't fetch proposals - Pusher will broadcast the vote update to all clients
 
 				// Check if session was auto-closed
 				if (data.sessionClosed) {

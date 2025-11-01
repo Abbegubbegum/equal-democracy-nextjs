@@ -58,12 +58,14 @@ export default function HomePage() {
 
 	// Sound effects
 	const [playEndSign] = useSound("/sounds/end_sign.mp3", { volume: 0.5 });
+	const [playNotification] = useSound("/sounds/notification.mp3", { volume: 0.5 });
 
 	// Setup SSE for real-time updates
 	useSSE({
 		onNewProposal: (proposal) => {
 			console.log("New proposal received, updating list");
 			setProposals((prev) => [proposal, ...prev]);
+			playNotification(); // Play sound when new proposal arrives
 		},
 		onNewComment: (comment) => {
 			console.log(
@@ -72,6 +74,7 @@ export default function HomePage() {
 			);
 			// Trigger comment refresh for the specific proposal
 			setCommentUpdateTrigger((prev) => prev + 1);
+			playNotification(); // Play sound when new comment arrives
 		},
 		onCommentRatingUpdate: (commentRatingData) => {
 			console.log(
@@ -386,6 +389,7 @@ export default function HomePage() {
 							}
 							setTransitionCountdown(null);
 							setShowPhaseTransition(true);
+							playEndSign(); // Play sound when transition happens
 
 							// Update session info after delay
 							setTimeout(() => {

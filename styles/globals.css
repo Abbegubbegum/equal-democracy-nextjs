@@ -3,4 +3,21 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* Default theme colors (Blue/Yellow) */
+  /* These will be overridden by JavaScript when theme changes */
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
+
+  --color-accent-50: #fefce8;
+  --color-accent-100: #fef9c3;
+  --color-accent-400: #facc15;
+  --color-accent-500: #eab308;
+  --color-accent-600: #ca8a04;
 }

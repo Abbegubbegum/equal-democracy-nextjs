@@ -488,7 +488,7 @@ export default function HomePage() {
 			<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
 				<div className="bg-white rounded-3xl p-12 max-w-lg mx-4 text-center shadow-2xl animate-fade-in">
 					<div className="text-6xl mb-6">🎉</div>
-					<h2 className="text-3xl font-bold text-blue-800 mb-4">
+					<h2 className="text-3xl font-bold text-primary-800 mb-4">
 						{t("phases.ideaPhaseComplete")}
 					</h2>
 					<p className="text-xl text-gray-700">
@@ -506,7 +506,7 @@ export default function HomePage() {
 				<div className="bg-white rounded-3xl p-8 max-w-2xl w-full mx-4 shadow-2xl animate-fade-in max-h-[90vh] overflow-y-auto">
 					<div className="text-center mb-6">
 						<div className="text-6xl mb-4">✅</div>
-						<h2 className="text-3xl font-bold text-blue-800 mb-4">
+						<h2 className="text-3xl font-bold text-primary-800 mb-4">
 							{t("voting.votingClosed")}
 						</h2>
 						<p className="text-xl text-gray-700 mb-6">
@@ -577,7 +577,7 @@ export default function HomePage() {
 					)}
 
 					<div className="text-center">
-						<p className="text-xl font-semibold text-blue-800 mb-4">
+						<p className="text-xl font-semibold text-primary-800 mb-4">
 							{t("voting.thanksForParticipation")}
 						</p>
 						<button
@@ -589,7 +589,7 @@ export default function HomePage() {
 								setCurrentPhase(null);
 								setProposals([]);
 							}}
-							className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-colors"
+							className="bg-primary-800 hover:bg-primary-900 text-white font-bold py-3 px-8 rounded-xl transition-colors shadow-md"
 						>
 							{t("common.close")}
 						</button>
@@ -676,7 +676,7 @@ export default function HomePage() {
 								<h1 className="text-2xl font-bold">
 									{t("appName")}
 								</h1>
-								<p className="text-blue-100 text-sm">
+								<p className="text-primary-100 text-sm">
 									{t("auth.hello")}, {session.user.name}!
 								</p>
 							</div>
@@ -685,20 +685,20 @@ export default function HomePage() {
 							{session.user.isAdmin && (
 								<button
 									onClick={() => router.push("/admin")}
-									className="text-white hover:text-yellow-400 text-sm font-medium"
+									className="text-white hover:text-accent-400 text-sm font-medium"
 								>
 									{t("nav.admin")}
 								</button>
 							)}
 							<button
 								onClick={() => router.push("/dashboard")}
-								className="text-white hover:text-yellow-400 text-sm font-medium"
+								className="text-white hover:text-accent-400 text-sm font-medium"
 							>
 								{t("nav.myActivity")}
 							</button>
 							<button
 								onClick={() => signOut()}
-								className="text-white hover:text-yellow-400 text-sm"
+								className="text-white hover:text-accent-400 text-sm"
 							>
 								{t("auth.logout")}
 							</button>
@@ -747,18 +747,18 @@ export default function HomePage() {
 
 				{/* Countdown banner for phase transition */}
 				{transitionCountdown !== null && currentPhase === "phase1" && (
-					<div className="bg-gradient-to-r from-yellow-100 to-yellow-50 border-2 border-yellow-400 rounded-2xl p-6 shadow-md">
+					<div className="bg-gradient-to-r from-accent-100 to-accent-50 border-2 border-accent-400 rounded-2xl p-6 shadow-md">
 						<div className="flex items-center justify-center gap-3">
-							<Clock className="w-6 h-6 text-yellow-600 animate-pulse" />
-							<p className="text-center text-lg font-semibold text-yellow-800">
+							<Clock className="w-6 h-6 text-accent-600 animate-pulse" />
+							<p className="text-center text-lg font-semibold text-accent-800">
 								{t("phases.transitionToDebate")}{" "}
-								<span className="text-2xl font-bold text-yellow-900">
+								<span className="text-2xl font-bold text-accent-900">
 									{transitionCountdown}
 								</span>{" "}
 								{t("common.seconds")}...
 							</p>
 						</div>
-						<p className="text-center text-sm text-yellow-700 mt-2">
+						<p className="text-center text-sm text-accent-700 mt-2">
 							{t("phases.transitionMessage")}
 						</p>
 					</div>
@@ -766,13 +766,13 @@ export default function HomePage() {
 
 				{/* Information about limited voting rights in Phase 2 */}
 				{currentPhase === "phase2" && !userHasVotedInSession && (
-					<div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-400 rounded-2xl p-6 shadow-md">
+					<div className="bg-gradient-to-r from-primary-50 to-primary-100 border-2 border-primary-400 rounded-2xl p-6 shadow-md">
 						<div className="flex items-start gap-4">
-							<div className="w-12 h-12 bg-blue-500 rounded-full flex items-center justify-center shrink-0">
+							<div className="w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center shrink-0">
 								<Info className="w-6 h-6 text-white" />
 							</div>
 							<div className="flex-1">
-								<h3 className="text-lg font-bold text-blue-900 mb-2">
+								<h3 className="text-lg font-bold text-primary-900 mb-2">
 									{t("voting.limitedVotingRights")}
 								</h3>
 								<p className="text-gray-700 text-sm leading-relaxed mb-2">
@@ -806,17 +806,17 @@ export default function HomePage() {
 				)}
 
 				{topProposals.length > 0 && (
-					<div className="bg-yellow-50 border-2 border-yellow-400 rounded-2xl p-6 space-y-4">
+					<div className="bg-accent-50 border-2 border-accent-400 rounded-2xl p-6 space-y-4">
 						<div className="flex items-center justify-between">
 							<div className="flex items-center gap-2">
-								<TrendingUp className="w-6 h-6 text-yellow-600" />
-								<h3 className="text-xl font-bold text-blue-800">
+								<TrendingUp className="w-6 h-6 text-accent-600" />
+								<h3 className="text-xl font-bold text-primary-800">
 									{t("proposals.topProposals")}
 								</h3>
 							</div>
 							<button
 								onClick={() => setView("vote")}
-								className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
+								className="bg-primary-800 hover:bg-primary-900 text-white px-4 py-2 rounded-lg font-medium"
 							>
 								{t("proposals.vote")}
 							</button>
@@ -1041,14 +1041,14 @@ function ProposalCard({
 			<div
 				className={
 					!isPhase1
-						? "cursor-pointer hover:bg-blue-50 -mx-6 -mt-6 px-6 pt-6 pb-4 rounded-t-2xl transition-all duration-200 hover:shadow-sm relative"
+						? "cursor-pointer hover:bg-primary-50 -mx-6 -mt-6 px-6 pt-6 pb-4 rounded-t-2xl transition-all duration-200 hover:shadow-sm relative"
 						: ""
 				}
 				onClick={!isPhase1 ? handleToggleDiscuss : undefined}
 			>
 				<h4
-					className={`text-lg font-bold text-blue-800 mb-2 ${
-						!isPhase1 ? "group-hover:text-blue-900" : ""
+					className={`text-lg font-bold text-primary-800 mb-2 ${
+						!isPhase1 ? "group-hover:text-primary-900" : ""
 					}`}
 				>
 					{proposal.title}
@@ -1097,8 +1097,8 @@ function ProposalCard({
 						disabled={checking}
 						className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-colors ${
 							hasVoted
-								? "bg-blue-100 text-blue-600"
-								: "bg-gray-100 hover:bg-blue-100 text-gray-700 hover:text-blue-600"
+								? "bg-primary-100 text-primary-600"
+								: "bg-gray-100 hover:bg-primary-100 text-gray-700 hover:text-primary-600"
 						}`}
 					>
 						<ThumbsUp className="w-5 h-5" />
@@ -1111,8 +1111,8 @@ function ProposalCard({
 
 					{/* Show user's current rating */}
 					{hasVoted && userRating > 0 && !isExpanded && (
-						<div className="mt-2 flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-lg">
-							<span className="text-sm text-blue-800 font-medium">
+						<div className="mt-2 flex items-center gap-2 px-3 py-2 bg-primary-50 rounded-lg">
+							<span className="text-sm text-primary-800 font-medium">
 								{t("rating.yourRating")}:
 							</span>
 							<div className="flex gap-0.5">
@@ -1166,7 +1166,7 @@ function ProposalCard({
 
 			{/* Phase 2: Show rating */}
 			{!isPhase1 && (
-				<div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-100 text-blue-600 font-medium">
+				<div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-100 text-primary-600 font-medium">
 					<ThumbsUp className="w-5 h-5" />
 					<span className="font-bold">{proposal.thumbsUpCount}</span>
 					{proposal.averageRating > 0 && (
@@ -1223,14 +1223,14 @@ function ProposalCard({
 							type="text"
 							value={commentText}
 							onChange={(e) => setCommentText(e.target.value)}
-							className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none text-sm"
+							className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:outline-none text-sm"
 							placeholder={t("comments.writeArgument")}
 							maxLength={1000}
 						/>
 						<button
 							type="submit"
 							disabled={!commentText.trim() || submitting}
-							className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white px-4 py-2 rounded-xl font-medium transition-colors text-sm"
+							className="bg-primary-800 hover:bg-primary-900 disabled:bg-gray-300 disabled:text-gray-500 text-white px-4 py-2 rounded-xl font-medium transition-colors text-sm"
 						>
 							{submitting
 								? t("comments.sending")
@@ -1287,7 +1287,7 @@ function ProposalCard({
 																: comment.type ===
 																  "against"
 																? "bg-red-500 hover:bg-red-600"
-																: "bg-blue-500 hover:bg-blue-600"
+																: "bg-primary-500 hover:bg-primary-600"
 															: "bg-gray-300 hover:bg-gray-400"
 													}`}
 													title={
@@ -1320,7 +1320,7 @@ function ProposalCard({
 																	className={`w-3 h-3 ${
 																		star <=
 																		userCommentRating
-																			? "fill-blue-500 text-blue-500"
+																			? "fill-blue-500 text-primary-500"
 																			: "text-gray-300"
 																	}`}
 																/>
@@ -1349,7 +1349,7 @@ function ProposalCard({
 																		Math.round(
 																			avgRating
 																		)
-																			? "fill-yellow-400 text-yellow-400"
+																			? "fill-yellow-400 text-accent-400"
 																			: "text-gray-300"
 																	}`}
 																/>
@@ -1400,8 +1400,8 @@ function ProposalCard({
 																		className={`w-6 h-6 ${
 																			star <=
 																			userCommentRating
-																				? "fill-yellow-400 text-yellow-400"
-																				: "text-gray-300 hover:text-yellow-400"
+																				? "fill-yellow-400 text-accent-400"
+																				: "text-gray-300 hover:text-accent-400"
 																		}`}
 																	/>
 																</button>
@@ -1432,7 +1432,7 @@ function ProposalCard({
 						) : (
 							<button
 								onClick={onVote}
-								className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors"
+								className="flex-1 bg-primary-800 hover:bg-primary-900 text-white font-bold py-3 rounded-xl transition-colors"
 							>
 								{t("voting.vote")}
 							</button>
@@ -1481,17 +1481,17 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 	};
 
 	return (
-		<div className="min-h-screen bg-yellow-50 p-6">
+		<div className="min-h-screen bg-accent-50 p-6">
 			<div className="max-w-2xl mx-auto">
 				<button
 					onClick={onBack}
-					className="mb-6 text-blue-600 hover:text-blue-700 font-medium"
+					className="mb-6 text-primary-600 hover:text-primary-700 font-medium"
 				>
 					← {t("common.back")}
 				</button>
 
 				<div className="bg-white rounded-2xl shadow-lg p-8">
-					<h2 className="text-2xl font-bold text-blue-800 mb-6">
+					<h2 className="text-2xl font-bold text-primary-800 mb-6">
 						{t("createProposal.title")}
 					</h2>
 
@@ -1504,7 +1504,7 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 								type="text"
 								value={title}
 								onChange={(e) => setTitle(e.target.value)}
-								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none"
+								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:outline-none"
 								placeholder={t("createProposal.nameExample")}
 								autoFocus
 								maxLength={200}
@@ -1520,7 +1520,7 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 								value={problem}
 								onChange={(e) => setProblem(e.target.value)}
 								rows={4}
-								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none resize-none"
+								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:outline-none resize-none"
 								placeholder={t(
 									"createProposal.problemPlaceholder"
 								)}
@@ -1540,7 +1540,7 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 								value={solution}
 								onChange={(e) => setSolution(e.target.value)}
 								rows={4}
-								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none resize-none"
+								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:outline-none resize-none"
 								placeholder={t(
 									"createProposal.solutionPlaceholder"
 								)}
@@ -1562,7 +1562,7 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 								onChange={(e) =>
 									setEstimatedCost(e.target.value)
 								}
-								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none"
+								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:outline-none"
 								placeholder={t(
 									"createProposal.costPlaceholder"
 								)}
@@ -1580,7 +1580,7 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 								!estimatedCost.trim() ||
 								submitting
 							}
-							className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-bold py-4 rounded-xl transition-colors shadow-lg"
+							className="w-full bg-primary-800 hover:bg-primary-900 disabled:bg-gray-300 text-white font-bold py-4 rounded-xl transition-colors shadow-lg"
 						>
 							{submitting
 								? t("createProposal.submitting")
@@ -1598,9 +1598,11 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 // ============================================================================
 
 function VoteView({ proposals, currentUser, onVote, onBack, t }) {
+	const [currentProposalIndex, setCurrentProposalIndex] = useState(0);
 	const [votedProposals, setVotedProposals] = useState(new Set());
 	const [voteResults, setVoteResults] = useState({});
 	const [loading, setLoading] = useState(true);
+	const [isVoting, setIsVoting] = useState(false);
 
 	useEffect(() => {
 		fetchVoteData();
@@ -1638,153 +1640,240 @@ function VoteView({ proposals, currentUser, onVote, onBack, t }) {
 	};
 
 	const handleVote = async (proposalId, choice) => {
+		setIsVoting(true);
 		await onVote(proposalId, choice);
 		await fetchVoteData();
+		setIsVoting(false);
+
+		// Move to next proposal after a short delay
+		setTimeout(() => {
+			if (currentProposalIndex < proposals.length - 1) {
+				setCurrentProposalIndex(currentProposalIndex + 1);
+			}
+		}, 1500);
 	};
 
-	return (
-		<div className="min-h-screen bg-gray-50">
-			<div className="bg-green-600 text-white p-6 shadow-lg">
-				<div className="max-w-2xl mx-auto">
+	const currentProposal = proposals[currentProposalIndex];
+	const voted = currentProposal ? votedProposals.has(currentProposal._id) : false;
+	const results = currentProposal ? (voteResults[currentProposal._id] || { yes: 0, no: 0, total: 0 }) : { yes: 0, no: 0, total: 0 };
+
+	if (loading) {
+		return (
+			<div className="min-h-screen bg-gradient-to-b from-primary-900 to-primary-800 flex items-center justify-center">
+				<div className="text-white text-xl">{t("common.loading")}</div>
+			</div>
+		);
+	}
+
+	if (!currentProposal) {
+		return (
+			<div className="min-h-screen bg-gradient-to-b from-primary-900 to-primary-800 flex items-center justify-center">
+				<div className="text-center text-white">
+					<p className="text-xl">{t("voting.noProposals")}</p>
 					<button
 						onClick={onBack}
-						className="mb-4 text-white hover:text-yellow-400 font-medium"
+						className="mt-4 px-6 py-3 bg-white text-primary-900 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+					>
+						{t("common.back")}
+					</button>
+				</div>
+			</div>
+		);
+	}
+
+	return (
+		<div className="min-h-screen bg-gradient-to-b from-primary-900 via-primary-800 to-primary-900 text-white">
+			{/* Header */}
+			<div className="border-b border-primary-700 bg-primary-900/50 backdrop-blur">
+				<div className="max-w-4xl mx-auto px-6 py-6">
+					<button
+						onClick={onBack}
+						className="mb-4 text-primary-200 hover:text-white font-medium transition-colors"
 					>
 						← {t("common.back")}
 					</button>
-					<h2 className="text-2xl font-bold">
-						{t("voting.voteOnTopProposals")}
-					</h2>
-					<p className="text-green-100 mt-2">
-						{t("voting.chooseIdeasToImplement")}
-					</p>
+					<div className="text-center">
+						<h1 className="text-3xl font-bold mb-2">
+							{t("voting.officialVoting")}
+						</h1>
+						<p className="text-primary-200 text-lg">
+							{t("voting.yourVoteMatters")}
+						</p>
+					</div>
 				</div>
 			</div>
 
-			<div className="max-w-2xl mx-auto p-6 space-y-6">
-				{loading ? (
-					<div className="bg-white rounded-2xl p-8 text-center text-gray-500">
-						{t("common.loading")}
+			{/* Progress indicator */}
+			<div className="max-w-4xl mx-auto px-6 py-4">
+				<div className="flex items-center justify-center gap-2">
+					{proposals.map((_, index) => (
+						<div
+							key={index}
+							className={`h-2 rounded-full transition-all ${
+								index === currentProposalIndex
+									? "w-12 bg-accent-400"
+									: index < currentProposalIndex
+									? "w-8 bg-green-400"
+									: "w-8 bg-primary-700"
+							}`}
+						/>
+					))}
+				</div>
+				<p className="text-center text-primary-200 mt-3 text-sm">
+					{t("voting.proposalXOfY", {
+						current: currentProposalIndex + 1,
+						total: proposals.length,
+					})}
+				</p>
+			</div>
+
+			{/* Main voting card */}
+			<div className="max-w-4xl mx-auto px-6 py-8">
+				<div className="bg-white text-gray-900 rounded-3xl shadow-2xl overflow-hidden border-4 border-accent-400">
+					{/* Proposal header */}
+					<div className="bg-gradient-to-r from-accent-400 to-accent-500 px-8 py-6 text-center">
+						<h2 className="text-2xl font-bold text-primary-900">
+							{currentProposal.title}
+						</h2>
 					</div>
-				) : (
-					proposals.map((proposal, index) => {
-						const voted = votedProposals.has(proposal._id);
-						const results = voteResults[proposal._id] || {
-							yes: 0,
-							no: 0,
-							total: 0,
-						};
 
-						return (
-							<div
-								key={proposal._id}
-								className="bg-white rounded-2xl shadow-lg p-6 space-y-4"
-							>
-								<div className="flex items-start gap-3">
-									<div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center shrink-0">
-										<span className="text-blue-800 font-bold text-lg">
-											#{index + 1}
-										</span>
-									</div>
-									<div className="flex-1">
-										<h4 className="text-lg font-bold text-blue-800 mb-2">
-											{proposal.title}
-										</h4>
+					{/* Proposal content */}
+					<div className="px-8 py-8 space-y-6">
+						<div>
+							<h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">
+								{t("proposals.problemColon")}
+							</h3>
+							<p className="text-lg leading-relaxed text-gray-800">
+								{currentProposal.problem}
+							</p>
+						</div>
 
-										<div className="space-y-2 text-sm">
-											<div>
-												<p className="font-semibold text-gray-700">
-													{t(
-														"proposals.problemColon"
-													)}
-												</p>
-												<p className="text-gray-600">
-													{proposal.problem}
-												</p>
-											</div>
+						<div className="border-t border-gray-200 pt-6">
+							<h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">
+								{t("proposals.solutionColon")}
+							</h3>
+							<p className="text-lg leading-relaxed text-gray-800">
+								{currentProposal.solution}
+							</p>
+						</div>
 
-											<div>
-												<p className="font-semibold text-gray-700">
-													{t(
-														"proposals.solutionColon"
-													)}
-												</p>
-												<p className="text-gray-600">
-													{proposal.solution}
-												</p>
-											</div>
+						<div className="border-t border-gray-200 pt-6">
+							<h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">
+								{t("proposals.estimatedCost")}
+							</h3>
+							<p className="text-xl font-semibold text-primary-900">
+								{currentProposal.estimatedCost}
+							</p>
+						</div>
+					</div>
 
-											<div>
-												<p className="font-semibold text-gray-700">
-													{t(
-														"proposals.estimatedCost"
-													)}
-												</p>
-												<p className="text-gray-600">
-													{proposal.estimatedCost}
-												</p>
-											</div>
-										</div>
+					{/* Voting section */}
+					{!voted ? (
+						<div className="px-8 pb-8">
+							<div className="border-t-4 border-accent-400 pt-8">
+								<p className="text-center text-lg font-semibold text-gray-700 mb-6">
+									{t("voting.castYourVote")}
+								</p>
+								<div className="grid grid-cols-2 gap-6">
+									<button
+										onClick={() =>
+											handleVote(currentProposal._id, "yes")
+										}
+										disabled={isVoting}
+										className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-6 px-8 rounded-2xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex flex-col items-center justify-center gap-3"
+									>
+										<ThumbsUp className="w-12 h-12" />
+										<span className="text-2xl">{t("voting.yes")}</span>
+									</button>
+									<button
+										onClick={() =>
+											handleVote(currentProposal._id, "no")
+										}
+										disabled={isVoting}
+										className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-bold py-6 px-8 rounded-2xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex flex-col items-center justify-center gap-3"
+									>
+										<ThumbsDown className="w-12 h-12" />
+										<span className="text-2xl">{t("voting.no")}</span>
+									</button>
+								</div>
+							</div>
+						</div>
+					) : (
+						<div className="px-8 pb-8">
+							<div className="border-t-4 border-green-400 pt-8 space-y-4">
+								<div className="text-center">
+									<div className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-6 py-3 rounded-full font-semibold">
+										<span className="text-2xl">✓</span>
+										<span>{t("voting.youHaveVoted")}</span>
 									</div>
 								</div>
-
-								{!voted ? (
-									<div className="flex gap-3">
-										<button
-											onClick={() =>
-												handleVote(proposal._id, "yes")
-											}
-											className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-										>
-											<ThumbsUp className="w-6 h-6" />
-											{t("voting.yes")}
-										</button>
-										<button
-											onClick={() =>
-												handleVote(proposal._id, "no")
-											}
-											className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-4 rounded-xl transition-colors flex items-center justify-center gap-2"
-										>
-											<ThumbsDown className="w-6 h-6" />
-											{t("voting.no")}
-										</button>
-									</div>
-								) : (
-									<div className="space-y-2">
-										<div className="flex items-center justify-between text-sm text-gray-600 mb-1">
-											<span>{t("voting.results")}</span>
-											<span>
-												{t("voting.votesCount", {
-													count: results.total,
-												})}
-											</span>
-										</div>
-										<div className="flex gap-2">
-											<div className="flex-1 bg-green-100 rounded-lg p-3 text-center">
-												<p className="text-2xl font-bold text-green-700">
-													{results.yes}
-												</p>
-												<p className="text-xs text-green-600">
-													{t("voting.yesShort")}
-												</p>
-											</div>
-											<div className="flex-1 bg-red-100 rounded-lg p-3 text-center">
-												<p className="text-2xl font-bold text-red-700">
-													{results.no}
-												</p>
-												<p className="text-xs text-red-600">
-													{t("voting.noShort")}
-												</p>
-											</div>
-										</div>
-										<p className="text-center text-sm text-green-600 font-medium">
-											✓ {t("voting.youHaveVoted")}
+								<div className="grid grid-cols-2 gap-4 pt-4">
+									<div className="bg-green-50 border-2 border-green-200 rounded-xl p-4 text-center">
+										<p className="text-4xl font-bold text-green-700">
+											{results.yes}
+										</p>
+										<p className="text-sm text-green-600 font-medium mt-1">
+											{t("voting.yesVotes")}
 										</p>
 									</div>
+									<div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 text-center">
+										<p className="text-4xl font-bold text-red-700">
+											{results.no}
+										</p>
+										<p className="text-sm text-red-600 font-medium mt-1">
+											{t("voting.noVotes")}
+										</p>
+									</div>
+								</div>
+								<p className="text-center text-sm text-gray-500 pt-2">
+									{t("voting.totalVotes", { count: results.total })}
+								</p>
+								{currentProposalIndex < proposals.length - 1 && (
+									<button
+										onClick={() =>
+											setCurrentProposalIndex(
+												currentProposalIndex + 1
+											)
+										}
+										className="w-full mt-4 bg-primary-800 hover:bg-primary-900 text-white font-semibold py-3 rounded-xl transition-colors"
+									>
+										{t("voting.nextProposal")} →
+									</button>
 								)}
 							</div>
-						);
-					})
+						</div>
+					)}
+				</div>
+
+				{/* Navigation buttons */}
+				{proposals.length > 1 && (
+					<div className="flex justify-between mt-6">
+						<button
+							onClick={() =>
+								setCurrentProposalIndex(
+									Math.max(0, currentProposalIndex - 1)
+								)
+							}
+							disabled={currentProposalIndex === 0}
+							className="px-6 py-3 bg-primary-700 hover:bg-primary-600 disabled:bg-primary-900 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
+						>
+							← {t("voting.previous")}
+						</button>
+						<button
+							onClick={() =>
+								setCurrentProposalIndex(
+									Math.min(
+										proposals.length - 1,
+										currentProposalIndex + 1
+									)
+								)
+							}
+							disabled={currentProposalIndex === proposals.length - 1}
+							className="px-6 py-3 bg-primary-700 hover:bg-primary-600 disabled:bg-primary-900 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
+						>
+							{t("voting.next")} →
+						</button>
+					</div>
 				)}
 			</div>
 		</div>

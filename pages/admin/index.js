@@ -34,7 +34,7 @@ export default function AdminPage() {
 			<header className="bg-slate-800 text-white p-6 shadow">
 				<div className="max-w-6xl mx-auto flex items-center justify-between">
 					<div className="flex items-center gap-3">
-						<div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center">
+						<div className="w-10 h-10 bg-accent-400 rounded-full flex items-center justify-center">
 							<Shield className="w-5 h-5 text-slate-900" />
 						</div>
 						<div>
@@ -46,7 +46,7 @@ export default function AdminPage() {
 					</div>
 					<button
 						onClick={() => router.push("/")}
-						className="px-4 py-2 bg-yellow-400 hover:bg-yellow-500 text-slate-900 font-medium rounded-lg transition-colors"
+						className="px-4 py-2 bg-white hover:bg-gray-100 text-slate-900 font-medium rounded-lg transition-colors shadow-sm"
 					>
 						Back to home
 					</button>
@@ -190,8 +190,11 @@ function SettingsPanel() {
 			});
 
 			if (res.ok) {
-				setMessage("Settings saved! Reload the page to see changes.");
-				setTimeout(() => setMessage(""), 5000);
+				setMessage("Settings saved! Färgerna uppdateras automatiskt.");
+				// Trigger a config reload by refreshing the page after a short delay
+				setTimeout(() => {
+					window.location.reload();
+				}, 1000);
 			} else {
 				const error = await res.json();
 				setMessage(`Error: ${error.error}`);
@@ -297,7 +300,7 @@ function SettingsPanel() {
 				<button
 					onClick={handleSave}
 					disabled={saving}
-					className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-slate-400 disabled:cursor-not-allowed"
+					className="px-6 py-2 bg-accent-500 text-slate-900 rounded-lg hover:bg-accent-600 font-semibold disabled:bg-slate-400 disabled:cursor-not-allowed"
 				>
 					{saving ? "Saving..." : "Save settings"}
 				</button>
@@ -318,16 +321,16 @@ function SettingsPanel() {
 				<div className="mt-8 pt-8 border-t border-slate-200">
 					<h3 className="text-lg font-bold mb-4 text-slate-700">Database Migration</h3>
 
-					<div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-						<h4 className="font-semibold text-yellow-800 mb-2">Migrate Comment Ratings</h4>
-						<p className="text-sm text-yellow-700 mb-3">
+					<div className="bg-accent-50 border border-accent-200 rounded-lg p-4 mb-4">
+						<h4 className="font-semibold text-accent-800 mb-2">Migrate Comment Ratings</h4>
+						<p className="text-sm text-accent-700 mb-3">
 							If arguments are not sorting correctly by rating, run this migration.
 							It updates all existing comments so that sorting works.
 						</p>
 						<button
 							onClick={handleMigrateCommentRatings}
 							disabled={migrating}
-							className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:bg-slate-400 disabled:cursor-not-allowed"
+							className="px-4 py-2 bg-accent-600 text-white rounded-lg hover:bg-accent-700 disabled:bg-slate-400 disabled:cursor-not-allowed"
 						>
 							{migrating ? "Migrating..." : "Run migration"}
 						</button>
@@ -537,7 +540,7 @@ function ProposalsPanel() {
 				<div key={p.id} className="border rounded-xl p-3">
 					<div className="flex items-center justify-between">
 						<input
-							className="font-semibold text-blue-900 flex-1 mr-3 border rounded px-2 py-1"
+							className="font-semibold text-primary-900 flex-1 mr-3 border rounded px-2 py-1"
 							defaultValue={p.title}
 							onBlur={(e) =>
 								patch(p.id, { title: e.target.value })
@@ -819,7 +822,7 @@ function SessionsPanel() {
 						<button
 							onClick={createSession}
 							disabled={creating}
-							className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-slate-400"
+							className="px-6 py-2 bg-accent-500 text-slate-900 rounded-lg hover:bg-accent-600 font-semibold disabled:bg-slate-400"
 						>
 							{creating ? "Creating..." : "Create session"}
 						</button>
@@ -837,8 +840,8 @@ function SessionsPanel() {
 						)}
 					</div>
 				) : (
-					<div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-						<p className="text-yellow-800">
+					<div className="p-4 bg-accent-50 border border-accent-200 rounded-lg">
+						<p className="text-accent-800">
 							There is already an active session. Close it before creating a new one.
 						</p>
 					</div>
@@ -864,7 +867,7 @@ function SessionsPanel() {
 								<p className="text-sm text-slate-500">
 									Duration: {Math.floor((new Date() - new Date(activeSession.startDate)) / (1000 * 60 * 60))} hours
 								</p>
-								<p className="text-sm font-semibold text-blue-700 mt-2">
+								<p className="text-sm font-semibold text-primary-700 mt-2">
 									Current phase: {activeSession.phase === "phase1" ? "Phase 1 (Rating)" : "Phase 2 (Debate & Voting)"}
 								</p>
 								{activeSession.userReadyPhase1 && activeSession.userReadyPhase1.length > 0 && (
@@ -969,12 +972,12 @@ function TopProposalsPanel() {
 					{topProposals.map((tp) => (
 						<div
 							key={tp.id}
-							className="p-4 border-l-4 border-yellow-400 bg-yellow-50 rounded-lg"
+							className="p-4 border-l-4 border-accent-400 bg-accent-50 rounded-lg"
 						>
 							<div className="flex items-start justify-between">
 								<div className="flex-1">
 									<div className="flex items-center gap-2 mb-2">
-										<h3 className="font-bold text-lg text-blue-900">
+										<h3 className="font-bold text-lg text-primary-900">
 											{tp.title}
 										</h3>
 									</div>
@@ -1147,7 +1150,7 @@ function EmailPanel() {
 					<button
 						onClick={sendResultsEmail}
 						disabled={sending || !selectedSession}
-						className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-slate-400"
+						className="px-6 py-2 bg-accent-500 text-slate-900 rounded-lg hover:bg-accent-600 font-semibold disabled:bg-slate-400"
 					>
 						{sending ? "Sending..." : "Send results email"}
 					</button>

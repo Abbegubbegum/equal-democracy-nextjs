@@ -58,7 +58,7 @@ export default async function handler(req, res) {
 			if (!activeSession) {
 				return res
 					.status(400)
-					.json({ message: "Ingen aktiv session finns" });
+					.json({ message: "No active session exists" });
 			}
 
 			// Check if user has already voted in this session (limit: 1 vote per session)
@@ -70,7 +70,7 @@ export default async function handler(req, res) {
 			if (existingVoteInSession) {
 				return res.status(400).json({
 					message:
-						"Du har redan använt din röst i denna omgång. Varje användare får bara rösta på ett (1) förslag.",
+						"You have already used your vote this session. Each user may only vote on one (1) proposal.",
 				});
 			}
 
@@ -126,7 +126,7 @@ export default async function handler(req, res) {
 			}
 
 			return res.status(201).json({
-				message: "Röst registrerad",
+				message: "Vote registered",
 				results: {
 					yes: yesCount,
 					no: noCount,
@@ -136,7 +136,7 @@ export default async function handler(req, res) {
 			});
 		} catch (error) {
 			console.error("Error creating vote:", error);
-			return res.status(500).json({ message: "Ett fel uppstod" });
+			return res.status(500).json({ message: "An error has occured" });
 		}
 	}
 
@@ -153,7 +153,7 @@ export default async function handler(req, res) {
 				if (!activeSession) {
 					return res
 						.status(400)
-						.json({ message: "Ingen aktiv session finns" });
+						.json({ message: "No active session exists" });
 				}
 
 				const userVote = await FinalVote.findOne({
@@ -169,7 +169,9 @@ export default async function handler(req, res) {
 				});
 			} catch (error) {
 				console.error("Error checking session vote:", error);
-				return res.status(500).json({ message: "Ett fel uppstod" });
+				return res
+					.status(500)
+					.json({ message: "An error has occured" });
 			}
 		}
 
@@ -212,11 +214,13 @@ export default async function handler(req, res) {
 				});
 			} catch (error) {
 				console.error("Error fetching vote results:", error);
-				return res.status(500).json({ message: "Ett fel uppstod" });
+				return res
+					.status(500)
+					.json({ message: "An error has occured" });
 			}
 		}
 
-		return res.status(400).json({ message: "Proposal ID krävs" });
+		return res.status(400).json({ message: "Proposal ID is required" });
 	}
 
 	return res.status(405).json({ message: "Method not allowed" });

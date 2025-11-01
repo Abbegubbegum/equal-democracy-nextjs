@@ -27,7 +27,9 @@ export default async function handler(req, res) {
 		const { subject, message } = req.body;
 
 		if (!subject || !message) {
-			return res.status(400).json({ error: "Subject and message are required" });
+			return res
+				.status(400)
+				.json({ error: "Subject and message are required" });
 		}
 
 		// Get all users
@@ -42,7 +44,10 @@ export default async function handler(req, res) {
 				await sendBroadcastEmail(user.email, subject, message);
 				successCount++;
 			} catch (emailError) {
-				console.error(`Failed to send email to ${user.email}:`, emailError);
+				console.error(
+					`Failed to send email to ${user.email}:`,
+					emailError
+				);
 				errorCount++;
 			}
 		}
@@ -55,6 +60,8 @@ export default async function handler(req, res) {
 		});
 	} catch (error) {
 		console.error("Error sending broadcast emails:", error);
-		return res.status(500).json({ error: "Failed to send broadcast emails" });
+		return res
+			.status(500)
+			.json({ error: "Failed to send broadcast emails" });
 	}
 }

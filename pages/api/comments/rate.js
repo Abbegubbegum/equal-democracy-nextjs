@@ -17,7 +17,7 @@ export default async function handler(req, res) {
 	const session = await getServerSession(req, res, authOptions);
 
 	if (!session) {
-		return res.status(401).json({ message: "Du måste vara inloggad" });
+		return res.status(401).json({ message: "You have to be logged in" });
 	}
 
 	if (req.method === "POST") {
@@ -26,14 +26,14 @@ export default async function handler(req, res) {
 		if (!commentId || !rating) {
 			return res
 				.status(400)
-				.json({ message: "Comment ID och betyg krävs" });
+				.json({ message: "Comment ID and rating is required" });
 		}
 
 		// Validate rating
 		if (typeof rating !== "number" || rating < 1 || rating > 5) {
 			return res
 				.status(400)
-				.json({ message: "Betyget måste vara mellan 1 och 5" });
+				.json({ message: "Rating must be a number between 1 and 5" });
 		}
 
 		try {
@@ -44,15 +44,13 @@ export default async function handler(req, res) {
 			if (!activeSession) {
 				return res
 					.status(400)
-					.json({ message: "Ingen aktiv session finns" });
+					.json({ message: "No active session exists" });
 			}
 
 			// Check if comment exists
 			const comment = await Comment.findById(commentId);
 			if (!comment) {
-				return res
-					.status(404)
-					.json({ message: "Kommentar hittades inte" });
+				return res.status(404).json({ message: "Comment not found" });
 			}
 
 			// Check if user has already rated this comment
@@ -100,11 +98,9 @@ export default async function handler(req, res) {
 			});
 		} catch (error) {
 			console.error("Error rating comment:", error);
-			return res
-				.status(500)
-				.json({
-					message: "Ett fel uppstod vid betygsättning av kommentar",
-				});
+			return res.status(500).json({
+				message: "An error occurred with rating comments",
+			});
 		}
 	}
 
@@ -112,7 +108,7 @@ export default async function handler(req, res) {
 		const { commentId } = req.query;
 
 		if (!commentId) {
-			return res.status(400).json({ message: "Comment ID krävs" });
+			return res.status(400).json({ message: "Comment ID is required" });
 		}
 
 		try {
@@ -127,7 +123,7 @@ export default async function handler(req, res) {
 			});
 		} catch (error) {
 			console.error("Error fetching comment rating:", error);
-			return res.status(500).json({ message: "Ett fel uppstod" });
+			return res.status(500).json({ message: "An error has occured" });
 		}
 	}
 

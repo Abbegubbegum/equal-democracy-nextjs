@@ -22,39 +22,51 @@ export default async function handler(req, res) {
 	if (req.method === "GET") {
 		try {
 			// Get all sessions
-			const sessions = await Session.find().sort({ createdAt: -1 }).lean();
+			const sessions = await Session.find()
+				.sort({ createdAt: -1 })
+				.lean();
 
 			// For active sessions, populate active users with voting status
 			for (const sess of sessions) {
-				if (sess.status === "active" && sess.activeUsers && sess.activeUsers.length > 0) {
+				if (
+					sess.status === "active" &&
+					sess.activeUsers &&
+					sess.activeUsers.length > 0
+				) {
 					// Get user details
 					const users = await User.find({
-						_id: { $in: sess.activeUsers }
-					}).select('name email').lean();
+						_id: { $in: sess.activeUsers },
+					})
+						.select("name email")
+						.lean();
 
 					// If in phase2, check voting status
 					if (sess.phase === "phase2") {
 						// Get all final votes for this session
 						const votes = await FinalVote.find({
-							sessionId: sess._id
-						}).select('userId').lean();
+							sessionId: sess._id,
+						})
+							.select("userId")
+							.lean();
 
 						// Create a set of user IDs who have voted
-						const votedUserIds = new Set(votes.map(vote => vote.userId.toString()));
+						const votedUserIds = new Set(
+							votes.map((vote) => vote.userId.toString())
+						);
 
 						// Add voting status to users
-						sess.activeUsersWithStatus = users.map(user => ({
+						sess.activeUsersWithStatus = users.map((user) => ({
 							_id: user._id,
 							name: user.name,
 							email: user.email,
-							hasVoted: votedUserIds.has(user._id.toString())
+							hasVoted: votedUserIds.has(user._id.toString()),
 						}));
 					} else {
 						// Phase 1 - just show users
-						sess.activeUsersWithStatus = users.map(user => ({
+						sess.activeUsersWithStatus = users.map((user) => ({
 							_id: user._id,
 							name: user.name,
-							email: user.email
+							email: user.email,
 						}));
 					}
 				}
@@ -79,7 +91,7 @@ export default async function handler(req, res) {
 			const activeSession = await Session.findOne({ status: "active" });
 			if (activeSession) {
 				return res.status(400).json({
-					error: "There is already an active session. Please close it before creating a new one."
+					error: "There is already an active session. Please close it before creating a new one.",
 				});
 			}
 
@@ -103,7 +115,9 @@ export default async function handler(req, res) {
 		} catch (error) {
 			console.error("Error creating session:", error);
 			if (error.code === 11000) {
-				return res.status(400).json({ error: "A session with this name already exists" });
+				return res
+					.status(400)
+					.json({ error: "A session with this name already exists" });
 			}
 			return res.status(500).json({ error: "Failed to create session" });
 		}
@@ -114,7 +128,9 @@ export default async function handler(req, res) {
 			const { id, updates } = req.body;
 
 			if (!id) {
-				return res.status(400).json({ error: "Session ID is required" });
+				return res
+					.status(400)
+					.json({ error: "Session ID is required" });
 			}
 
 			const updatedSession = await Session.findByIdAndUpdate(

@@ -50,16 +50,31 @@ export default async function handler(req, res) {
 			if (phase2DurationHours !== undefined) {
 				const hours = Number(phase2DurationHours);
 				if (isNaN(hours) || hours < 1 || hours > 168) {
-					return res.status(400).json({ error: "Phase 2 duration must be between 1 and 168 hours" });
+					return res
+						.status(400)
+						.json({
+							error: "Phase 2 duration must be between 1 and 168 hours",
+						});
 				}
 			}
 
-			if (language && !["sv", "en", "sr", "es", "de"].includes(language)) {
-				return res.status(400).json({ error: "Invalid language (must be sv, en, sr, es, or de)" });
+			if (
+				language &&
+				!["sv", "en", "sr", "es", "de"].includes(language)
+			) {
+				return res
+					.status(400)
+					.json({
+						error: "Invalid language (must be sv, en, sr, es, or de)",
+					});
 			}
 
 			if (theme && !["default", "green", "red"].includes(theme)) {
-				return res.status(400).json({ error: "Invalid theme (must be default, green, or red)" });
+				return res
+					.status(400)
+					.json({
+						error: "Invalid theme (must be default, green, or red)",
+					});
 			}
 
 			// Update or create settings

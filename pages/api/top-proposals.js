@@ -18,8 +18,9 @@ export default async function handler(req, res) {
 	if (req.method === "GET") {
 		try {
 			// Get the most recently closed session
-			const latestClosedSession = await Session.findOne({ status: "closed" })
-				.sort({ endDate: -1 });
+			const latestClosedSession = await Session.findOne({
+				status: "closed",
+			}).sort({ endDate: -1 });
 
 			if (!latestClosedSession) {
 				return res.status(200).json([]);
@@ -47,7 +48,9 @@ export default async function handler(req, res) {
 			return res.status(200).json(formatted);
 		} catch (error) {
 			console.error("Error fetching winning proposals:", error);
-			return res.status(500).json({ error: "Failed to fetch winning proposals" });
+			return res
+				.status(500)
+				.json({ error: "Failed to fetch winning proposals" });
 		}
 	}
 

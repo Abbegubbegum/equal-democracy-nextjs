@@ -22,14 +22,18 @@ export default async function handler(req, res) {
 
 			if (proposalId) {
 				if (!validateObjectId(proposalId)) {
-					return res.status(400).json({ message: "Invalid proposalId format" });
+					return res
+						.status(400)
+						.json({ message: "Invalid proposalId format" });
 				}
 				filter.proposalId = toObjectId(proposalId);
 			}
 
 			if (userId) {
 				if (!validateObjectId(userId)) {
-					return res.status(400).json({ message: "Invalid userId format" });
+					return res
+						.status(400)
+						.json({ message: "Invalid userId format" });
 				}
 				filter.userId = toObjectId(userId);
 			}
@@ -87,7 +91,9 @@ export default async function handler(req, res) {
 		if (req.method === "DELETE") {
 			const { id } = req.query;
 			if (!id || !validateObjectId(id)) {
-				return res.status(400).json({ message: "Invalid thumbs up ID" });
+				return res
+					.status(400)
+					.json({ message: "Invalid thumbs up ID" });
 			}
 			await ThumbsUp.findByIdAndDelete(toObjectId(id));
 			return res.status(204).end();
@@ -96,6 +102,6 @@ export default async function handler(req, res) {
 		return res.status(405).json({ message: "Method not allowed" });
 	} catch (e) {
 		console.error(e);
-		return res.status(500).json({ message: "Ett fel uppstod" });
+		return res.status(500).json({ message: "An error has occured" });
 	}
 }

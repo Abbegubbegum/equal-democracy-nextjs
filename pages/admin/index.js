@@ -509,7 +509,9 @@ function ProposalsPanel() {
 
 					{p.problem && (
 						<div className="mb-2">
-							<label className="text-xs font-semibold text-slate-600">Problem:</label>
+							<label className="text-xs font-semibold text-slate-600">
+								Problem:
+							</label>
 							<textarea
 								className="w-full border rounded px-2 py-1 text-sm"
 								defaultValue={p.problem}
@@ -523,7 +525,9 @@ function ProposalsPanel() {
 
 					{p.solution && (
 						<div className="mb-2">
-							<label className="text-xs font-semibold text-slate-600">Solution:</label>
+							<label className="text-xs font-semibold text-slate-600">
+								Solution:
+							</label>
 							<textarea
 								className="w-full border rounded px-2 py-1 text-sm"
 								defaultValue={p.solution}
@@ -537,12 +541,16 @@ function ProposalsPanel() {
 
 					{p.estimatedCost && (
 						<div className="mb-2">
-							<label className="text-xs font-semibold text-slate-600">Cost:</label>
+							<label className="text-xs font-semibold text-slate-600">
+								Cost:
+							</label>
 							<input
 								className="w-full border rounded px-2 py-1 text-sm"
 								defaultValue={p.estimatedCost}
 								onBlur={(e) =>
-									patch(p.id, { estimatedCost: e.target.value })
+									patch(p.id, {
+										estimatedCost: e.target.value,
+									})
 								}
 							/>
 						</div>
@@ -550,7 +558,9 @@ function ProposalsPanel() {
 
 					{p.description && !p.problem && (
 						<div className="mb-2">
-							<label className="text-xs font-semibold text-slate-600">Description (legacy):</label>
+							<label className="text-xs font-semibold text-slate-600">
+								Description (legacy):
+							</label>
 							<textarea
 								className="w-full border rounded px-2 py-1 text-sm"
 								defaultValue={p.description}
@@ -563,9 +573,7 @@ function ProposalsPanel() {
 					)}
 
 					<div className="mt-2 flex items-center justify-between text-sm text-slate-600">
-						<div>
-							👍 {p.thumbsUpCount}
-						</div>
+						<div>👍 {p.thumbsUpCount}</div>
 						<button
 							onClick={() => remove(p.id)}
 							className="px-3 py-1 rounded bg-red-600 text-white"
@@ -781,7 +789,9 @@ function SessionsPanel() {
 		<section className="bg-white rounded-xl p-6 shadow space-y-6">
 			{!activeSession && (
 				<div>
-					<h2 className="text-xl font-bold mb-4">Create New Session</h2>
+					<h2 className="text-xl font-bold mb-4">
+						Create New Session
+					</h2>
 
 					<div className="space-y-4">
 						<div>
@@ -869,43 +879,52 @@ function SessionsPanel() {
 							</div>
 						</div>
 
-						{activeSession.activeUsersWithStatus && activeSession.activeUsersWithStatus.length > 0 && (
-							<div className="mt-4 pt-4 border-t border-green-200">
-								<h4 className="font-semibold text-sm text-slate-700 mb-2">
-									Active Users ({activeSession.activeUsersWithStatus.length})
-								</h4>
-								<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-									{activeSession.activeUsersWithStatus.map((user) => (
-										<div
-											key={user._id}
-											className="flex items-center justify-between p-2 bg-white rounded border border-slate-200"
-										>
-											<div className="flex-1 min-w-0">
-												<p className="text-sm font-medium text-slate-900 truncate">
-													{user.name}
-												</p>
-												<p className="text-xs text-slate-500 truncate">
-													{user.email}
-												</p>
-											</div>
-											{activeSession.phase === "phase2" && (
-												<div className="ml-2 flex-shrink-0">
-													{user.hasVoted ? (
-														<span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
-															✓ Voted
-														</span>
-													) : (
-														<span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-															Pending
-														</span>
+						{activeSession.activeUsersWithStatus &&
+							activeSession.activeUsersWithStatus.length > 0 && (
+								<div className="mt-4 pt-4 border-t border-green-200">
+									<h4 className="font-semibold text-sm text-slate-700 mb-2">
+										Active Users (
+										{
+											activeSession.activeUsersWithStatus
+												.length
+										}
+										)
+									</h4>
+									<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+										{activeSession.activeUsersWithStatus.map(
+											(user) => (
+												<div
+													key={user._id}
+													className="flex items-center justify-between p-2 bg-white rounded border border-slate-200"
+												>
+													<div className="flex-1 min-w-0">
+														<p className="text-sm font-medium text-slate-900 truncate">
+															{user.name}
+														</p>
+														<p className="text-xs text-slate-500 truncate">
+															{user.email}
+														</p>
+													</div>
+													{activeSession.phase ===
+														"phase2" && (
+														<div className="ml-2 flex-shrink-0">
+															{user.hasVoted ? (
+																<span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
+																	✓ Voted
+																</span>
+															) : (
+																<span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+																	Pending
+																</span>
+															)}
+														</div>
 													)}
 												</div>
-											)}
-										</div>
-									))}
+											)
+										)}
+									</div>
 								</div>
-							</div>
-						)}
+							)}
 					</div>
 				) : (
 					<p className="text-slate-600">No active session</p>

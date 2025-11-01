@@ -40,7 +40,7 @@ export default async function handler(req, res) {
 
 			if (proposalCount < 2) {
 				return res.status(400).json({
-					error: `Minst 2 förslag krävs för att starta fas 2. Nuvarande antal: ${proposalCount}`,
+					error: `Atleast 2 proposals are required to transition. Current count: ${proposalCount}`,
 				});
 			}
 
@@ -65,8 +65,10 @@ export default async function handler(req, res) {
 					});
 					if (ratings.length > 0) {
 						const avgRating =
-							ratings.reduce((sum, r) => sum + (r.rating || 5), 0) /
-							ratings.length;
+							ratings.reduce(
+								(sum, r) => sum + (r.rating || 5),
+								0
+							) / ratings.length;
 						await Proposal.findByIdAndUpdate(proposal._id, {
 							averageRating: avgRating,
 							thumbsUpCount: ratings.length,
@@ -84,7 +86,9 @@ export default async function handler(req, res) {
 				.lean();
 
 			// Move top proposals to "top3" status
-			const topProposalIds = updatedProposals.slice(0, topCount).map((p) => p._id);
+			const topProposalIds = updatedProposals
+				.slice(0, topCount)
+				.map((p) => p._id);
 
 			await Proposal.updateMany(
 				{ _id: { $in: topProposalIds } },
@@ -92,7 +96,9 @@ export default async function handler(req, res) {
 			);
 
 			// Archive the rest
-			const archivedIds = updatedProposals.slice(topCount).map((p) => p._id);
+			const archivedIds = updatedProposals
+				.slice(topCount)
+				.map((p) => p._id);
 			await Proposal.updateMany(
 				{ _id: { $in: archivedIds } },
 				{ status: "archived" }

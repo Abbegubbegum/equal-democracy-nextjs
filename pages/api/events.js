@@ -16,6 +16,8 @@ export default async function handler(req, res) {
 	// Return Pusher public configuration
 	res.status(200).json({
 		key: process.env.NEXT_PUBLIC_PUSHER_KEY || process.env.PUSHER_KEY,
-		cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || process.env.PUSHER_CLUSTER,
+		cluster:
+			process.env.NEXT_PUBLIC_PUSHER_CLUSTER ||
+			process.env.PUSHER_CLUSTER,
 	});
 }

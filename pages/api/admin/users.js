@@ -32,7 +32,7 @@ export default async function handler(req, res) {
 			if (!id || typeof updates !== "object") {
 				return res
 					.status(400)
-					.json({ message: "id och updates krävs" });
+					.json({ message: "id och updates is required" });
 			}
 			const allowed = { name: 1, email: 1, isAdmin: 1, password: 0 }; // don't patch password here
 			const safeUpdates = Object.fromEntries(
@@ -44,9 +44,7 @@ export default async function handler(req, res) {
 				{ new: true }
 			);
 			if (!user)
-				return res
-					.status(404)
-					.json({ message: "Användare hittades inte" });
+				return res.status(404).json({ message: "User not found" });
 			return res
 				.status(200)
 				.json({ id: user._id.toString(), isAdmin: !!user.isAdmin });
@@ -54,7 +52,7 @@ export default async function handler(req, res) {
 
 		if (req.method === "DELETE") {
 			const { id } = req.query;
-			if (!id) return res.status(400).json({ message: "id krävs" });
+			if (!id) return res.status(400).json({ message: "id is required" });
 			// Cascade delete user-related docs
 			await Promise.all([
 				Proposal.deleteMany({ authorId: id }),
@@ -69,6 +67,6 @@ export default async function handler(req, res) {
 		return res.status(405).json({ message: "Method not allowed" });
 	} catch (e) {
 		console.error(e);
-		return res.status(500).json({ message: "Ett fel uppstod" });
+		return res.status(500).json({ message: "An error has occured" });
 	}
 }

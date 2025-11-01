@@ -20,7 +20,7 @@ export const authOptions = {
 					const code = credentials?.code?.trim();
 
 					if (!email || !code) {
-						throw new Error("Vänligen ange e-post och kod");
+						throw new Error("Please enter an email and code");
 					}
 
 					// Find active code
@@ -30,20 +30,22 @@ export const authOptions = {
 					});
 
 					if (!rec) {
-						throw new Error("Ogiltig eller utgången kod");
+						throw new Error("Code is invalid or expired");
 					}
 
 					// throttle attempts
 					if (rec.attempts >= 5) {
 						await LoginCode.deleteMany({ email });
-						throw new Error("För många försök. Begär en ny kod.");
+						throw new Error(
+							"To many failed attemps, request a new code."
+						);
 					}
 
 					const ok = await bcrypt.compare(code, rec.codeHash);
 					if (!ok) {
 						rec.attempts += 1;
 						await rec.save();
-						throw new Error("Felaktig kod");
+						throw new Error("Code is invalid");
 					}
 
 					// One-time: consume code
@@ -58,7 +60,7 @@ export const authOptions = {
 								.split("@")[0]
 								.replace(/[._-]/g, " ")
 								.replace(/\b\w/g, (c) => c.toUpperCase())
-								.slice(0, 60) || "Medborgare";
+								.slice(0, 60) || "Citizen";
 
 						user = await User.create({
 							name: rec.pendingName?.slice(0, 60) || fallbackName,

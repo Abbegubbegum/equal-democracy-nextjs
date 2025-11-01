@@ -12,7 +12,7 @@ export default async function handler(req, res) {
 		return res.status(405).json({ message: "Method not allowed" });
 
 	const { email, name } = req.body || {};
-	if (!email) return res.status(400).json({ message: "E-post krävs" });
+	if (!email) return res.status(400).json({ message: "Email is required" });
 
 	await connectDB();
 
@@ -26,12 +26,10 @@ export default async function handler(req, res) {
 		expiresAt: { $gt: new Date() },
 	});
 	if (existingActive) {
-		return res
-			.status(200)
-			.json({
-				ok: true,
-				message: "Kod skickad (kontrollera din e-post)",
-			});
+		return res.status(200).json({
+			ok: true,
+			message: "Code sent (check you email)",
+		});
 	}
 
 	const code = random6();
@@ -54,8 +52,8 @@ export default async function handler(req, res) {
 			expiresAt: { $gt: new Date() },
 		});
 		console.error("sendLoginCode error:", e);
-		return res.status(500).json({ message: "Kunde inte skicka kod" });
+		return res.status(500).json({ message: "Could not send code" });
 	}
 
-	return res.status(200).json({ ok: true, message: "Kod skickad" });
+	return res.status(200).json({ ok: true, message: "code sent" });
 }

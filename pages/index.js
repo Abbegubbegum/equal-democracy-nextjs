@@ -616,7 +616,7 @@ export default function HomePage() {
 	if (view === "vote") {
 		const topProposals = proposals.filter((p) => p.status === "top3");
 		const initialIndex = selectedProposal
-			? topProposals.findIndex(p => p._id === selectedProposal)
+			? topProposals.findIndex((p) => p._id === selectedProposal)
 			: 0;
 		return (
 			<VoteView
@@ -801,7 +801,9 @@ export default function HomePage() {
 						<div className="flex flex-col items-center gap-4">
 							<div className="flex items-center gap-3">
 								<div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
-									<span className="text-2xl text-white">✓</span>
+									<span className="text-2xl text-white">
+										✓
+									</span>
 								</div>
 								<div className="text-center">
 									<h3 className="text-lg font-bold text-green-900">
@@ -828,30 +830,32 @@ export default function HomePage() {
 				)}
 
 				{/* Vote section - only show if user hasn't voted yet */}
-				{currentPhase === "phase2" && !userHasVotedInSession && topProposals.length > 0 && (
-					<div className="bg-accent-50 border-2 border-accent-400 rounded-2xl p-6 space-y-4">
-						<div className="flex items-center justify-between">
-							<div className="flex items-center gap-2">
-								<TrendingUp className="w-6 h-6 text-accent-600" />
-								<h3 className="text-xl font-bold text-primary-800">
-									{t("proposals.topProposals")}
-								</h3>
+				{currentPhase === "phase2" &&
+					!userHasVotedInSession &&
+					topProposals.length > 0 && (
+						<div className="bg-accent-50 border-2 border-accent-400 rounded-2xl p-6 space-y-4">
+							<div className="flex items-center justify-between">
+								<div className="flex items-center gap-2">
+									<TrendingUp className="w-6 h-6 text-accent-600" />
+									<h3 className="text-xl font-bold text-primary-800">
+										{t("proposals.topProposals")}
+									</h3>
+								</div>
+								<button
+									onClick={() => {
+										setSelectedProposal(null);
+										setView("vote");
+									}}
+									className="bg-primary-800 hover:bg-primary-900 text-white px-4 py-2 rounded-lg font-medium"
+								>
+									{t("proposals.vote")}
+								</button>
 							</div>
-							<button
-								onClick={() => {
-									setSelectedProposal(null);
-									setView("vote");
-								}}
-								className="bg-primary-800 hover:bg-primary-900 text-white px-4 py-2 rounded-lg font-medium"
-							>
-								{t("proposals.vote")}
-							</button>
+							<p className="text-gray-700">
+								{t("proposals.clickToDebateAndVote")}
+							</p>
 						</div>
-						<p className="text-gray-700">
-							{t("proposals.clickToDebateAndVote")}
-						</p>
-					</div>
-				)}
+					)}
 
 				<div className="space-y-4">
 					<h3 className="text-lg font-semibold text-gray-700 flex items-center gap-2">
@@ -1626,13 +1630,23 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 // VOTE VIEW
 // ============================================================================
 
-function VoteView({ proposals, currentUser, onVote, onBack, initialProposalIndex = 0, userHasVoted = false, t }) {
-	const [currentProposalIndex, setCurrentProposalIndex] = useState(initialProposalIndex);
+function VoteView({
+	proposals,
+	currentUser,
+	onVote,
+	onBack,
+	initialProposalIndex = 0,
+	userHasVoted = false,
+	t,
+}) {
+	const [currentProposalIndex, setCurrentProposalIndex] =
+		useState(initialProposalIndex);
 	const [votedProposals, setVotedProposals] = useState(new Set());
 	const [voteResults, setVoteResults] = useState({});
 	const [loading, setLoading] = useState(true);
 	const [isVoting, setIsVoting] = useState(false);
-	const [hasVotedInThisSession, setHasVotedInThisSession] = useState(userHasVoted);
+	const [hasVotedInThisSession, setHasVotedInThisSession] =
+		useState(userHasVoted);
 
 	useEffect(() => {
 		fetchVoteData();
@@ -1680,8 +1694,12 @@ function VoteView({ proposals, currentUser, onVote, onBack, initialProposalIndex
 	};
 
 	const currentProposal = proposals[currentProposalIndex];
-	const voted = currentProposal ? votedProposals.has(currentProposal._id) : false;
-	const results = currentProposal ? (voteResults[currentProposal._id] || { yes: 0, no: 0, total: 0 }) : { yes: 0, no: 0, total: 0 };
+	const voted = currentProposal
+		? votedProposals.has(currentProposal._id)
+		: false;
+	const results = currentProposal
+		? voteResults[currentProposal._id] || { yes: 0, no: 0, total: 0 }
+		: { yes: 0, no: 0, total: 0 };
 
 	if (loading) {
 		return (
@@ -1803,23 +1821,33 @@ function VoteView({ proposals, currentUser, onVote, onBack, initialProposalIndex
 								<div className="grid grid-cols-2 gap-6">
 									<button
 										onClick={() =>
-											handleVote(currentProposal._id, "yes")
+											handleVote(
+												currentProposal._id,
+												"yes"
+											)
 										}
 										disabled={isVoting}
 										className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-6 px-8 rounded-2xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex flex-col items-center justify-center gap-3"
 									>
 										<ThumbsUp className="w-12 h-12" />
-										<span className="text-2xl">{t("voting.yes")}</span>
+										<span className="text-2xl">
+											{t("voting.yes")}
+										</span>
 									</button>
 									<button
 										onClick={() =>
-											handleVote(currentProposal._id, "no")
+											handleVote(
+												currentProposal._id,
+												"no"
+											)
 										}
 										disabled={isVoting}
 										className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-bold py-6 px-8 rounded-2xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex flex-col items-center justify-center gap-3"
 									>
 										<ThumbsDown className="w-12 h-12" />
-										<span className="text-2xl">{t("voting.no")}</span>
+										<span className="text-2xl">
+											{t("voting.no")}
+										</span>
 									</button>
 								</div>
 							</div>
@@ -1852,20 +1880,24 @@ function VoteView({ proposals, currentUser, onVote, onBack, initialProposalIndex
 									</div>
 								</div>
 								<p className="text-center text-sm text-gray-500 pt-2">
-									{t("voting.totalVotes", { count: results.total })}
+									{t("voting.totalVotes", {
+										count: results.total,
+									})}
 								</p>
-								{!hasVotedInThisSession && currentProposalIndex < proposals.length - 1 && (
-									<button
-										onClick={() =>
-											setCurrentProposalIndex(
-												currentProposalIndex + 1
-											)
-										}
-										className="w-full mt-4 bg-primary-800 hover:bg-primary-900 text-white font-semibold py-3 rounded-xl transition-colors"
-									>
-										{t("voting.nextProposal")} →
-									</button>
-								)}
+								{!hasVotedInThisSession &&
+									currentProposalIndex <
+										proposals.length - 1 && (
+										<button
+											onClick={() =>
+												setCurrentProposalIndex(
+													currentProposalIndex + 1
+												)
+											}
+											className="w-full mt-4 bg-primary-800 hover:bg-primary-900 text-white font-semibold py-3 rounded-xl transition-colors"
+										>
+											{t("voting.nextProposal")} →
+										</button>
+									)}
 							</div>
 						</div>
 					)}
@@ -1894,7 +1926,9 @@ function VoteView({ proposals, currentUser, onVote, onBack, initialProposalIndex
 									)
 								)
 							}
-							disabled={currentProposalIndex === proposals.length - 1}
+							disabled={
+								currentProposalIndex === proposals.length - 1
+							}
 							className="px-6 py-3 bg-primary-700 hover:bg-primary-600 disabled:bg-primary-900 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
 						>
 							{t("voting.next")} →

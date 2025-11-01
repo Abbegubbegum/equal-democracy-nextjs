@@ -18,20 +18,22 @@ export default async function handler(req, res) {
 		const session = await getServerSession(req, res, authOptions);
 
 		if (!session) {
-			return res.status(401).json({ message: "Du måste vara inloggad" });
+			return res
+				.status(401)
+				.json({ message: "You have to be logged in" });
 		}
 
 		const { proposalId, rating } = req.body;
 
 		if (!proposalId) {
-			return res.status(400).json({ message: "Proposal ID krävs" });
+			return res.status(400).json({ message: "Proposal ID is required" });
 		}
 
 		// Validate rating (1-5)
 		if (rating && (rating < 1 || rating > 5)) {
 			return res
 				.status(400)
-				.json({ message: "Betyg måste vara mellan 1 och 5" });
+				.json({ message: "Rating must be between 1 and 5" });
 		}
 
 		try {
@@ -42,7 +44,7 @@ export default async function handler(req, res) {
 			if (!activeSession) {
 				return res
 					.status(400)
-					.json({ message: "Ingen aktiv session finns" });
+					.json({ message: "No active session exists" });
 			}
 
 			const existingVote = await ThumbsUp.findOne({
@@ -75,7 +77,7 @@ export default async function handler(req, res) {
 				});
 
 				return res.status(200).json({
-					message: "Betyg uppdaterat",
+					message: "Rating uppdated",
 					count,
 					averageRating: avgRating,
 					userRating: existingVote.rating,
@@ -109,14 +111,14 @@ export default async function handler(req, res) {
 			});
 
 			return res.status(201).json({
-				message: "Betyg registrerat",
+				message: "Rating registered",
 				count,
 				averageRating: avgRating,
 				userRating: rating || 5,
 			});
 		} catch (error) {
 			console.error("Error adding thumbs up:", error);
-			return res.status(500).json({ message: "Ett fel uppstod" });
+			return res.status(500).json({ message: "An error has occured" });
 		}
 	}
 
@@ -124,7 +126,9 @@ export default async function handler(req, res) {
 		const session = await getServerSession(req, res, authOptions);
 
 		if (!session) {
-			return res.status(401).json({ message: "Du måste vara inloggad" });
+			return res
+				.status(401)
+				.json({ message: "You have to be logged in" });
 		}
 
 		const { proposalId } = req.query;
@@ -137,7 +141,7 @@ export default async function handler(req, res) {
 
 			return res.status(200).json({
 				voted: !!vote,
-				rating: vote ? vote.rating : 0
+				rating: vote ? vote.rating : 0,
 			});
 		}
 

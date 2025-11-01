@@ -64,7 +64,10 @@ export default async function handler(req, res) {
 				);
 				successCount++;
 			} catch (emailError) {
-				console.error(`Failed to send email to ${user.email}:`, emailError);
+				console.error(
+					`Failed to send email to ${user.email}:`,
+					emailError
+				);
 				errorCount++;
 			}
 		}

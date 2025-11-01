@@ -18,7 +18,7 @@ export default async function handler(req, res) {
 		const { proposalId } = req.query;
 
 		if (!proposalId) {
-			return res.status(400).json({ message: "Proposal ID krävs" });
+			return res.status(400).json({ message: "Proposal ID is required" });
 		}
 
 		try {
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
 			return res.status(200).json(anonymizedComments);
 		} catch (error) {
 			console.error("Error fetching comments:", error);
-			return res.status(500).json({ message: "Ett fel uppstod" });
+			return res.status(500).json({ message: "An error has occured" });
 		}
 	}
 
@@ -48,7 +48,9 @@ export default async function handler(req, res) {
 		const session = await getServerSession(req, res, authOptions);
 
 		if (!session) {
-			return res.status(401).json({ message: "Du måste vara inloggad" });
+			return res
+				.status(401)
+				.json({ message: "You have to be logged in" });
 		}
 
 		const { proposalId, text, type } = req.body;
@@ -56,18 +58,18 @@ export default async function handler(req, res) {
 		if (!proposalId || !text) {
 			return res
 				.status(400)
-				.json({ message: "Proposal ID och text krävs" });
+				.json({ message: "Proposal ID and text is required" });
 		}
 
 		if (text.length > 1000) {
 			return res
 				.status(400)
-				.json({ message: "Kommentaren är för lång (max 1000 tecken)" });
+				.json({ message: "Comment is too long (max 1000 characters)" });
 		}
 
 		// Validate type
 		if (type && !["for", "against", "neutral"].includes(type)) {
-			return res.status(400).json({ message: "Ogiltig kommentarstyp" });
+			return res.status(400).json({ message: "Invalid comment type" });
 		}
 
 		try {
@@ -78,7 +80,7 @@ export default async function handler(req, res) {
 			if (!activeSession) {
 				return res
 					.status(400)
-					.json({ message: "Ingen aktiv session finns" });
+					.json({ message: "No active session exists" });
 			}
 
 			const comment = await Comment.create({
@@ -114,7 +116,7 @@ export default async function handler(req, res) {
 			console.error("Error creating comment:", error);
 			return res
 				.status(500)
-				.json({ message: "Ett fel uppstod vid skapande av kommentar" });
+				.json({ message: "An error occurred while creating comments" });
 		}
 	}
 

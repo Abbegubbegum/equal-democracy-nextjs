@@ -33,9 +33,14 @@ export default async function handler(req, res) {
 
 		// Check if transition is already scheduled
 		if (activeSession.phase1TransitionScheduled) {
-			const scheduledTime = new Date(activeSession.phase1TransitionScheduled);
+			const scheduledTime = new Date(
+				activeSession.phase1TransitionScheduled
+			);
 			const now = new Date();
-			const secondsRemaining = Math.max(0, Math.floor((scheduledTime - now) / 1000));
+			const secondsRemaining = Math.max(
+				0,
+				Math.floor((scheduledTime - now) / 1000)
+			);
 
 			return res.status(200).json({
 				shouldTransition: false,
@@ -55,7 +60,7 @@ export default async function handler(req, res) {
 		if (totalProposals < 2) {
 			return res.status(200).json({
 				shouldTransition: false,
-				reason: "Minst 2 förslag krävs",
+				reason: "Atleast 2 proposals are required",
 				progress: {
 					totalProposals: totalProposals,
 					ratedProposals: 0,
@@ -83,7 +88,8 @@ export default async function handler(req, res) {
 			})
 		).then((results) => results.reduce((sum, val) => sum + val, 0));
 
-		const proposalsPercentage = (ratedProposalsCount / totalProposals) * 100;
+		const proposalsPercentage =
+			(ratedProposalsCount / totalProposals) * 100;
 
 		// Get active users count and users who have rated
 		const activeUsersCount = activeSession.activeUsers?.length || 0;
@@ -94,14 +100,16 @@ export default async function handler(req, res) {
 		});
 		const usersWhoRatedCount = usersWhoRated.length;
 
-		const usersPercentage = activeUsersCount > 0
-			? (usersWhoRatedCount / activeUsersCount) * 100
-			: 0;
+		const usersPercentage =
+			activeUsersCount > 0
+				? (usersWhoRatedCount / activeUsersCount) * 100
+				: 0;
 
 		// Check both conditions
 		const proposalsConditionMet = proposalsPercentage >= 75;
 		const usersConditionMet = usersPercentage >= 75 && activeUsersCount > 0;
-		const shouldScheduleTransition = proposalsConditionMet && usersConditionMet;
+		const shouldScheduleTransition =
+			proposalsConditionMet && usersConditionMet;
 
 		if (shouldScheduleTransition) {
 			// Schedule transition for 90 seconds from now
@@ -121,7 +129,7 @@ export default async function handler(req, res) {
 				transitionScheduled: true,
 				scheduledTime: scheduledTime,
 				secondsRemaining: 90,
-				message: "Övergång till Fas 2 schemalagd om 90 sekunder",
+				message: "Transition to Phase 2 scheduled in 90 seconds",
 			});
 		}
 

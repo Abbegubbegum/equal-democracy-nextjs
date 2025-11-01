@@ -17,6 +17,7 @@ import { fetchWithCsrf } from "../lib/fetch-with-csrf";
 import { useTranslation } from "../lib/hooks/useTranslation";
 import { useConfig } from "../lib/contexts/ConfigContext";
 import useSSE from "../lib/hooks/useSSE";
+import useSound from "use-sound";
 
 // Helper function to format date and time consistently
 function formatDateTime(dateString) {
@@ -54,6 +55,9 @@ export default function HomePage() {
 	const transitionIntervalRef = useRef(null); // Reference to transition checking interval
 	const [commentUpdateTrigger, setCommentUpdateTrigger] = useState(0); // Trigger for comment updates
 	const [userHasCreatedProposal, setUserHasCreatedProposal] = useState(false); // Track if user has created a proposal
+
+	// Sound effects
+	const [playEndSign] = useSound("/sounds/end_sign.mp3", { volume: 0.5 });
 
 	// Setup SSE for real-time updates
 	useSSE({
@@ -116,6 +120,7 @@ export default function HomePage() {
 			// If session is closed, show results modal
 			if (phaseData.phase === "closed" && !showSessionClosed) {
 				await fetchWinningProposals();
+				playEndSign(); // Play sound when results are shown
 				setShowSessionClosed(true);
 			}
 		},
@@ -124,6 +129,8 @@ export default function HomePage() {
 				"Transition scheduled, countdown:",
 				transitionData.secondsRemaining
 			);
+			// Play sound when transition countdown begins
+			playEndSign();
 			// Start the countdown timer for all connected clients
 			setTransitionCountdown(transitionData.secondsRemaining);
 			checkPhaseTransition(); // This will start the countdown polling
@@ -229,6 +236,7 @@ export default function HomePage() {
 				// This covers both: users on the page when it closes, and users loading after it's closed
 				if (data.phase === "closed" && !showSessionClosed) {
 					await fetchWinningProposals();
+					playEndSign(); // Play sound when results are shown
 					setShowSessionClosed(true);
 				}
 
@@ -348,6 +356,8 @@ export default function HomePage() {
 			if (data.transitionScheduled) {
 				// Transition is scheduled, show countdown
 				setTransitionCountdown(data.secondsRemaining);
+				// Play sound when countdown is detected
+				playEndSign();
 
 				// Clear any existing interval before starting a new one
 				if (transitionIntervalRef.current) {
@@ -443,6 +453,7 @@ export default function HomePage() {
 				if (data.sessionClosed) {
 					await fetchWinningProposals();
 					await fetchSessionInfo();
+					playEndSign(); // Play sound when results are shown
 					setShowSessionClosed(true);
 				}
 			} else {

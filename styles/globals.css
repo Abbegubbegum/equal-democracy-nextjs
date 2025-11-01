@@ -1,23 +1,40 @@
 @import "tailwindcss";
 
+@theme {
+	--color-primary-50: var(--theme-primary-50, #eff6ff);
+	--color-primary-100: var(--theme-primary-100, #dbeafe);
+	--color-primary-400: var(--theme-primary-400, #60a5fa);
+	--color-primary-500: var(--theme-primary-500, #3b82f6);
+	--color-primary-600: var(--theme-primary-600, #2563eb);
+	--color-primary-700: var(--theme-primary-700, #1d4ed8);
+	--color-primary-800: var(--theme-primary-800, #1e40af);
+	--color-primary-900: var(--theme-primary-900, #1e3a8a);
+
+	--color-accent-50: var(--theme-accent-50, #fefce8);
+	--color-accent-100: var(--theme-accent-100, #fef9c3);
+	--color-accent-400: var(--theme-accent-400, #facc15);
+	--color-accent-500: var(--theme-accent-500, #eab308);
+	--color-accent-600: var(--theme-accent-600, #ca8a04);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+	--background: #ffffff;
+	--foreground: #171717;
 
-  /* Default theme colors (Blue/Yellow) */
-  /* These will be overridden by JavaScript when theme changes */
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-400: #60a5fa;
-  --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
-  --color-primary-800: #1e40af;
-  --color-primary-900: #1e3a8a;
+	/* Default theme colors (Blue/Yellow) */
+	/* These will be overridden by JavaScript when theme changes */
+	--theme-primary-50: #eff6ff;
+	--theme-primary-100: #dbeafe;
+	--theme-primary-400: #60a5fa;
+	--theme-primary-500: #3b82f6;
+	--theme-primary-600: #2563eb;
+	--theme-primary-700: #1d4ed8;
+	--theme-primary-800: #1e40af;
+	--theme-primary-900: #1e3a8a;
 
-  --color-accent-50: #fefce8;
-  --color-accent-100: #fef9c3;
-  --color-accent-400: #facc15;
-  --color-accent-500: #eab308;
-  --color-accent-600: #ca8a04;
+	--theme-accent-50: #fefce8;
+	--theme-accent-100: #fef9c3;
+	--theme-accent-400: #facc15;
+	--theme-accent-500: #eab308;
+	--theme-accent-600: #ca8a04;
 }

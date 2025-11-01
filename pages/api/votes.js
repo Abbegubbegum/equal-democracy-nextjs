@@ -74,7 +74,9 @@ export default async function handler(req, res) {
 				});
 			}
 
-			console.log(`[VOTE] User ${session.user.name} (${session.user.id}) voting ${choice} on proposal ${proposalId}`);
+			console.log(
+				`[VOTE] User ${session.user.name} (${session.user.id}) voting ${choice} on proposal ${proposalId}`
+			);
 
 			await FinalVote.create({
 				sessionId: activeSession._id,
@@ -94,7 +96,9 @@ export default async function handler(req, res) {
 				choice: "no",
 			});
 
-			console.log(`[VOTE] Current vote counts for proposal: YES=${yesCount}, NO=${noCount}`);
+			console.log(
+				`[VOTE] Current vote counts for proposal: YES=${yesCount}, NO=${noCount}`
+			);
 
 			// Broadcast vote update event
 			await broadcaster.broadcast("vote-update", {
@@ -112,7 +116,9 @@ export default async function handler(req, res) {
 
 			// If session closed, broadcast phase change
 			if (shouldClose) {
-				console.log("[VOTE] 🎉 Session closed! Broadcasting phase-change event...");
+				console.log(
+					"[VOTE] 🎉 Session closed! Broadcasting phase-change event..."
+				);
 				await broadcaster.broadcast("phase-change", {
 					phase: "closed",
 					sessionId: freshSession._id.toString(),
@@ -221,7 +227,9 @@ async function checkAutoClose(activeSession) {
 	try {
 		// Only check in phase 2
 		if (activeSession.phase !== "phase2") {
-			console.log(`[AUTO-CLOSE] Not in phase2, current phase: ${activeSession.phase}`);
+			console.log(
+				`[AUTO-CLOSE] Not in phase2, current phase: ${activeSession.phase}`
+			);
 			return false;
 		}
 
@@ -230,7 +238,10 @@ async function checkAutoClose(activeSession) {
 		const activeUserIds = activeSession.activeUsers || [];
 
 		console.log(`[AUTO-CLOSE] Active users count: ${activeUserIds.length}`);
-		console.log(`[AUTO-CLOSE] Active users:`, activeUserIds.map(id => id.toString()));
+		console.log(
+			`[AUTO-CLOSE] Active users:`,
+			activeUserIds.map((id) => id.toString())
+		);
 
 		if (activeUserIds.length > 0) {
 			// Get unique users who have voted in Phase 2
@@ -238,8 +249,13 @@ async function checkAutoClose(activeSession) {
 				sessionId: activeSession._id,
 			});
 
-			console.log(`[AUTO-CLOSE] Voted users count: ${votedUserIds.length}`);
-			console.log(`[AUTO-CLOSE] Voted users:`, votedUserIds.map(id => id.toString()));
+			console.log(
+				`[AUTO-CLOSE] Voted users count: ${votedUserIds.length}`
+			);
+			console.log(
+				`[AUTO-CLOSE] Voted users:`,
+				votedUserIds.map((id) => id.toString())
+			);
 
 			// Check if all active users have voted
 			const allUsersVoted = activeUserIds.every((userId) =>
@@ -251,14 +267,20 @@ async function checkAutoClose(activeSession) {
 			console.log(`[AUTO-CLOSE] All users voted: ${allUsersVoted}`);
 
 			if (allUsersVoted) {
-				console.log(`[AUTO-CLOSE] ✅ All ${activeUserIds.length} users have voted! Closing session...`);
+				console.log(
+					`[AUTO-CLOSE] ✅ All ${activeUserIds.length} users have voted! Closing session...`
+				);
 				await closeSession(activeSession);
 				return true;
 			} else {
-				console.log(`[AUTO-CLOSE] ⏳ Waiting for more votes. ${votedUserIds.length}/${activeUserIds.length} users have voted.`);
+				console.log(
+					`[AUTO-CLOSE] ⏳ Waiting for more votes. ${votedUserIds.length}/${activeUserIds.length} users have voted.`
+				);
 			}
 		} else {
-			console.log(`[AUTO-CLOSE] ⚠️ No active users registered in session!`);
+			console.log(
+				`[AUTO-CLOSE] ⚠️ No active users registered in session!`
+			);
 		}
 
 		// Check condition 2: Time limit exceeded
@@ -287,7 +309,9 @@ async function checkAutoClose(activeSession) {
 // Helper function to close the session and archive proposals
 async function closeSession(activeSession) {
 	try {
-		console.log(`[CLOSE-SESSION] 🚀 Starting to close session: ${activeSession.name}`);
+		console.log(
+			`[CLOSE-SESSION] 🚀 Starting to close session: ${activeSession.name}`
+		);
 
 		// Get all top proposals (status "top3") from this session
 		const topProposals = await Proposal.find({
@@ -317,8 +341,12 @@ async function closeSession(activeSession) {
 				);
 				await TopProposal.create({
 					sessionId: activeSession._id,
-					sessionPlace: activeSession.place || activeSession.name || "Unknown",
-					sessionStartDate: activeSession.startDate || activeSession.createdAt || new Date(),
+					sessionPlace:
+						activeSession.place || activeSession.name || "Unknown",
+					sessionStartDate:
+						activeSession.startDate ||
+						activeSession.createdAt ||
+						new Date(),
 					proposalId: proposal._id,
 					title: proposal.title,
 					problem: proposal.problem,
@@ -348,7 +376,9 @@ async function closeSession(activeSession) {
 		activeSession.endDate = new Date();
 		await activeSession.save();
 
-		console.log(`[CLOSE-SESSION] ✅ Session ${activeSession.name} successfully closed and saved!`);
+		console.log(
+			`[CLOSE-SESSION] ✅ Session ${activeSession.name} successfully closed and saved!`
+		);
 	} catch (error) {
 		console.error("Error closing session:", error);
 		throw error;

@@ -16,19 +16,17 @@ export default async function handler(req, res) {
 		try {
 			// Get all top proposals, sorted by archived date (newest first)
 			const topProposals = await TopProposal.find()
-				.sort({ archivedAt: -1 })
-				.populate("sessionId");
+				.sort({ archivedAt: -1 });
 
 			// Format the response
 			const formatted = topProposals.map((tp) => ({
 				id: tp._id.toString(),
-				sessionName: tp.sessionName,
+				sessionPlace: tp.sessionPlace,
+				sessionStartDate: tp.sessionStartDate,
 				title: tp.title,
 				problem: tp.problem,
 				solution: tp.solution,
 				estimatedCost: tp.estimatedCost,
-				description: tp.description,
-				authorName: tp.authorName,
 				yesVotes: tp.yesVotes,
 				noVotes: tp.noVotes,
 				archivedAt: tp.archivedAt,

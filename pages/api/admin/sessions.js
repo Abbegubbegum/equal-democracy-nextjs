@@ -1,5 +1,5 @@
 import dbConnect from "@/lib/mongodb";
-import { Session, Settings } from "@/lib/models";
+import { Session, Settings, User, FinalVote } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { csrfProtection } from "@/lib/csrf";
@@ -22,7 +22,44 @@ export default async function handler(req, res) {
 	if (req.method === "GET") {
 		try {
 			// Get all sessions
-			const sessions = await Session.find().sort({ createdAt: -1 });
+			const sessions = await Session.find().sort({ createdAt: -1 }).lean();
+
+			// For active sessions, populate active users with voting status
+			for (const sess of sessions) {
+				if (sess.status === "active" && sess.activeUsers && sess.activeUsers.length > 0) {
+					// Get user details
+					const users = await User.find({
+						_id: { $in: sess.activeUsers }
+					}).select('name email').lean();
+
+					// If in phase2, check voting status
+					if (sess.phase === "phase2") {
+						// Get all final votes for this session
+						const votes = await FinalVote.find({
+							sessionId: sess._id
+						}).select('userId').lean();
+
+						// Create a set of user IDs who have voted
+						const votedUserIds = new Set(votes.map(vote => vote.userId.toString()));
+
+						// Add voting status to users
+						sess.activeUsersWithStatus = users.map(user => ({
+							_id: user._id,
+							name: user.name,
+							email: user.email,
+							hasVoted: votedUserIds.has(user._id.toString())
+						}));
+					} else {
+						// Phase 1 - just show users
+						sess.activeUsersWithStatus = users.map(user => ({
+							_id: user._id,
+							name: user.name,
+							email: user.email
+						}));
+					}
+				}
+			}
+
 			return res.status(200).json(sessions);
 		} catch (error) {
 			console.error("Error fetching sessions:", error);

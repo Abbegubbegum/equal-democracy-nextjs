@@ -148,8 +148,6 @@ function SettingsPanel() {
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [message, setMessage] = useState("");
-	const [migrating, setMigrating] = useState(false);
-	const [migrationMessage, setMigrationMessage] = useState("");
 
 	useEffect(() => {
 		loadSettings();
@@ -172,7 +170,9 @@ function SettingsPanel() {
 	const handleSave = async () => {
 		const hours = Number(phase2DurationHours);
 		if (isNaN(hours) || hours < 1 || hours > 168) {
-			setMessage("Error: Phase 2 duration must be between 1 and 168 hours");
+			setMessage(
+				"Error: Phase 2 duration must be between 1 and 168 hours"
+			);
 			return;
 		}
 
@@ -204,34 +204,6 @@ function SettingsPanel() {
 			setMessage("Could not save settings");
 		}
 		setSaving(false);
-	};
-
-	const handleMigrateCommentRatings = async () => {
-		if (!confirm("Do you want to migrate comment ratings? This will update all existing comments to ensure correct sorting.")) {
-			return;
-		}
-
-		setMigrating(true);
-		setMigrationMessage("");
-		try {
-			const res = await fetchWithCsrf("/api/admin/migrate-comment-ratings", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-			});
-
-			const data = await res.json();
-
-			if (res.ok) {
-				setMigrationMessage(`Success! ${data.modifiedCount} comments updated.`);
-				setTimeout(() => setMigrationMessage(""), 10000);
-			} else {
-				setMigrationMessage(`Error: ${data.message || "Migration failed"}`);
-			}
-		} catch (error) {
-			console.error("Error migrating comment ratings:", error);
-			setMigrationMessage("Could not migrate comment ratings");
-		}
-		setMigrating(false);
 	};
 
 	if (loading) return <div className="p-4 bg-white rounded-xl">Loading…</div>;
@@ -270,12 +242,15 @@ function SettingsPanel() {
 						onChange={(e) => setTheme(e.target.value)}
 						className="w-full max-w-md border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
 					>
-						<option value="default">Blue/Yellow - Sweden, English (Default)</option>
+						<option value="default">
+							Blue/Yellow - Sweden, English (Default)
+						</option>
 						<option value="green">Green - Germany, Activism</option>
 						<option value="red">Red/Gold - Spain, Serbia</option>
 					</select>
 					<p className="text-sm text-slate-500 mt-1">
-						Recommendations: Swedish/English→Blue, German→Green, Spanish/Serbian→Red
+						Recommendations: Swedish/English→Blue, German→Green,
+						Spanish/Serbian→Red
 					</p>
 				</div>
 
@@ -293,7 +268,8 @@ function SettingsPanel() {
 						placeholder="6"
 					/>
 					<p className="text-sm text-slate-500 mt-1">
-						Phase 2 ends automatically when everyone has voted or after this time (1-168 hours)
+						Phase 2 ends automatically when everyone has voted or
+						after this time (1-168 hours)
 					</p>
 				</div>
 
@@ -316,38 +292,6 @@ function SettingsPanel() {
 						{message}
 					</div>
 				)}
-
-				{/* Migration Tools */}
-				<div className="mt-8 pt-8 border-t border-slate-200">
-					<h3 className="text-lg font-bold mb-4 text-slate-700">Database Migration</h3>
-
-					<div className="bg-accent-50 border border-accent-200 rounded-lg p-4 mb-4">
-						<h4 className="font-semibold text-accent-800 mb-2">Migrate Comment Ratings</h4>
-						<p className="text-sm text-accent-700 mb-3">
-							If arguments are not sorting correctly by rating, run this migration.
-							It updates all existing comments so that sorting works.
-						</p>
-						<button
-							onClick={handleMigrateCommentRatings}
-							disabled={migrating}
-							className="px-4 py-2 bg-accent-600 text-white rounded-lg hover:bg-accent-700 disabled:bg-slate-400 disabled:cursor-not-allowed"
-						>
-							{migrating ? "Migrating..." : "Run migration"}
-						</button>
-					</div>
-
-					{migrationMessage && (
-						<div
-							className={`p-3 rounded-lg ${
-								migrationMessage.startsWith("Error")
-									? "bg-red-100 text-red-700"
-									: "bg-green-100 text-green-700"
-							}`}
-						>
-							{migrationMessage}
-						</div>
-					)}
-				</div>
 			</div>
 		</section>
 	);
@@ -526,9 +470,13 @@ function ProposalsPanel() {
 		load();
 	};
 	const remove = async (id) => {
-		if (!confirm("Delete proposal? Related comments/votes will be deleted."))
+		if (
+			!confirm("Delete proposal? Related comments/votes will be deleted.")
+		)
 			return;
-		await fetchWithCsrf(`/api/admin/proposals?id=${id}`, { method: "DELETE" });
+		await fetchWithCsrf(`/api/admin/proposals?id=${id}`, {
+			method: "DELETE",
+		});
 		load();
 	};
 
@@ -538,7 +486,7 @@ function ProposalsPanel() {
 		<section className="bg-white rounded-xl p-4 shadow space-y-2">
 			{items.map((p) => (
 				<div key={p.id} className="border rounded-xl p-3">
-					<div className="flex items-center justify-between">
+					<div className="flex items-center justify-between mb-2">
 						<input
 							className="font-semibold text-primary-900 flex-1 mr-3 border rounded px-2 py-1"
 							defaultValue={p.title}
@@ -558,16 +506,65 @@ function ProposalsPanel() {
 							<option value="archived">Archived</option>
 						</select>
 					</div>
-					<textarea
-						className="mt-2 w-full border rounded px-2 py-1"
-						defaultValue={p.description}
-						onBlur={(e) =>
-							patch(p.id, { description: e.target.value })
-						}
-					/>
+
+					{p.problem && (
+						<div className="mb-2">
+							<label className="text-xs font-semibold text-slate-600">Problem:</label>
+							<textarea
+								className="w-full border rounded px-2 py-1 text-sm"
+								defaultValue={p.problem}
+								rows={2}
+								onBlur={(e) =>
+									patch(p.id, { problem: e.target.value })
+								}
+							/>
+						</div>
+					)}
+
+					{p.solution && (
+						<div className="mb-2">
+							<label className="text-xs font-semibold text-slate-600">Solution:</label>
+							<textarea
+								className="w-full border rounded px-2 py-1 text-sm"
+								defaultValue={p.solution}
+								rows={2}
+								onBlur={(e) =>
+									patch(p.id, { solution: e.target.value })
+								}
+							/>
+						</div>
+					)}
+
+					{p.estimatedCost && (
+						<div className="mb-2">
+							<label className="text-xs font-semibold text-slate-600">Cost:</label>
+							<input
+								className="w-full border rounded px-2 py-1 text-sm"
+								defaultValue={p.estimatedCost}
+								onBlur={(e) =>
+									patch(p.id, { estimatedCost: e.target.value })
+								}
+							/>
+						</div>
+					)}
+
+					{p.description && !p.problem && (
+						<div className="mb-2">
+							<label className="text-xs font-semibold text-slate-600">Description (legacy):</label>
+							<textarea
+								className="w-full border rounded px-2 py-1 text-sm"
+								defaultValue={p.description}
+								rows={2}
+								onBlur={(e) =>
+									patch(p.id, { description: e.target.value })
+								}
+							/>
+						</div>
+					)}
+
 					<div className="mt-2 flex items-center justify-between text-sm text-slate-600">
 						<div>
-							👍 {p.thumbsUpCount} • {p.authorName}
+							👍 {p.thumbsUpCount}
 						</div>
 						<button
 							onClick={() => remove(p.id)}
@@ -743,33 +740,12 @@ function SessionsPanel() {
 		setCreating(false);
 	};
 
-	const advancePhase = async () => {
-		if (!confirm("Are you sure you want to advance to the next phase?")) {
-			return;
-		}
-
-		try {
-			const res = await fetchWithCsrf("/api/sessions/advance-phase", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-			});
-
-			if (res.ok) {
-				const data = await res.json();
-				alert(`Advanced to ${data.phase}! ${data.topProposalsCount} top proposals, ${data.archivedCount} archived.`);
-				loadSessions();
-			} else {
-				const error = await res.json();
-				alert(`Error: ${error.error}`);
-			}
-		} catch (error) {
-			console.error("Error advancing phase:", error);
-			alert("Could not advance phase");
-		}
-	};
-
 	const closeSession = async (sessionId) => {
-		if (!confirm("Are you sure you want to close this session? All proposals will be archived and winning proposals moved to top proposals.")) {
+		if (
+			!confirm(
+				"Are you sure you want to close this session? All proposals will be archived and winning proposals moved to top proposals."
+			)
+		) {
 			return;
 		}
 
@@ -782,7 +758,9 @@ function SessionsPanel() {
 
 			if (res.ok) {
 				const data = await res.json();
-				alert(`Session closed! ${data.topProposals.length} top proposals saved.`);
+				alert(
+					`Session closed! ${data.topProposals.length} top proposals saved.`
+				);
 				loadSessions();
 			} else {
 				const error = await res.json();
@@ -801,10 +779,10 @@ function SessionsPanel() {
 
 	return (
 		<section className="bg-white rounded-xl p-6 shadow space-y-6">
-			<div>
-				<h2 className="text-xl font-bold mb-4">Create New Session</h2>
+			{!activeSession && (
+				<div>
+					<h2 className="text-xl font-bold mb-4">Create New Session</h2>
 
-				{!activeSession ? (
 					<div className="space-y-4">
 						<div>
 							<label className="block text-sm font-medium text-slate-700 mb-2">
@@ -839,14 +817,8 @@ function SessionsPanel() {
 							</div>
 						)}
 					</div>
-				) : (
-					<div className="p-4 bg-accent-50 border border-accent-200 rounded-lg">
-						<p className="text-accent-800">
-							There is already an active session. Close it before creating a new one.
-						</p>
-					</div>
-				)}
-			</div>
+				</div>
+			)}
 
 			<div>
 				<h2 className="text-xl font-bold mb-4">Active Session</h2>
@@ -854,37 +826,86 @@ function SessionsPanel() {
 					<div className="p-4 border border-green-300 bg-green-50 rounded-lg space-y-4">
 						<div className="flex items-center justify-between">
 							<div>
-								<h3 className="font-bold text-lg">{activeSession.place}</h3>
+								<h3 className="font-bold text-lg">
+									{activeSession.place}
+								</h3>
 								<p className="text-sm text-slate-600">
-									Started: {new Date(activeSession.startDate).toLocaleString("sv-SE", {
-										year: 'numeric',
-										month: 'short',
-										day: 'numeric',
-										hour: '2-digit',
-										minute: '2-digit'
+									Started:{" "}
+									{new Date(
+										activeSession.startDate
+									).toLocaleString("sv-SE", {
+										year: "numeric",
+										month: "short",
+										day: "numeric",
+										hour: "2-digit",
+										minute: "2-digit",
 									})}
 								</p>
 								<p className="text-sm text-slate-500">
-									Duration: {Math.floor((new Date() - new Date(activeSession.startDate)) / (1000 * 60 * 60))} hours
+									Duration:{" "}
+									{Math.floor(
+										(new Date() -
+											new Date(activeSession.startDate)) /
+											(1000 * 60 * 60)
+									)}{" "}
+									hours
 								</p>
 								<p className="text-sm font-semibold text-primary-700 mt-2">
-									Current phase: {activeSession.phase === "phase1" ? "Phase 1 (Rating)" : "Phase 2 (Debate & Voting)"}
+									Current phase:{" "}
+									{activeSession.phase === "phase1"
+										? "Phase 1 (Rating)"
+										: "Phase 2 (Debate & Voting)"}
 								</p>
-								{activeSession.userReadyPhase1 && activeSession.userReadyPhase1.length > 0 && (
-									<p className="text-sm text-slate-600">
-										{activeSession.userReadyPhase1.length} users ready with phase 1
-									</p>
-								)}
 							</div>
 							<div className="flex flex-col gap-2">
 								<button
-									onClick={() => closeSession(activeSession._id)}
+									onClick={() =>
+										closeSession(activeSession._id)
+									}
 									className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
 								>
 									Close session
 								</button>
 							</div>
 						</div>
+
+						{activeSession.activeUsersWithStatus && activeSession.activeUsersWithStatus.length > 0 && (
+							<div className="mt-4 pt-4 border-t border-green-200">
+								<h4 className="font-semibold text-sm text-slate-700 mb-2">
+									Active Users ({activeSession.activeUsersWithStatus.length})
+								</h4>
+								<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+									{activeSession.activeUsersWithStatus.map((user) => (
+										<div
+											key={user._id}
+											className="flex items-center justify-between p-2 bg-white rounded border border-slate-200"
+										>
+											<div className="flex-1 min-w-0">
+												<p className="text-sm font-medium text-slate-900 truncate">
+													{user.name}
+												</p>
+												<p className="text-xs text-slate-500 truncate">
+													{user.email}
+												</p>
+											</div>
+											{activeSession.phase === "phase2" && (
+												<div className="ml-2 flex-shrink-0">
+													{user.hasVoted ? (
+														<span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
+															✓ Voted
+														</span>
+													) : (
+														<span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+															Pending
+														</span>
+													)}
+												</div>
+											)}
+										</div>
+									))}
+								</div>
+							</div>
+						)}
 					</div>
 				) : (
 					<p className="text-slate-600">No active session</p>
@@ -898,7 +919,9 @@ function SessionsPanel() {
 						{closedSessions.map((session) => {
 							const startDate = new Date(session.startDate);
 							const endDate = new Date(session.endDate);
-							const durationHours = Math.floor((endDate - startDate) / (1000 * 60 * 60));
+							const durationHours = Math.floor(
+								(endDate - startDate) / (1000 * 60 * 60)
+							);
 							const durationDays = Math.floor(durationHours / 24);
 							const remainingHours = durationHours % 24;
 
@@ -907,27 +930,34 @@ function SessionsPanel() {
 									key={session._id}
 									className="p-4 border border-slate-200 rounded-lg"
 								>
-									<h3 className="font-bold text-lg">{session.place}</h3>
+									<h3 className="font-bold text-lg">
+										{session.place}
+									</h3>
 									<p className="text-sm text-slate-600">
-										Started: {startDate.toLocaleString("sv-SE", {
-											year: 'numeric',
-											month: 'short',
-											day: 'numeric',
-											hour: '2-digit',
-											minute: '2-digit'
+										Started:{" "}
+										{startDate.toLocaleString("sv-SE", {
+											year: "numeric",
+											month: "short",
+											day: "numeric",
+											hour: "2-digit",
+											minute: "2-digit",
 										})}
 									</p>
 									<p className="text-sm text-slate-600">
-										Ended: {endDate.toLocaleString("sv-SE", {
-											year: 'numeric',
-											month: 'short',
-											day: 'numeric',
-											hour: '2-digit',
-											minute: '2-digit'
+										Ended:{" "}
+										{endDate.toLocaleString("sv-SE", {
+											year: "numeric",
+											month: "short",
+											day: "numeric",
+											hour: "2-digit",
+											minute: "2-digit",
 										})}
 									</p>
 									<p className="text-sm text-slate-500">
-										Duration: {durationDays > 0 ? `${durationDays}d ${remainingHours}h` : `${remainingHours}h`}
+										Duration:{" "}
+										{durationDays > 0
+											? `${durationDays}d ${remainingHours}h`
+											: `${remainingHours}h`}
 									</p>
 								</div>
 							);
@@ -965,7 +995,9 @@ function TopProposalsPanel() {
 
 	return (
 		<section className="bg-white rounded-xl p-6 shadow">
-			<h2 className="text-xl font-bold mb-4">Top Proposals from All Sessions</h2>
+			<h2 className="text-xl font-bold mb-4">
+				Top Proposals from All Sessions
+			</h2>
 
 			{topProposals.length > 0 ? (
 				<div className="space-y-4">
@@ -984,31 +1016,43 @@ function TopProposalsPanel() {
 
 									<div className="space-y-2 text-sm mb-3">
 										<div>
-											<span className="font-semibold text-slate-700">Problem:</span>
-											<p className="text-slate-600">{tp.problem}</p>
+											<span className="font-semibold text-slate-700">
+												Problem:
+											</span>
+											<p className="text-slate-600">
+												{tp.problem}
+											</p>
 										</div>
 										<div>
-											<span className="font-semibold text-slate-700">Solution:</span>
-											<p className="text-slate-600">{tp.solution}</p>
+											<span className="font-semibold text-slate-700">
+												Solution:
+											</span>
+											<p className="text-slate-600">
+												{tp.solution}
+											</p>
 										</div>
 										<div>
-											<span className="font-semibold text-slate-700">Cost:</span>
-											<p className="text-slate-600">{tp.estimatedCost}</p>
+											<span className="font-semibold text-slate-700">
+												Cost:
+											</span>
+											<p className="text-slate-600">
+												{tp.estimatedCost}
+											</p>
 										</div>
 									</div>
 
 									<div className="flex items-center gap-4 text-sm">
 										<span className="text-slate-600">
-											Place: <strong>{tp.sessionPlace}</strong> • {new Date(tp.sessionStartDate).toLocaleDateString("sv-SE")}
+											<strong>{tp.sessionPlace}</strong> •{" "}
+											{new Date(
+												tp.sessionStartDate
+											).toLocaleDateString("sv-SE")}
 										</span>
 										<span className="text-green-700">
 											👍 {tp.yesVotes} yes
 										</span>
 										<span className="text-red-700">
 											👎 {tp.noVotes} no
-										</span>
-										<span className="text-slate-600">
-											Author: {tp.authorName}
 										</span>
 									</div>
 								</div>
@@ -1051,14 +1095,18 @@ function EmailPanel() {
 			return;
 		}
 
-		if (!confirm("Are you sure you want to send results email to all participants in this session?")) {
+		if (
+			!confirm(
+				"Are you sure you want to send results email to all participants in this session?"
+			)
+		) {
 			return;
 		}
 
 		setSending(true);
 		setMessage("");
 
-		try{
+		try {
 			const res = await fetchWithCsrf("/api/admin/send-results-email", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
@@ -1067,7 +1115,9 @@ function EmailPanel() {
 
 			if (res.ok) {
 				const data = await res.json();
-				setMessage(`Email sent to ${data.successCount} users! (${data.errorCount} failed)`);
+				setMessage(
+					`Email sent to ${data.successCount} users! (${data.errorCount} failed)`
+				);
 			} else {
 				const error = await res.json();
 				setMessage(`Error: ${error.error}`);
@@ -1086,7 +1136,9 @@ function EmailPanel() {
 			return;
 		}
 
-		if (!confirm("Are you sure you want to send this email to ALL users?")) {
+		if (
+			!confirm("Are you sure you want to send this email to ALL users?")
+		) {
 			return;
 		}
 
@@ -1105,7 +1157,9 @@ function EmailPanel() {
 
 			if (res.ok) {
 				const data = await res.json();
-				setMessage(`Email sent to ${data.successCount} users! (${data.errorCount} failed)`);
+				setMessage(
+					`Email sent to ${data.successCount} users! (${data.errorCount} failed)`
+				);
 				setBroadcastSubject("");
 				setBroadcastMessage("");
 			} else {
@@ -1125,7 +1179,8 @@ function EmailPanel() {
 			<div>
 				<h2 className="text-xl font-bold mb-4">Send Results Email</h2>
 				<p className="text-sm text-slate-600 mb-4">
-					Send an email to all participants in a closed session with information about which proposals won.
+					Send an email to all participants in a closed session with
+					information about which proposals won.
 				</p>
 
 				<div className="space-y-4">
@@ -1141,7 +1196,8 @@ function EmailPanel() {
 							<option value="">-- Select session --</option>
 							{sessions.map((s) => (
 								<option key={s._id} value={s._id}>
-									{s.name}
+									{s.place} -{" "}
+									{new Date(s.startDate).toLocaleDateString()}
 								</option>
 							))}
 						</select>
@@ -1173,7 +1229,9 @@ function EmailPanel() {
 						<input
 							type="text"
 							value={broadcastSubject}
-							onChange={(e) => setBroadcastSubject(e.target.value)}
+							onChange={(e) =>
+								setBroadcastSubject(e.target.value)
+							}
 							className="w-full border border-slate-300 rounded-lg px-4 py-2"
 							placeholder="e.g. Important information"
 						/>
@@ -1185,7 +1243,9 @@ function EmailPanel() {
 						</label>
 						<textarea
 							value={broadcastMessage}
-							onChange={(e) => setBroadcastMessage(e.target.value)}
+							onChange={(e) =>
+								setBroadcastMessage(e.target.value)
+							}
 							className="w-full border border-slate-300 rounded-lg px-4 py-2 h-40"
 							placeholder="Your message..."
 						/>
@@ -1193,7 +1253,9 @@ function EmailPanel() {
 
 					<button
 						onClick={sendBroadcastEmail}
-						disabled={sending || !broadcastSubject || !broadcastMessage}
+						disabled={
+							sending || !broadcastSubject || !broadcastMessage
+						}
 						className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:bg-slate-400"
 					>
 						{sending ? "Sending..." : "Send to all users"}

@@ -14,11 +14,13 @@ export default async function handler(req, res) {
 				data.map((p) => ({
 					id: p._id.toString(),
 					title: p.title,
-					description: p.description,
+					problem: p.problem,
+					solution: p.solution,
+					estimatedCost: p.estimatedCost,
+					description: p.description, // Legacy field
 					status: p.status,
 					thumbsUpCount: p.thumbsUpCount,
 					authorId: p.authorId?.toString?.() || null,
-					authorName: p.authorName,
 					createdAt: p.createdAt,
 				}))
 			);
@@ -57,7 +59,7 @@ export default async function handler(req, res) {
 				return res
 					.status(400)
 					.json({ message: "id och updates krävs" });
-			const allowed = ["title", "description", "status", "thumbsUpCount"];
+			const allowed = ["title", "description", "problem", "solution", "estimatedCost", "status", "thumbsUpCount"];
 			const $set = Object.fromEntries(
 				Object.entries(updates).filter(([k]) => allowed.includes(k))
 			);

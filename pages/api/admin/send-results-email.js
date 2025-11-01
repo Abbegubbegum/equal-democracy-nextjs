@@ -1,5 +1,5 @@
 import dbConnect from "@/lib/mongodb";
-import { Session, User, Proposal, Comment, ThumbsUp, FinalVote, TopProposal } from "@/lib/models";
+import { Session, User, TopProposal } from "@/lib/models";
 import { sendSessionResultsEmail } from "@/lib/email";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
@@ -39,21 +39,8 @@ export default async function handler(req, res) {
 		// Get all top proposals from this session
 		const topProposals = await TopProposal.find({ sessionId: sessionId });
 
-		// Get all unique participants (users who created proposals, commented, or voted)
-		const proposalAuthors = await Proposal.find({ sessionId: sessionId }).distinct("authorId");
-		const commentAuthors = await Comment.find({ sessionId: sessionId }).distinct("userId");
-		const thumbsUpUsers = await ThumbsUp.find({ sessionId: sessionId }).distinct("userId");
-		const voteUsers = await FinalVote.find({ sessionId: sessionId }).distinct("userId");
-
-		// Combine all user IDs and remove duplicates
-		const participantIds = [
-			...new Set([
-				...proposalAuthors.map((id) => id.toString()),
-				...commentAuthors.map((id) => id.toString()),
-				...thumbsUpUsers.map((id) => id.toString()),
-				...voteUsers.map((id) => id.toString()),
-			]),
-		];
+		// Get all participants from the session's activeUsers array
+		const participantIds = targetSession.activeUsers || [];
 
 		// Get user emails
 		const participants = await User.find({
@@ -68,7 +55,7 @@ export default async function handler(req, res) {
 			try {
 				await sendSessionResultsEmail(
 					user.email,
-					targetSession.name,
+					targetSession.place,
 					topProposals.map((tp) => ({
 						title: tp.title,
 						yesVotes: tp.yesVotes,

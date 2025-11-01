@@ -160,6 +160,7 @@ export default function HomePage() {
 			fetchProposals();
 			fetchSessionInfo();
 			checkUserVote(); // Check if user has already voted
+			checkPhaseTransition(); // Check if a transition is already scheduled
 		}
 	}, [session]);
 
@@ -614,12 +615,20 @@ export default function HomePage() {
 
 	if (view === "vote") {
 		const topProposals = proposals.filter((p) => p.status === "top3");
+		const initialIndex = selectedProposal
+			? topProposals.findIndex(p => p._id === selectedProposal)
+			: 0;
 		return (
 			<VoteView
 				proposals={topProposals}
 				currentUser={session.user}
 				onVote={handleFinalVote}
-				onBack={() => setView("home")}
+				onBack={() => {
+					setView("home");
+					setSelectedProposal(null);
+				}}
+				initialProposalIndex={initialIndex >= 0 ? initialIndex : 0}
+				userHasVoted={userHasVotedInSession}
 				t={t}
 			/>
 		);
@@ -789,23 +798,37 @@ export default function HomePage() {
 				{/* User has voted - show confirmation */}
 				{currentPhase === "phase2" && userHasVotedInSession && (
 					<div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-400 rounded-2xl p-6 shadow-md">
-						<div className="flex items-center justify-center gap-3">
-							<div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
-								<span className="text-2xl text-white">✓</span>
+						<div className="flex flex-col items-center gap-4">
+							<div className="flex items-center gap-3">
+								<div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center">
+									<span className="text-2xl text-white">✓</span>
+								</div>
+								<div className="text-center">
+									<h3 className="text-lg font-bold text-green-900">
+										{t("voting.thanksForVote")}
+									</h3>
+									<p className="text-gray-700 text-sm">
+										{t("voting.sessionClosesWhen")}
+									</p>
+								</div>
 							</div>
-							<div className="text-center">
-								<h3 className="text-lg font-bold text-green-900">
-									{t("voting.thanksForVote")}
-								</h3>
-								<p className="text-gray-700 text-sm">
-									{t("voting.sessionClosesWhen")}
-								</p>
-							</div>
+							{votedProposalId && (
+								<button
+									onClick={() => {
+										setSelectedProposal(votedProposalId);
+										setView("vote");
+									}}
+									className="bg-primary-700 hover:bg-primary-800 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+								>
+									{t("voting.viewYourVote")}
+								</button>
+							)}
 						</div>
 					</div>
 				)}
 
-				{topProposals.length > 0 && (
+				{/* Vote section - only show if user hasn't voted yet */}
+				{currentPhase === "phase2" && !userHasVotedInSession && topProposals.length > 0 && (
 					<div className="bg-accent-50 border-2 border-accent-400 rounded-2xl p-6 space-y-4">
 						<div className="flex items-center justify-between">
 							<div className="flex items-center gap-2">
@@ -815,7 +838,10 @@ export default function HomePage() {
 								</h3>
 							</div>
 							<button
-								onClick={() => setView("vote")}
+								onClick={() => {
+									setSelectedProposal(null);
+									setView("vote");
+								}}
 								className="bg-primary-800 hover:bg-primary-900 text-white px-4 py-2 rounded-lg font-medium"
 							>
 								{t("proposals.vote")}
@@ -860,7 +886,10 @@ export default function HomePage() {
 								setExpandedProposal={setExpandedProposal}
 								onThumbsUp={handleThumbsUp}
 								onAddComment={handleAddComment}
-								onVote={() => setView("vote")}
+								onVote={() => {
+									setSelectedProposal(proposal._id);
+									setView("vote");
+								}}
 								userHasVotedInSession={userHasVotedInSession}
 								votedProposalId={votedProposalId}
 								commentUpdateTrigger={commentUpdateTrigger}
@@ -1597,12 +1626,13 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 // VOTE VIEW
 // ============================================================================
 
-function VoteView({ proposals, currentUser, onVote, onBack, t }) {
-	const [currentProposalIndex, setCurrentProposalIndex] = useState(0);
+function VoteView({ proposals, currentUser, onVote, onBack, initialProposalIndex = 0, userHasVoted = false, t }) {
+	const [currentProposalIndex, setCurrentProposalIndex] = useState(initialProposalIndex);
 	const [votedProposals, setVotedProposals] = useState(new Set());
 	const [voteResults, setVoteResults] = useState({});
 	const [loading, setLoading] = useState(true);
 	const [isVoting, setIsVoting] = useState(false);
+	const [hasVotedInThisSession, setHasVotedInThisSession] = useState(userHasVoted);
 
 	useEffect(() => {
 		fetchVoteData();
@@ -1643,14 +1673,10 @@ function VoteView({ proposals, currentUser, onVote, onBack, t }) {
 		setIsVoting(true);
 		await onVote(proposalId, choice);
 		await fetchVoteData();
+		setHasVotedInThisSession(true); // User has now voted, hide other vote buttons
 		setIsVoting(false);
 
-		// Move to next proposal after a short delay
-		setTimeout(() => {
-			if (currentProposalIndex < proposals.length - 1) {
-				setCurrentProposalIndex(currentProposalIndex + 1);
-			}
-		}, 1500);
+		// Don't auto-advance after voting - user has made their one vote
 	};
 
 	const currentProposal = proposals[currentProposalIndex];
@@ -1828,7 +1854,7 @@ function VoteView({ proposals, currentUser, onVote, onBack, t }) {
 								<p className="text-center text-sm text-gray-500 pt-2">
 									{t("voting.totalVotes", { count: results.total })}
 								</p>
-								{currentProposalIndex < proposals.length - 1 && (
+								{!hasVotedInThisSession && currentProposalIndex < proposals.length - 1 && (
 									<button
 										onClick={() =>
 											setCurrentProposalIndex(
@@ -1845,8 +1871,8 @@ function VoteView({ proposals, currentUser, onVote, onBack, t }) {
 					)}
 				</div>
 
-				{/* Navigation buttons */}
-				{proposals.length > 1 && (
+				{/* Navigation buttons - only show if user hasn't voted yet */}
+				{!hasVotedInThisSession && proposals.length > 1 && (
 					<div className="flex justify-between mt-6">
 						<button
 							onClick={() =>

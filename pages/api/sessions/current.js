@@ -48,24 +48,12 @@ export default async function handler(req, res) {
 			);
 		}
 
-		// Check if current user has marked ready for phase 1
-		const userReady = activeSession.userReadyPhase1.some(
-			(id) => id.toString() === session.user.id
-		);
-
 		return res.status(200).json({
 			_id: activeSession._id.toString(),
 			place: activeSession.place,
 			status: activeSession.status,
 			phase: activeSession.phase,
-			userReady,
-			readyCount: activeSession.userReadyPhase1.length,
 			activeUsersCount: activeSession.activeUsers?.length || 0,
-			// Debug info - remove later
-			debug: {
-				currentUserId: session.user.id,
-				isActiveUser: isAlreadyActive,
-			},
 		});
 	} catch (error) {
 		console.error("Error fetching current session:", error);

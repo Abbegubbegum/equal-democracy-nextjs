@@ -1,5 +1,5 @@
 import dbConnect from "@/lib/mongodb";
-import { Session, User, TopProposal } from "@/lib/models";
+import { Session, User, TopProposal, Settings } from "@/lib/models";
 import { sendSessionResultsEmail } from "@/lib/email";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
@@ -25,6 +25,10 @@ export default async function handler(req, res) {
 
 	try {
 		const { sessionId } = req.body;
+
+		// Get current language setting
+		const settings = await Settings.findOne();
+		const language = settings?.language || "sv";
 
 		if (!sessionId) {
 			return res.status(400).json({ error: "Session ID is required" });
@@ -60,7 +64,8 @@ export default async function handler(req, res) {
 						title: tp.title,
 						yesVotes: tp.yesVotes,
 						noVotes: tp.noVotes,
-					}))
+					})),
+					language
 				);
 				successCount++;
 			} catch (emailError) {

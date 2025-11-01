@@ -54,8 +54,7 @@ export const authOptions = {
 					let user = await User.findOne({ email });
 
 					if (!user) {
-						// Use pendingName from the code request or fallback to local-part
-						const fallbackName =
+						const name =
 							email
 								.split("@")[0]
 								.replace(/[._-]/g, " ")
@@ -63,16 +62,10 @@ export const authOptions = {
 								.slice(0, 60) || "Citizen";
 
 						user = await User.create({
-							name: rec.pendingName?.slice(0, 60) || fallbackName,
+							name: name,
 							email,
 							// no password
 						});
-					} else if (!user.name) {
-						// If existing (legacy) user had no name, backfill from pendingName
-						if (rec.pendingName) {
-							user.name = rec.pendingName.slice(0, 60);
-							await user.save();
-						}
 					}
 
 					return {

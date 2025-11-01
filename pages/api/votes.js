@@ -8,7 +8,7 @@ import {
 	TopProposal,
 	Settings,
 } from "../../lib/models";
-import { getActiveSession } from "../../lib/session-helper";
+import { getActiveSession, registerActiveUser } from "../../lib/session-helper";
 import { validateObjectId, toObjectId } from "../../lib/validation";
 import { csrfProtection } from "../../lib/csrf";
 import broadcaster from "../../lib/sse-broadcaster";
@@ -84,6 +84,9 @@ export default async function handler(req, res) {
 				userId: session.user.id,
 				choice,
 			});
+
+			// Register user as active in session
+			await registerActiveUser(session.user.id);
 
 			console.log(`[VOTE] ✓ Vote saved successfully`);
 

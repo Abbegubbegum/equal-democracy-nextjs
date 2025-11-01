@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
 import connectDB from "../../lib/mongodb";
 import { Comment } from "../../lib/models";
-import { getActiveSession } from "../../lib/session-helper";
+import { getActiveSession, registerActiveUser } from "../../lib/session-helper";
 import { csrfProtection } from "../../lib/csrf";
 import broadcaster from "../../lib/sse-broadcaster";
 
@@ -91,6 +91,9 @@ export default async function handler(req, res) {
 				text,
 				type: type || "neutral",
 			});
+
+			// Register user as active in session
+			await registerActiveUser(session.user.id);
 
 			// Broadcast new comment event
 			await broadcaster.broadcast("new-comment", {

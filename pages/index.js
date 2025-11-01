@@ -33,7 +33,7 @@ export default function HomePage() {
 	const { data: session, status } = useSession();
 	const router = useRouter();
 	const { t } = useTranslation();
-	const { config } = useConfig();
+	const { theme, config } = useConfig();
 	const [proposals, setProposals] = useState([]);
 	const [loading, setLoading] = useState(true);
 	const [view, setView] = useState("home"); // 'home', 'create', 'vote'
@@ -317,17 +317,6 @@ export default function HomePage() {
 	};
 
 	const handleThumbsUp = async (proposalId, rating = 5) => {
-		// Gentle nudge if user hasn't created their own proposal yet
-		if (!userHasCreatedProposal) {
-			const shouldContinue = confirm(
-				t("rating.createProposalNudge") ||
-					"Have you considered creating your own proposal first? You can always rate others afterward."
-			);
-			if (!shouldContinue) {
-				return; // User wants to create a proposal first
-			}
-		}
-
 		try {
 			const res = await fetchWithCsrf("/api/thumbsup", {
 				method: "POST",
@@ -655,8 +644,7 @@ export default function HomePage() {
 	const displayProposals =
 		currentPhase === "phase1" ? activeProposals : topProposals;
 
-	// Get theme colors
-	const { theme } = useConfig();
+	// Get theme colors (theme already extracted at top of component)
 	const primaryColor = theme.colors.primary[600] || "#2563eb";
 	const accentColor = theme.colors.accent[400] || "#facc15";
 	const primaryDark = theme.colors.primary[800] || "#1e40af";
@@ -775,13 +763,31 @@ export default function HomePage() {
 
 				{/* Information about limited voting rights in Phase 2 */}
 				{currentPhase === "phase2" && !userHasVotedInSession && (
-					<div className="bg-gradient-to-r from-primary-50 to-primary-100 border-2 border-primary-400 rounded-2xl p-6 shadow-md">
+					<div
+						className={`bg-gradient-to-r ${
+							config.theme === "red"
+								? "from-blue-50 to-blue-100 border-2 border-blue-400"
+								: "from-primary-50 to-primary-100 border-2 border-primary-400"
+						} rounded-2xl p-6 shadow-md`}
+					>
 						<div className="flex items-start gap-4">
-							<div className="w-12 h-12 bg-primary-500 rounded-full flex items-center justify-center shrink-0">
+							<div
+								className={`w-12 h-12 ${
+									config.theme === "red"
+										? "bg-blue-500"
+										: "bg-primary-500"
+								} rounded-full flex items-center justify-center shrink-0`}
+							>
 								<Info className="w-6 h-6 text-white" />
 							</div>
 							<div className="flex-1">
-								<h3 className="text-lg font-bold text-primary-900 mb-2">
+								<h3
+									className={`text-lg font-bold ${
+										config.theme === "red"
+											? "text-blue-900"
+											: "text-primary-900"
+									} mb-2`}
+								>
 									{t("voting.limitedVotingRights")}
 								</h3>
 								<p className="text-gray-700 text-sm leading-relaxed mb-2">
@@ -1080,7 +1086,7 @@ function ProposalCard({
 				onClick={!isPhase1 ? handleToggleDiscuss : undefined}
 			>
 				<h4
-					className={`text-lg font-bold text-primary-800 mb-2 ${
+					className={`text-lg font-bold text-primary-800 mb-2 break-words ${
 						!isPhase1 ? "group-hover:text-primary-900" : ""
 					}`}
 				>
@@ -1092,14 +1098,18 @@ function ProposalCard({
 						<p className="font-semibold text-gray-700">
 							{t("proposals.problemColon")}
 						</p>
-						<p className="text-gray-600">{proposal.problem}</p>
+						<p className="text-gray-600 break-words">
+							{proposal.problem}
+						</p>
 					</div>
 
 					<div>
 						<p className="font-semibold text-gray-700">
 							{t("proposals.solutionColon")}
 						</p>
-						<p className="text-gray-600">{proposal.solution}</p>
+						<p className="text-gray-600 break-words">
+							{proposal.solution}
+						</p>
 					</div>
 
 					<div>
@@ -1150,9 +1160,14 @@ function ProposalCard({
 							</span>
 							<div className="flex gap-0.5">
 								{[1, 2, 3, 4, 5].map((star) => (
-									<span key={star} className="text-lg">
-										{star <= userRating ? "⭐" : "☆"}
-									</span>
+									<Star
+										key={star}
+										className={`w-5 h-5 ${
+											star <= userRating
+												? "fill-yellow-400 text-accent-400"
+												: "text-gray-300"
+										}`}
+									/>
 								))}
 							</div>
 						</div>
@@ -1167,21 +1182,17 @@ function ProposalCard({
 									<button
 										key={star}
 										onClick={() => handleStarClick(star)}
-										className="text-3xl hover:scale-110 transition-transform"
-										style={{
-											color: isConfirmed
-												? "#dc2626"
-												: "inherit",
-											filter: isConfirmed
-												? "brightness(1.2)"
-												: "none",
-										}}
+										className="transition-transform hover:scale-125"
 									>
-										{isConfirmed
-											? "⭐"
-											: star <= userRating
-											? "⭐"
-											: "☆"}
+										<Star
+											className={`w-8 h-8 ${
+												isConfirmed
+													? "fill-red-600 text-red-600 animate-pulse"
+													: star <= userRating
+													? "fill-yellow-400 text-accent-400"
+													: "text-gray-300 hover:text-accent-400"
+											}`}
+										/>
 									</button>
 								);
 							})}
@@ -1393,8 +1404,8 @@ function ProposalCard({
 											</div>
 
 											{/* Right side: Comment content */}
-											<div className="flex-1">
-												<p className="text-gray-700 text-sm leading-relaxed">
+											<div className="flex-1 min-w-0">
+												<p className="text-gray-700 text-sm leading-relaxed break-words">
 													{comment.text}
 												</p>
 												<p className="text-xs text-gray-400 mt-1">

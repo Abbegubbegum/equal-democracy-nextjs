@@ -57,10 +57,15 @@ export default async function handler(req, res) {
 			});
 		}
 
-		// Calculate top proposals (min of: all proposals, max(2, 40% of proposals))
-		const topCount = Math.min(
-			proposalCount,
-			Math.max(2, Math.ceil(proposalCount * 0.4))
+		// Calculate top proposals using square root curve
+		// Fits: 10→4, 20→5, 100→10 (approximately)
+		// Formula balances between allowing enough proposals through while preventing overwhelming choice
+		const topCount = Math.max(
+			2, // Minimum 2 proposals
+			Math.min(
+				proposalCount, // Can't exceed total proposals
+				Math.round(1.2 * Math.sqrt(proposalCount))
+			)
 		);
 
 		// Get proposals sorted by average rating

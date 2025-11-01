@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "../../../lib/mongodb";
 import { Proposal, ThumbsUp, Comment } from "../../../lib/models";
-import { getActiveSession } from "../../../lib/session-helper";
+import { getActiveSession, registerActiveUser } from "../../../lib/session-helper";
 import { csrfProtection } from "../../../lib/csrf";
 import broadcaster from "../../../lib/sse-broadcaster";
 
@@ -108,6 +108,9 @@ export default async function handler(req, res) {
 				status: "active",
 				thumbsUpCount: 0,
 			});
+
+			// Register user as active in session
+			await registerActiveUser(session.user.id);
 
 			// Broadcast new proposal event to all connected clients
 			await broadcaster.broadcast("new-proposal", {

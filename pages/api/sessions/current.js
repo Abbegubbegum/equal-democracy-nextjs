@@ -28,25 +28,8 @@ export default async function handler(req, res) {
 			});
 		}
 
-		// Register user as active in session (on first visit)
-		// Initialize activeUsers array if it doesn't exist
-		if (!activeSession.activeUsers) {
-			activeSession.activeUsers = [];
-		}
-
-		// Check if user is already in activeUsers array
-		const isAlreadyActive = activeSession.activeUsers.some(
-			(id) => id.toString() === session.user.id
-		);
-
-		if (!isAlreadyActive) {
-			// Add user to activeUsers array
-			activeSession.activeUsers.push(session.user.id);
-			await activeSession.save();
-			console.log(
-				`User ${session.user.name} (${session.user.id}) registered as active in session for ${activeSession.place}`
-			);
-		}
+		// Users are now only registered as active when they perform actions
+		// (create proposal, rate, vote, comment) via registerActiveUser() helper
 
 		return res.status(200).json({
 			_id: activeSession._id.toString(),

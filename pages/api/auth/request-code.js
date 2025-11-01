@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import connectDB from "../../../lib/mongodb";
-import { LoginCode } from "../../../lib/models";
+import { LoginCode, Settings } from "../../../lib/models";
 import { sendLoginCode } from "../../../lib/email";
 
 function random6() {
@@ -11,10 +11,14 @@ export default async function handler(req, res) {
 	if (req.method !== "POST")
 		return res.status(405).json({ message: "Method not allowed" });
 
-	const { email, name } = req.body || {};
+	const { email } = req.body || {};
 	if (!email) return res.status(400).json({ message: "Email is required" });
 
 	await connectDB();
+
+	// Get current language setting
+	const settings = await Settings.findOne();
+	const language = settings?.language || "sv";
 
 	// Basic rate-limit: at most 1 active code per email; also delete stale codes
 	await LoginCode.deleteMany({
@@ -39,12 +43,11 @@ export default async function handler(req, res) {
 	await LoginCode.create({
 		email: email.toLowerCase(),
 		codeHash,
-		pendingName: name, // used if user is new
 		expiresAt,
 	});
 
 	try {
-		await sendLoginCode(email, code);
+		await sendLoginCode(email, code, language);
 	} catch (e) {
 		// Clean up if email fails
 		await LoginCode.deleteMany({

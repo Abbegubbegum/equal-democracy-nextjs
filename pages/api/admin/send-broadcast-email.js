@@ -1,5 +1,5 @@
 import dbConnect from "@/lib/mongodb";
-import { User } from "@/lib/models";
+import { User, Settings } from "@/lib/models";
 import { sendBroadcastEmail } from "@/lib/email";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
@@ -26,6 +26,10 @@ export default async function handler(req, res) {
 	try {
 		const { subject, message } = req.body;
 
+		// Get current language setting
+		const settings = await Settings.findOne();
+		const language = settings?.language || "sv";
+
 		if (!subject || !message) {
 			return res
 				.status(400)
@@ -41,7 +45,7 @@ export default async function handler(req, res) {
 
 		for (const user of users) {
 			try {
-				await sendBroadcastEmail(user.email, subject, message);
+				await sendBroadcastEmail(user.email, subject, message, language);
 				successCount++;
 			} catch (emailError) {
 				console.error(

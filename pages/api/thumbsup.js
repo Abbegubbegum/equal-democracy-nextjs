@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
 import connectDB from "../../lib/mongodb";
 import { ThumbsUp, Proposal, Session } from "../../lib/models";
-import { getActiveSession } from "../../lib/session-helper";
+import { getActiveSession, registerActiveUser } from "../../lib/session-helper";
 import { csrfProtection } from "../../lib/csrf";
 import broadcaster from "../../lib/sse-broadcaster";
 
@@ -91,6 +91,9 @@ export default async function handler(req, res) {
 				userId: session.user.id,
 				rating: rating || 5,
 			});
+
+			// Register user as active in session
+			await registerActiveUser(session.user.id);
 
 			// Calculate average rating
 			const ratings = await ThumbsUp.find({ proposalId });

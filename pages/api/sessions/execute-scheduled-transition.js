@@ -23,7 +23,29 @@ export default async function handler(req, res) {
 	try {
 		const now = new Date();
 
-		// Use atomic findOneAndUpdate to claim the transition lock
+		// First, check if there's an active session with a scheduled transition
+		const checkSession = await Session.findOne({
+			status: "active",
+			phase: "phase1",
+			phase1TransitionScheduled: { $exists: true },
+		});
+
+		if (!checkSession) {
+			return res.status(200).json({ transitionExecuted: false });
+		}
+
+		const scheduledTime = new Date(checkSession.phase1TransitionScheduled);
+
+		// If time hasn't passed yet, return countdown
+		if (now < scheduledTime) {
+			const secondsRemaining = Math.floor((scheduledTime - now) / 1000);
+			return res.status(200).json({
+				transitionExecuted: false,
+				secondsRemaining: secondsRemaining,
+			});
+		}
+
+		// Time has passed! Use atomic findOneAndUpdate to claim the transition lock
 		// This prevents race conditions when multiple clients try to execute simultaneously
 		const activeSession = await Session.findOneAndUpdate(
 			{
@@ -42,28 +64,10 @@ export default async function handler(req, res) {
 			}
 		);
 
-		// If no session was found and updated, either:
-		// 1. No active session exists
-		// 2. Session is not in phase1
-		// 3. No transition is scheduled
-		// 4. Time hasn't passed yet
-		// 5. Another request already claimed this transition
+		// If no session was updated, another request already claimed this transition
 		if (!activeSession) {
 			return res.status(200).json({ transitionExecuted: false });
 		}
-
-		// Check if time hasn't passed yet (for more detailed response)
-		const scheduledTime = new Date(activeSession.phase1TransitionScheduled);
-		if (now < scheduledTime) {
-			// This shouldn't happen due to the query filter, but keeping for safety
-			const secondsRemaining = Math.floor((scheduledTime - now) / 1000);
-			return res.status(200).json({
-				transitionExecuted: false,
-				secondsRemaining: secondsRemaining,
-			});
-		}
-
-		console.log("TRANSITION!");
 
 		// We now have exclusive ownership of this transition - proceed with execution
 		const proposalCount = await Proposal.countDocuments({
@@ -87,9 +91,6 @@ export default async function handler(req, res) {
 				Math.round(1.2 * Math.sqrt(proposalCount))
 			)
 		);
-
-		console.log("TOP COUNT");
-		console.log(topCount);
 
 		// Get proposals sorted by average rating
 		const proposals = await Proposal.find({

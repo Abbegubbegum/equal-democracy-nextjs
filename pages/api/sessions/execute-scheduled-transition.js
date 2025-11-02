@@ -33,6 +33,8 @@ export default async function handler(req, res) {
 			return res.status(200).json({ transitionExecuted: false });
 		}
 
+		console.log("TRANSITION!");
+
 		const scheduledTime = new Date(activeSession.phase1TransitionScheduled);
 		const now = new Date();
 
@@ -67,6 +69,9 @@ export default async function handler(req, res) {
 				Math.round(1.2 * Math.sqrt(proposalCount))
 			)
 		);
+
+		console.log("TOP COUNT");
+		console.log(topCount);
 
 		// Get proposals sorted by average rating
 		const proposals = await Proposal.find({

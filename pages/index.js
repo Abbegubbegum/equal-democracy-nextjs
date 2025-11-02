@@ -133,7 +133,7 @@ export default function HomePage() {
 				transitionData.secondsRemaining
 			);
 			// Play sound when transition countdown begins
-			playEndSign();
+			playNotification();
 			// Start the countdown timer for all connected clients
 			setTransitionCountdown(transitionData.secondsRemaining);
 			checkPhaseTransition(); // This will start the countdown polling
@@ -359,9 +359,6 @@ export default function HomePage() {
 			if (data.transitionScheduled) {
 				// Transition is scheduled, show countdown
 				setTransitionCountdown(data.secondsRemaining);
-				// Play sound when countdown is detected
-				playEndSign();
-
 				// Clear any existing interval before starting a new one
 				if (transitionIntervalRef.current) {
 					clearInterval(transitionIntervalRef.current);

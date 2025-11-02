@@ -76,10 +76,6 @@ export default async function handler(req, res) {
 				});
 			}
 
-			console.log(
-				`[VOTE] User ${session.user.name} (${session.user.id}) voting ${choice} on proposal ${proposalId}`
-			);
-
 			await FinalVote.create({
 				sessionId: activeSession._id,
 				proposalId: toObjectId(proposalId),
@@ -90,8 +86,6 @@ export default async function handler(req, res) {
 			// Register user as active in session
 			await registerActiveUser(session.user.id);
 
-			console.log(`[VOTE] ✓ Vote saved successfully`);
-
 			const yesCount = await FinalVote.countDocuments({
 				proposalId: toObjectId(proposalId),
 				choice: "yes",
@@ -100,10 +94,6 @@ export default async function handler(req, res) {
 				proposalId: toObjectId(proposalId),
 				choice: "no",
 			});
-
-			console.log(
-				`[VOTE] Current vote counts for proposal: YES=${yesCount}, NO=${noCount}`
-			);
 
 			// Broadcast vote update event
 			await broadcaster.broadcast("vote-update", {
@@ -236,9 +226,6 @@ async function checkAutoClose(activeSession) {
 	try {
 		// Only check in phase 2
 		if (activeSession.phase !== "phase2") {
-			console.log(
-				`[AUTO-CLOSE] Not in phase2, current phase: ${activeSession.phase}`
-			);
 			return false;
 		}
 
@@ -246,25 +233,11 @@ async function checkAutoClose(activeSession) {
 		// Since each user can only vote once, we check if all active users have used their vote
 		const activeUserIds = activeSession.activeUsers || [];
 
-		console.log(`[AUTO-CLOSE] Active users count: ${activeUserIds.length}`);
-		console.log(
-			`[AUTO-CLOSE] Active users:`,
-			activeUserIds.map((id) => id.toString())
-		);
-
 		if (activeUserIds.length > 0) {
 			// Get unique users who have voted in Phase 2
 			const votedUserIds = await FinalVote.distinct("userId", {
 				sessionId: activeSession._id,
 			});
-
-			console.log(
-				`[AUTO-CLOSE] Voted users count: ${votedUserIds.length}`
-			);
-			console.log(
-				`[AUTO-CLOSE] Voted users:`,
-				votedUserIds.map((id) => id.toString())
-			);
 
 			// Check if all active users have voted
 			const allUsersVoted = activeUserIds.every((userId) =>
@@ -273,8 +246,6 @@ async function checkAutoClose(activeSession) {
 				)
 			);
 
-			console.log(`[AUTO-CLOSE] All users voted: ${allUsersVoted}`);
-
 			if (allUsersVoted) {
 				console.log(
 					`[AUTO-CLOSE] ✅ All ${activeUserIds.length} users have voted! Closing session...`
@@ -282,9 +253,6 @@ async function checkAutoClose(activeSession) {
 				await closeSession(activeSession);
 				return true;
 			} else {
-				console.log(
-					`[AUTO-CLOSE] ⏳ Waiting for more votes. ${votedUserIds.length}/${activeUserIds.length} users have voted.`
-				);
 			}
 		} else {
 			console.log(
@@ -318,19 +286,11 @@ async function checkAutoClose(activeSession) {
 // Helper function to close the session and archive proposals
 async function closeSession(activeSession) {
 	try {
-		console.log(
-			`[CLOSE-SESSION] 🚀 Starting to close session: ${activeSession.name}`
-		);
-
 		// Get all top proposals (status "top3") from this session
 		const topProposals = await Proposal.find({
 			sessionId: activeSession._id,
 			status: "top3", // Note: "top3" is the database status, but refers to top 40% of proposals
 		});
-
-		console.log(
-			`[CLOSE-SESSION] Found ${topProposals.length} top proposals in session ${activeSession.name}`
-		);
 
 		// For each top proposal, calculate votes and save if yes-majority
 		for (const proposal of topProposals) {
@@ -339,15 +299,8 @@ async function closeSession(activeSession) {
 			const yesVotes = votes.filter((v) => v.choice === "yes").length;
 			const noVotes = votes.filter((v) => v.choice === "no").length;
 
-			console.log(
-				`Proposal "${proposal.title}": ${yesVotes} yes, ${noVotes} no votes`
-			);
-
 			// Only save proposals with yes-majority
 			if (yesVotes > noVotes) {
-				console.log(
-					`✓ Saving "${proposal.title}" as winning proposal (${yesVotes} > ${noVotes})`
-				);
 				await TopProposal.create({
 					sessionId: activeSession._id,
 					sessionPlace:
@@ -366,10 +319,6 @@ async function closeSession(activeSession) {
 					noVotes: noVotes,
 					archivedAt: new Date(),
 				});
-			} else {
-				console.log(
-					`✗ Skipping "${proposal.title}" (${yesVotes} ≤ ${noVotes})`
-				);
 			}
 		}
 
@@ -391,10 +340,6 @@ async function closeSession(activeSession) {
 
 		// Send results email to all participants
 		try {
-			console.log(
-				`[CLOSE-SESSION] 📧 Sending results emails to participants...`
-			);
-
 			// Get current language setting
 			const settings = await Settings.findOne();
 			const language = settings?.language || "sv";
@@ -429,7 +374,6 @@ async function closeSession(activeSession) {
 						language
 					);
 					successCount++;
-					console.log(`[CLOSE-SESSION] ✓ Email sent to ${user.email}`);
 				} catch (emailError) {
 					console.error(
 						`[CLOSE-SESSION] ✗ Failed to send email to ${user.email}:`,
@@ -438,10 +382,6 @@ async function closeSession(activeSession) {
 					errorCount++;
 				}
 			}
-
-			console.log(
-				`[CLOSE-SESSION] 📧 Email summary: ${successCount} sent, ${errorCount} failed (total: ${participants.length} participants)`
-			);
 		} catch (emailError) {
 			console.error(
 				"[CLOSE-SESSION] Error during email sending process:",

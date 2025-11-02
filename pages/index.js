@@ -58,37 +58,26 @@ export default function HomePage() {
 
 	// Sound effects
 	const [playEndSign] = useSound("/sounds/end_sign.mp3", { volume: 0.5 });
-	const [playNotification] = useSound("/sounds/notification.mp3", { volume: 0.5 });
+	const [playNotification] = useSound("/sounds/notification.mp3", {
+		volume: 0.5,
+	});
 
 	// Setup SSE for real-time updates
 	useSSE({
 		onNewProposal: (proposal) => {
-			console.log("New proposal received, updating list");
 			setProposals((prev) => [proposal, ...prev]);
 			playNotification(); // Play sound when new proposal arrives
 		},
 		onNewComment: (comment) => {
-			console.log(
-				"New comment received for proposal:",
-				comment.proposalId
-			);
 			// Trigger comment refresh for the specific proposal
 			setCommentUpdateTrigger((prev) => prev + 1);
 			playNotification(); // Play sound when new comment arrives
 		},
 		onCommentRatingUpdate: (commentRatingData) => {
-			console.log(
-				"Comment rating update for comment:",
-				commentRatingData.commentId
-			);
 			// Trigger comment refresh to show updated ratings
 			setCommentUpdateTrigger((prev) => prev + 1);
 		},
 		onVoteUpdate: (voteData) => {
-			console.log(
-				"Vote update received for proposal:",
-				voteData.proposalId
-			);
 			// Update the specific proposal's vote counts
 			setProposals((prev) =>
 				prev.map((p) =>
@@ -99,10 +88,6 @@ export default function HomePage() {
 			);
 		},
 		onRatingUpdate: (ratingData) => {
-			console.log(
-				"Rating update received for proposal:",
-				ratingData.proposalId
-			);
 			// Update the specific proposal's rating
 			setProposals((prev) =>
 				prev.map((p) =>
@@ -117,7 +102,6 @@ export default function HomePage() {
 			);
 		},
 		onPhaseChange: async (phaseData) => {
-			console.log("Phase change received:", phaseData.phase);
 			setCurrentPhase(phaseData.phase);
 
 			// If session is closed, show results modal
@@ -128,10 +112,6 @@ export default function HomePage() {
 			}
 		},
 		onTransitionScheduled: (transitionData) => {
-			console.log(
-				"Transition scheduled, countdown:",
-				transitionData.secondsRemaining
-			);
 			// Play sound when transition countdown begins
 			playNotification();
 			// Start the countdown timer for all connected clients
@@ -139,7 +119,6 @@ export default function HomePage() {
 			checkPhaseTransition(); // This will start the countdown polling
 		},
 		onNewSession: async (sessionData) => {
-			console.log("New session created:", sessionData.place);
 			// Update place name
 			setPlaceName(sessionData.place);
 			// Clear old data and refresh
@@ -151,9 +130,7 @@ export default function HomePage() {
 			await fetchSessionInfo();
 			await fetchProposals();
 		},
-		onConnected: () => {
-			console.log("Successfully connected to real-time updates");
-		},
+		onConnected: () => {},
 		onError: (error) => {
 			console.error("Connection error, will auto-reconnect:", error);
 		},

@@ -96,8 +96,26 @@ export const authOptions = {
 		},
 		async session({ session, token }) {
 			if (token && session.user) {
-				session.user.id = token.id;
-				session.user.isAdmin = !!token.isAdmin;
+				// Validate that the user still exists in the database
+				try {
+					await connectDB();
+					const dbUser = await User.findById(token.id);
+
+					if (!dbUser) {
+						// User no longer exists in database, invalidate session
+						throw new Error("User not found in database");
+					}
+
+					// Update session with current user data from database
+					session.user.id = dbUser._id.toString();
+					session.user.email = dbUser.email;
+					session.user.name = dbUser.name;
+					session.user.isAdmin = !!dbUser.isAdmin;
+				} catch (error) {
+					console.error("Session validation error:", error);
+					// Return null to invalidate the session
+					return null;
+				}
 			}
 			return session;
 		},

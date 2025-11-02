@@ -7,11 +7,13 @@ import {
 	Proposal,
 	TopProposal,
 	Settings,
+	User,
 } from "../../lib/models";
 import { getActiveSession, registerActiveUser } from "../../lib/session-helper";
 import { validateObjectId, toObjectId } from "../../lib/validation";
 import { csrfProtection } from "../../lib/csrf";
 import broadcaster from "../../lib/sse-broadcaster";
+import { sendSessionResultsEmail } from "../../lib/email";
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -386,6 +388,67 @@ async function closeSession(activeSession) {
 		console.log(
 			`[CLOSE-SESSION] ✅ Session ${activeSession.name} successfully closed and saved!`
 		);
+
+		// Send results email to all participants
+		try {
+			console.log(
+				`[CLOSE-SESSION] 📧 Sending results emails to participants...`
+			);
+
+			// Get current language setting
+			const settings = await Settings.findOne();
+			const language = settings?.language || "sv";
+
+			// Get all participants from the session's activeUsers array
+			const participantIds = activeSession.activeUsers || [];
+
+			// Get user emails
+			const participants = await User.find({
+				_id: { $in: participantIds },
+			});
+
+			// Get top proposals that were saved (with yes-majority)
+			const savedTopProposals = await TopProposal.find({
+				sessionId: activeSession._id,
+			});
+
+			// Send email to each participant
+			let successCount = 0;
+			let errorCount = 0;
+
+			for (const user of participants) {
+				try {
+					await sendSessionResultsEmail(
+						user.email,
+						activeSession.place,
+						savedTopProposals.map((tp) => ({
+							title: tp.title,
+							yesVotes: tp.yesVotes,
+							noVotes: tp.noVotes,
+						})),
+						language
+					);
+					successCount++;
+					console.log(`[CLOSE-SESSION] ✓ Email sent to ${user.email}`);
+				} catch (emailError) {
+					console.error(
+						`[CLOSE-SESSION] ✗ Failed to send email to ${user.email}:`,
+						emailError
+					);
+					errorCount++;
+				}
+			}
+
+			console.log(
+				`[CLOSE-SESSION] 📧 Email summary: ${successCount} sent, ${errorCount} failed (total: ${participants.length} participants)`
+			);
+		} catch (emailError) {
+			console.error(
+				"[CLOSE-SESSION] Error during email sending process:",
+				emailError
+			);
+			// Don't throw - we still want the session to close even if emails fail
+		}
 	} catch (error) {
 		console.error("Error closing session:", error);
 		throw error;

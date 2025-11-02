@@ -21,25 +21,41 @@ export default async function handler(req, res) {
 	}
 
 	try {
-		// Get active session
-		const activeSession = await Session.findOne({ status: "active" });
-
-		if (!activeSession || activeSession.phase !== "phase1") {
-			return res.status(200).json({ transitionExecuted: false });
-		}
-
-		// Check if transition is scheduled and time has passed
-		if (!activeSession.phase1TransitionScheduled) {
-			return res.status(200).json({ transitionExecuted: false });
-		}
-
-		console.log("TRANSITION!");
-
-		const scheduledTime = new Date(activeSession.phase1TransitionScheduled);
 		const now = new Date();
 
+		// Use atomic findOneAndUpdate to claim the transition lock
+		// This prevents race conditions when multiple clients try to execute simultaneously
+		const activeSession = await Session.findOneAndUpdate(
+			{
+				status: "active",
+				phase: "phase1",
+				phase1TransitionScheduled: {
+					$exists: true,
+					$lte: now, // Only if scheduled time has passed
+				},
+			},
+			{
+				$set: { phase1TransitionScheduled: null }, // Clear immediately to prevent re-execution
+			},
+			{
+				new: false, // Return the document BEFORE the update
+			}
+		);
+
+		// If no session was found and updated, either:
+		// 1. No active session exists
+		// 2. Session is not in phase1
+		// 3. No transition is scheduled
+		// 4. Time hasn't passed yet
+		// 5. Another request already claimed this transition
+		if (!activeSession) {
+			return res.status(200).json({ transitionExecuted: false });
+		}
+
+		// Check if time hasn't passed yet (for more detailed response)
+		const scheduledTime = new Date(activeSession.phase1TransitionScheduled);
 		if (now < scheduledTime) {
-			// Not time yet
+			// This shouldn't happen due to the query filter, but keeping for safety
 			const secondsRemaining = Math.floor((scheduledTime - now) / 1000);
 			return res.status(200).json({
 				transitionExecuted: false,
@@ -47,7 +63,9 @@ export default async function handler(req, res) {
 			});
 		}
 
-		// Time to execute transition!
+		console.log("TRANSITION!");
+
+		// We now have exclusive ownership of this transition - proceed with execution
 		const proposalCount = await Proposal.countDocuments({
 			sessionId: activeSession._id,
 			status: "active",
@@ -123,9 +141,9 @@ export default async function handler(req, res) {
 		);
 
 		// Update session to phase 2 and record start time
+		// Note: phase1TransitionScheduled was already cleared atomically above
 		activeSession.phase = "phase2";
 		activeSession.phase2StartTime = new Date();
-		activeSession.phase1TransitionScheduled = null; // Clear the scheduled time
 		await activeSession.save();
 
 		// Broadcast phase change to all connected clients

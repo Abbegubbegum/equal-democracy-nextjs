@@ -1,6 +1,17 @@
 services:
     nextjs:
         build: .
+        command: npm run dev
         ports:
             - "3000:3000"
-        env_file: ".env.local"
+        develop:
+            watch:
+                - action: sync
+                  path: .
+                  target: /app
+                  initial_sync: true
+                  ignore:
+                      - node_modules/
+                      - .next/
+                - action: rebuild
+                  path: package.json

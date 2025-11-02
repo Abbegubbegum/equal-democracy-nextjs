@@ -2,44 +2,71 @@ import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import connectDB from "../../../lib/mongodb";
-import { User } from "../../../lib/models";
+import { User, LoginCode } from "../../../lib/models";
 
 export const authOptions = {
 	providers: [
 		CredentialsProvider({
-			name: "Credentials",
+			name: "Email Code",
 			credentials: {
 				email: { label: "Email", type: "email" },
-				password: { label: "Password", type: "password" },
+				code: { label: "Code", type: "text" },
 			},
 			async authorize(credentials) {
 				try {
 					await connectDB();
 
-					if (!credentials?.email || !credentials?.password) {
-						throw new Error("Vänligen ange e-post och lösenord");
+					const email = credentials?.email?.toLowerCase();
+					const code = credentials?.code?.trim();
+
+					if (!email || !code) {
+						throw new Error("Please enter an email and code");
 					}
 
-					const user = await User.findOne({
-						email: credentials.email,
+					// Find active code
+					const rec = await LoginCode.findOne({
+						email,
+						expiresAt: { $gt: new Date() },
 					});
 
-					if (!user) {
+					if (!rec) {
+						throw new Error("Code is invalid or expired");
+					}
+
+					// throttle attempts
+					if (rec.attempts >= 5) {
+						await LoginCode.deleteMany({ email });
 						throw new Error(
-							"Ingen användare hittades med denna e-post"
+							"To many failed attemps, request a new code."
 						);
 					}
 
-					const isPasswordValid = await bcrypt.compare(
-						credentials.password,
-						user.password
-					);
-
-					if (!isPasswordValid) {
-						throw new Error("Felaktigt lösenord");
+					const ok = await bcrypt.compare(code, rec.codeHash);
+					if (!ok) {
+						rec.attempts += 1;
+						await rec.save();
+						throw new Error("Code is invalid");
 					}
 
-					console.log("AUTH: %b", user.isAdmin);
+					// One-time: consume code
+					await LoginCode.deleteMany({ email });
+
+					let user = await User.findOne({ email });
+
+					if (!user) {
+						const name =
+							email
+								.split("@")[0]
+								.replace(/[._-]/g, " ")
+								.replace(/\b\w/g, (c) => c.toUpperCase())
+								.slice(0, 60) || "Citizen";
+
+						user = await User.create({
+							name: name,
+							email,
+							// no password
+						});
+					}
 
 					return {
 						id: user._id.toString(),
@@ -69,8 +96,26 @@ export const authOptions = {
 		},
 		async session({ session, token }) {
 			if (token && session.user) {
-				session.user.id = token.id;
-				session.user.isAdmin = !!token.isAdmin;
+				// Validate that the user still exists in the database
+				try {
+					await connectDB();
+					const dbUser = await User.findById(token.id);
+
+					if (!dbUser) {
+						// User no longer exists in database, invalidate session
+						throw new Error("User not found in database");
+					}
+
+					// Update session with current user data from database
+					session.user.id = dbUser._id.toString();
+					session.user.email = dbUser.email;
+					session.user.name = dbUser.name;
+					session.user.isAdmin = !!dbUser.isAdmin;
+				} catch (error) {
+					console.error("Session validation error:", error);
+					// Return null to invalidate the session
+					return null;
+				}
 			}
 			return session;
 		},

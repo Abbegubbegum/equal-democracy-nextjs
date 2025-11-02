@@ -14,11 +14,13 @@ export default async function handler(req, res) {
 				data.map((p) => ({
 					id: p._id.toString(),
 					title: p.title,
-					description: p.description,
+					problem: p.problem,
+					solution: p.solution,
+					estimatedCost: p.estimatedCost,
+					description: p.description, // Legacy field
 					status: p.status,
 					thumbsUpCount: p.thumbsUpCount,
 					authorId: p.authorId?.toString?.() || null,
-					authorName: p.authorName,
 					createdAt: p.createdAt,
 				}))
 			);
@@ -33,12 +35,10 @@ export default async function handler(req, res) {
 				authorName,
 			} = req.body;
 			if (!title || !description || !authorId || !authorName) {
-				return res
-					.status(400)
-					.json({
-						message:
-							"title, description, authorId, authorName krävs",
-					});
+				return res.status(400).json({
+					message:
+						"title, description, authorId, authorName is required",
+				});
 			}
 			const p = await Proposal.create({
 				title,
@@ -56,8 +56,16 @@ export default async function handler(req, res) {
 			if (!id || typeof updates !== "object")
 				return res
 					.status(400)
-					.json({ message: "id och updates krävs" });
-			const allowed = ["title", "description", "status", "thumbsUpCount"];
+					.json({ message: "id and updates ir required" });
+			const allowed = [
+				"title",
+				"description",
+				"problem",
+				"solution",
+				"estimatedCost",
+				"status",
+				"thumbsUpCount",
+			];
 			const $set = Object.fromEntries(
 				Object.entries(updates).filter(([k]) => allowed.includes(k))
 			);
@@ -67,15 +75,13 @@ export default async function handler(req, res) {
 				{ new: true }
 			);
 			if (!p)
-				return res
-					.status(404)
-					.json({ message: "Förslag hittades inte" });
+				return res.status(404).json({ message: "Proposal not found" });
 			return res.status(200).json({ id: p._id.toString() });
 		}
 
 		if (req.method === "DELETE") {
 			const { id } = req.query;
-			if (!id) return res.status(400).json({ message: "id krävs" });
+			if (!id) return res.status(400).json({ message: "id is required" });
 			await Promise.all([
 				Comment.deleteMany({ proposalId: id }),
 				ThumbsUp.deleteMany({ proposalId: id }),
@@ -88,6 +94,6 @@ export default async function handler(req, res) {
 		return res.status(405).json({ message: "Method not allowed" });
 	} catch (e) {
 		console.error(e);
-		return res.status(500).json({ message: "Ett fel uppstod" });
+		return res.status(500).json({ message: "An error has occured" });
 	}
 }

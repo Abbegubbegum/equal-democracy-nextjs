@@ -1,50 +1,127 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
 import connectDB from "../../lib/mongodb";
-import { ThumbsUp, Proposal } from "../../lib/models";
+import { ThumbsUp, Proposal, Session } from "../../lib/models";
+import { getActiveSession, registerActiveUser } from "../../lib/session-helper";
+import { csrfProtection } from "../../lib/csrf";
+import broadcaster from "../../lib/sse-broadcaster";
 
 export default async function handler(req, res) {
 	await connectDB();
+
+	// CSRF protection for state-changing methods
+	if (!csrfProtection(req, res)) {
+		return;
+	}
 
 	if (req.method === "POST") {
 		const session = await getServerSession(req, res, authOptions);
 
 		if (!session) {
-			return res.status(401).json({ message: "Du måste vara inloggad" });
+			return res
+				.status(401)
+				.json({ message: "You have to be logged in" });
 		}
 
-		const { proposalId } = req.body;
+		const { proposalId, rating } = req.body;
 
 		if (!proposalId) {
-			return res.status(400).json({ message: "Proposal ID krävs" });
+			return res.status(400).json({ message: "Proposal ID is required" });
+		}
+
+		// Validate rating (1-5)
+		if (rating && (rating < 1 || rating > 5)) {
+			return res
+				.status(400)
+				.json({ message: "Rating must be between 1 and 5" });
 		}
 
 		try {
+			// Get the active session
+			const activeSession = await getActiveSession();
+
+			// If no active session, cannot rate
+			if (!activeSession) {
+				return res
+					.status(400)
+					.json({ message: "No active session exists" });
+			}
+
 			const existingVote = await ThumbsUp.findOne({
 				proposalId,
 				userId: session.user.id,
 			});
 
 			if (existingVote) {
-				return res
-					.status(400)
-					.json({ message: "Du har redan röstat på detta förslag" });
+				// Update existing rating
+				existingVote.rating = rating || 5;
+				await existingVote.save();
+
+				// Recalculate average rating
+				const ratings = await ThumbsUp.find({ proposalId });
+				const avgRating =
+					ratings.reduce((sum, r) => sum + r.rating, 0) /
+					ratings.length;
+				const count = ratings.length;
+
+				await Proposal.findByIdAndUpdate(proposalId, {
+					thumbsUpCount: count,
+					averageRating: avgRating,
+				});
+
+				// Broadcast rating update event
+				await broadcaster.broadcast("rating-update", {
+					proposalId: proposalId.toString(),
+					thumbsUpCount: count,
+					averageRating: avgRating,
+				});
+
+				return res.status(200).json({
+					message: "Rating uppdated",
+					count,
+					averageRating: avgRating,
+					userRating: existingVote.rating,
+				});
 			}
 
+			// Create new rating
 			await ThumbsUp.create({
+				sessionId: activeSession._id,
 				proposalId,
 				userId: session.user.id,
+				rating: rating || 5,
 			});
 
-			const count = await ThumbsUp.countDocuments({ proposalId });
+			// Register user as active in session
+			await registerActiveUser(session.user.id);
+
+			// Calculate average rating
+			const ratings = await ThumbsUp.find({ proposalId });
+			const avgRating =
+				ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length;
+			const count = ratings.length;
+
 			await Proposal.findByIdAndUpdate(proposalId, {
 				thumbsUpCount: count,
+				averageRating: avgRating,
 			});
 
-			return res.status(201).json({ message: "Röst registrerad", count });
+			// Broadcast rating update event
+			await broadcaster.broadcast("rating-update", {
+				proposalId: proposalId.toString(),
+				thumbsUpCount: count,
+				averageRating: avgRating,
+			});
+
+			return res.status(201).json({
+				message: "Rating registered",
+				count,
+				averageRating: avgRating,
+				userRating: rating || 5,
+			});
 		} catch (error) {
 			console.error("Error adding thumbs up:", error);
-			return res.status(500).json({ message: "Ett fel uppstod" });
+			return res.status(500).json({ message: "An error has occured" });
 		}
 	}
 
@@ -52,18 +129,23 @@ export default async function handler(req, res) {
 		const session = await getServerSession(req, res, authOptions);
 
 		if (!session) {
-			return res.status(401).json({ message: "Du måste vara inloggad" });
+			return res
+				.status(401)
+				.json({ message: "You have to be logged in" });
 		}
 
 		const { proposalId } = req.query;
 
 		if (proposalId) {
-			const voted = await ThumbsUp.exists({
+			const vote = await ThumbsUp.findOne({
 				proposalId,
 				userId: session.user.id,
 			});
 
-			return res.status(200).json({ voted: !!voted });
+			return res.status(200).json({
+				voted: !!vote,
+				rating: vote ? vote.rating : 0,
+			});
 		}
 
 		const votes = await ThumbsUp.find({ userId: session.user.id })

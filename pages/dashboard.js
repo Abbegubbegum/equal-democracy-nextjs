@@ -8,10 +8,14 @@ import {
 	CheckCircle,
 	FileText,
 } from "lucide-react";
+import { useTranslation } from "../lib/hooks/useTranslation";
+import { useConfig } from "../lib/contexts/ConfigContext";
 
 export default function DashboardPage() {
 	const { data: session, status } = useSession();
 	const router = useRouter();
+	const { t } = useTranslation();
+	const { theme, config } = useConfig();
 	const [activity, setActivity] = useState(null);
 	const [loading, setLoading] = useState(true);
 
@@ -38,7 +42,9 @@ export default function DashboardPage() {
 	if (status === "loading" || loading) {
 		return (
 			<div className="min-h-screen bg-gray-100 flex items-center justify-center">
-				<div className="text-xl text-gray-600">Laddar...</div>
+				<div className="text-xl text-gray-600">
+					{t("common.loading")}
+				</div>
 			</div>
 		);
 	}
@@ -50,23 +56,23 @@ export default function DashboardPage() {
 	return (
 		<div className="min-h-screen bg-gray-50">
 			{/* Header */}
-			<div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 shadow-lg">
+			<div className="bg-gradient-to-r from-primary-600 to-primary-700 text-white p-6 shadow-lg">
 				<div className="max-w-4xl mx-auto">
 					<button
 						onClick={() => router.push("/")}
-						className="mb-4 text-white hover:text-yellow-400 font-medium"
+						className="mb-4 text-white hover:text-accent-400 font-medium"
 					>
-						← Tillbaka till hem
+						← {t("dashboard.backToHome")}
 					</button>
 					<div className="flex items-center gap-3">
-						<div className="w-12 h-12 bg-yellow-400 rounded-full flex items-center justify-center">
-							<Users className="w-6 h-6 text-blue-800" />
+						<div className="w-12 h-12 bg-accent-400 rounded-full flex items-center justify-center">
+							<Users className="w-6 h-6 text-primary-800" />
 						</div>
 						<div>
 							<h1 className="text-2xl font-bold">
-								Min aktivitet
+								{t("dashboard.title")}
 							</h1>
-							<p className="text-blue-100 text-sm">
+							<p className="text-primary-100 text-sm">
 								{session.user.name}
 							</p>
 						</div>
@@ -80,12 +86,12 @@ export default function DashboardPage() {
 				<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
 					<div className="bg-white rounded-2xl p-4 shadow-md">
 						<div className="flex items-center gap-2 mb-2">
-							<FileText className="w-5 h-5 text-blue-600" />
+							<FileText className="w-5 h-5 text-primary-600" />
 							<span className="text-sm text-gray-600">
-								Förslag
+								{t("dashboard.proposals")}
 							</span>
 						</div>
-						<p className="text-3xl font-bold text-blue-800">
+						<p className="text-3xl font-bold text-primary-800">
 							{activity.proposals.length}
 						</p>
 					</div>
@@ -94,7 +100,7 @@ export default function DashboardPage() {
 						<div className="flex items-center gap-2 mb-2">
 							<ThumbsUp className="w-5 h-5 text-green-600" />
 							<span className="text-sm text-gray-600">
-								Röster
+								{t("dashboard.votes")}
 							</span>
 						</div>
 						<p className="text-3xl font-bold text-green-800">
@@ -104,24 +110,24 @@ export default function DashboardPage() {
 
 					<div className="bg-white rounded-2xl p-4 shadow-md">
 						<div className="flex items-center gap-2 mb-2">
-							<MessageCircle className="w-5 h-5 text-purple-600" />
+							<MessageCircle className="w-5 h-5 text-accent-600" />
 							<span className="text-sm text-gray-600">
-								Kommentarer
+								{t("dashboard.comments")}
 							</span>
 						</div>
-						<p className="text-3xl font-bold text-purple-800">
+						<p className="text-3xl font-bold text-accent-800">
 							{activity.comments.length}
 						</p>
 					</div>
 
 					<div className="bg-white rounded-2xl p-4 shadow-md">
 						<div className="flex items-center gap-2 mb-2">
-							<CheckCircle className="w-5 h-5 text-yellow-600" />
+							<CheckCircle className="w-5 h-5 text-accent-600" />
 							<span className="text-sm text-gray-600">
-								Slutröster
+								{t("dashboard.finalVotes")}
 							</span>
 						</div>
-						<p className="text-3xl font-bold text-yellow-800">
+						<p className="text-3xl font-bold text-accent-800">
 							{activity.finalVotes.length}
 						</p>
 					</div>
@@ -131,11 +137,12 @@ export default function DashboardPage() {
 				<div className="space-y-4">
 					<h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
 						<FileText className="w-6 h-6" />
-						Mina förslag ({activity.proposals.length})
+						{t("dashboard.myProposals")} (
+						{activity.proposals.length})
 					</h2>
 					{activity.proposals.length === 0 ? (
 						<div className="bg-white rounded-2xl p-6 text-center text-gray-500">
-							Du har inte skapat några förslag än
+							{t("dashboard.noProposals")}
 						</div>
 					) : (
 						activity.proposals.map((proposal) => (
@@ -144,11 +151,11 @@ export default function DashboardPage() {
 								className="bg-white rounded-2xl shadow-md p-6"
 							>
 								<div className="flex items-start justify-between gap-4">
-									<div className="flex-1">
-										<h3 className="text-lg font-bold text-blue-800 mb-2">
+									<div className="flex-1 min-w-0">
+										<h3 className="text-lg font-bold text-primary-800 mb-2 break-words">
 											{proposal.title}
 										</h3>
-										<p className="text-gray-600">
+										<p className="text-gray-600 break-words">
 											{proposal.description}
 										</p>
 										<div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
@@ -156,17 +163,17 @@ export default function DashboardPage() {
 												<ThumbsUp className="w-4 h-4" />
 												{proposal.thumbsUpCount}
 											</span>
-											<span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium">
+											<span className="px-2 py-1 bg-primary-100 text-primary-700 rounded-lg text-xs font-medium">
 												{proposal.status === "active"
-													? "Aktiv"
+													? t("dashboard.active")
 													: proposal.status === "top3"
-													? "Topp 3"
-													: "Arkiverad"}
+													? t("dashboard.top3")
+													: t("dashboard.archived")}
 											</span>
 											<span>
 												{new Date(
 													proposal.createdAt
-												).toLocaleDateString("sv-SE")}
+												).toLocaleDateString()}
 											</span>
 										</div>
 									</div>
@@ -180,11 +187,12 @@ export default function DashboardPage() {
 				<div className="space-y-4">
 					<h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
 						<ThumbsUp className="w-6 h-6" />
-						Förslag jag röstat på ({activity.thumbsUps.length})
+						{t("dashboard.proposalsVotedOn")} (
+						{activity.thumbsUps.length})
 					</h2>
 					{activity.thumbsUps.length === 0 ? (
 						<div className="bg-white rounded-2xl p-6 text-center text-gray-500">
-							Du har inte röstat på några förslag än
+							{t("dashboard.noVotes")}
 						</div>
 					) : (
 						<div className="bg-white rounded-2xl shadow-md p-6 space-y-3">
@@ -193,13 +201,13 @@ export default function DashboardPage() {
 									key={vote._id}
 									className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
 								>
-									<span className="text-gray-700">
+									<span className="text-gray-700 break-words">
 										{vote.proposalTitle}
 									</span>
 									<span className="text-sm text-gray-500">
 										{new Date(
 											vote.createdAt
-										).toLocaleDateString("sv-SE")}
+										).toLocaleDateString()}
 									</span>
 								</div>
 							))}
@@ -211,11 +219,11 @@ export default function DashboardPage() {
 				<div className="space-y-4">
 					<h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
 						<MessageCircle className="w-6 h-6" />
-						Mina kommentarer ({activity.comments.length})
+						{t("dashboard.myComments")} ({activity.comments.length})
 					</h2>
 					{activity.comments.length === 0 ? (
 						<div className="bg-white rounded-2xl p-6 text-center text-gray-500">
-							Du har inte kommenterat på några förslag än
+							{t("dashboard.noComments")}
 						</div>
 					) : (
 						activity.comments.map((comment) => (
@@ -223,14 +231,16 @@ export default function DashboardPage() {
 								key={comment._id}
 								className="bg-white rounded-2xl shadow-md p-6"
 							>
-								<p className="text-sm text-blue-600 font-medium mb-2">
-									På: {comment.proposalTitle}
+								<p className="text-sm text-primary-600 font-medium mb-2">
+									{t("dashboard.on")}: {comment.proposalTitle}
 								</p>
-								<p className="text-gray-700">{comment.text}</p>
+								<p className="text-gray-700 break-words">
+									{comment.text}
+								</p>
 								<p className="text-xs text-gray-400 mt-2">
 									{new Date(
 										comment.createdAt
-									).toLocaleDateString("sv-SE")}
+									).toLocaleDateString()}
 								</p>
 							</div>
 						))
@@ -241,11 +251,12 @@ export default function DashboardPage() {
 				<div className="space-y-4">
 					<h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
 						<CheckCircle className="w-6 h-6" />
-						Mina slutröster ({activity.finalVotes.length})
+						{t("dashboard.myFinalVotes")} (
+						{activity.finalVotes.length})
 					</h2>
 					{activity.finalVotes.length === 0 ? (
 						<div className="bg-white rounded-2xl p-6 text-center text-gray-500">
-							Du har inte avgett några slutröster än
+							{t("dashboard.noFinalVotes")}
 						</div>
 					) : (
 						<div className="bg-white rounded-2xl shadow-md p-6 space-y-3">
@@ -254,7 +265,7 @@ export default function DashboardPage() {
 									key={vote._id}
 									className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
 								>
-									<span className="text-gray-700">
+									<span className="text-gray-700 break-words">
 										{vote.proposalTitle}
 									</span>
 									<div className="flex items-center gap-3">
@@ -266,13 +277,13 @@ export default function DashboardPage() {
 											}`}
 										>
 											{vote.choice === "yes"
-												? "Ja"
-												: "Nej"}
+												? t("common.yes")
+												: t("common.no")}
 										</span>
 										<span className="text-sm text-gray-500">
 											{new Date(
 												vote.createdAt
-											).toLocaleDateString("sv-SE")}
+											).toLocaleDateString()}
 										</span>
 									</div>
 								</div>

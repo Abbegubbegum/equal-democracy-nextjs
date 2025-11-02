@@ -11,7 +11,7 @@ export default async function handler(req, res) {
 	const session = await getServerSession(req, res, authOptions);
 
 	if (!session) {
-		return res.status(401).json({ message: "Du måste vara inloggad" });
+		return res.status(401).json({ message: "You have to be logged in" });
 	}
 
 	await connectDB();
@@ -78,6 +78,6 @@ export default async function handler(req, res) {
 		return res.status(200).json(activity);
 	} catch (error) {
 		console.error("Error fetching user activity:", error);
-		return res.status(500).json({ message: "Ett fel uppstod" });
+		return res.status(500).json({ message: "An error has occured" });
 	}
 }

@@ -558,14 +558,14 @@ function SessionsPanel() {
 					<div className="space-y-4">
 						<div>
 							<label className="block text-sm font-medium text-slate-700 mb-2">
-								Place Name
+								What to Improve
 							</label>
 							<input
 								type="text"
 								value={newPlace}
 								onChange={(e) => setNewPlace(e.target.value)}
 								className="w-full max-w-md border border-slate-300 rounded-lg px-4 py-2"
-								placeholder="Vallentuna"
+								placeholder="e.g. 'City Name' or 'Topic'"
 							/>
 						</div>
 

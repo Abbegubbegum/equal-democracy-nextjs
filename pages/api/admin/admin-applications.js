@@ -80,7 +80,9 @@ export default async function handler(req, res) {
 			if (action === "approve") {
 				user.isAdmin = true;
 				user.adminStatus = "approved";
-				user.sessionLimit = sessionLimit || 10;
+				const limit = sessionLimit || 10;
+				user.sessionLimit = limit;
+				user.remainingSessions = limit;
 			} else {
 				user.adminStatus = "denied";
 			}
@@ -95,6 +97,7 @@ export default async function handler(req, res) {
 					email: user.email,
 					adminStatus: user.adminStatus,
 					sessionLimit: user.sessionLimit,
+					remainingSessions: user.remainingSessions,
 				},
 			});
 		} catch (error) {

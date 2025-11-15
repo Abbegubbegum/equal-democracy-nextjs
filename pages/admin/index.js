@@ -12,11 +12,11 @@ export default function AdminPage() {
 	useEffect(() => {
 		if (status === "loading") return;
 		if (!session) router.replace("/login");
-		else if (!session.user?.isAdmin) router.replace("/");
+		else if (!session.user?.isAdmin && !session.user?.isSuperAdmin) router.replace("/");
 	}, [status, session, router]);
 
 	if (status === "loading") return <div className="p-8">Loading…</div>;
-	if (!session?.user?.isAdmin) return null;
+	if (!session?.user?.isAdmin && !session?.user?.isSuperAdmin) return null;
 
 	return (
 		<div className="min-h-screen bg-gray-50">
@@ -50,37 +50,48 @@ export default function AdminPage() {
 						active={tab === "sessions"}
 						onClick={() => setTab("sessions")}
 					/>
-					<Tab
-						label="Top Proposals"
-						icon={<Trophy className="w-4 h-4" />}
-						active={tab === "top-proposals"}
-						onClick={() => setTab("top-proposals")}
-					/>
-					<Tab
-						label="Email"
-						icon={<Mail className="w-4 h-4" />}
-						active={tab === "email"}
-						onClick={() => setTab("email")}
-					/>
+					{session.user?.isSuperAdmin && (
+						<>
+							<Tab
+								label="Top Proposals"
+								icon={<Trophy className="w-4 h-4" />}
+								active={tab === "top-proposals"}
+								onClick={() => setTab("top-proposals")}
+							/>
+							<Tab
+								label="Admin Applications"
+								icon={<Shield className="w-4 h-4" />}
+								active={tab === "admin-applications"}
+								onClick={() => setTab("admin-applications")}
+							/>
+							<Tab
+								label="Email"
+								icon={<Mail className="w-4 h-4" />}
+								active={tab === "email"}
+								onClick={() => setTab("email")}
+							/>
+							<Tab
+								label="Users"
+								icon={<Users className="w-4 h-4" />}
+								active={tab === "users"}
+								onClick={() => setTab("users")}
+							/>
+						</>
+					)}
 					<Tab
 						label="Settings"
 						icon={<Settings className="w-4 h-4" />}
 						active={tab === "settings"}
 						onClick={() => setTab("settings")}
 					/>
-					<Tab
-						label="Users"
-						icon={<Users className="w-4 h-4" />}
-						active={tab === "users"}
-						onClick={() => setTab("users")}
-					/>
 				</nav>
 
 				{tab === "sessions" && <SessionsPanel />}
-				{tab === "top-proposals" && <TopProposalsPanel />}
-				{tab === "email" && <EmailPanel />}
-				{tab === "settings" && <SettingsPanel />}
-				{tab === "users" && <UsersPanel />}
+				{session.user?.isSuperAdmin && tab === "top-proposals" && <TopProposalsPanel />}
+				{session.user?.isSuperAdmin && tab === "admin-applications" && <AdminApplicationsPanel />}
+				{session.user?.isSuperAdmin && tab === "email" && <EmailPanel />}
+				{tab === "settings" && <SettingsPanel isSuperAdmin={session.user?.isSuperAdmin} />}
+				{session.user?.isSuperAdmin && tab === "users" && <UsersPanel />}
 			</main>
 		</div>
 	);
@@ -102,7 +113,7 @@ function Tab({ label, icon, active, onClick }) {
 	);
 }
 
-function SettingsPanel() {
+function SettingsPanel({ isSuperAdmin }) {
 	const [phase2DurationHours, setPhase2DurationHours] = useState(6);
 	const [language, setLanguage] = useState("sv");
 	const [theme, setTheme] = useState("default");
@@ -118,10 +129,14 @@ function SettingsPanel() {
 		setLoading(true);
 		try {
 			const res = await fetch("/api/settings");
-			const data = await res.json();
-			setPhase2DurationHours(data.phase2DurationHours || 6);
-			setLanguage(data.language || "sv");
-			setTheme(data.theme || "default");
+			if (res.ok) {
+				const data = await res.json();
+				setPhase2DurationHours(data.phase2DurationHours || 6);
+				setLanguage(data.language || "sv");
+				setTheme(data.theme || "default");
+			} else {
+				console.error("Error loading settings:", res.status);
+			}
 		} catch (error) {
 			console.error("Error loading settings:", error);
 		}
@@ -129,25 +144,34 @@ function SettingsPanel() {
 	};
 
 	const handleSave = async () => {
-		const hours = Number(phase2DurationHours);
-		if (isNaN(hours) || hours < 1 || hours > 168) {
-			setMessage(
-				"Error: Phase 2 duration must be between 1 and 168 hours"
-			);
-			return;
+		// Only validate phase2Duration if user is superadmin
+		if (isSuperAdmin) {
+			const hours = Number(phase2DurationHours);
+			if (isNaN(hours) || hours < 1 || hours > 168) {
+				setMessage(
+					"Error: Phase 2 duration must be between 1 and 168 hours"
+				);
+				return;
+			}
 		}
 
 		setSaving(true);
 		setMessage("");
 		try {
+			const body = {
+				language,
+				theme,
+			};
+
+			// Only include phase2DurationHours if user is superadmin
+			if (isSuperAdmin) {
+				body.phase2DurationHours = Number(phase2DurationHours);
+			}
+
 			const res = await fetchWithCsrf("/api/settings", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					phase2DurationHours: hours,
-					language,
-					theme,
-				}),
+				body: JSON.stringify(body),
 			});
 
 			if (res.ok) {
@@ -215,24 +239,26 @@ function SettingsPanel() {
 					</p>
 				</div>
 
-				<div>
-					<label className="block text-sm font-medium text-slate-700 mb-2">
-						Phase 2 Duration (hours)
-					</label>
-					<input
-						type="number"
-						min="1"
-						max="168"
-						value={phase2DurationHours}
-						onChange={(e) => setPhase2DurationHours(e.target.value)}
-						className="w-full max-w-md border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-						placeholder="6"
-					/>
-					<p className="text-sm text-slate-500 mt-1">
-						Phase 2 ends automatically when everyone has voted or
-						after this time (1-168 hours)
-					</p>
-				</div>
+				{isSuperAdmin && (
+					<div>
+						<label className="block text-sm font-medium text-slate-700 mb-2">
+							Phase 2 Duration (hours)
+						</label>
+						<input
+							type="number"
+							min="1"
+							max="168"
+							value={phase2DurationHours}
+							onChange={(e) => setPhase2DurationHours(e.target.value)}
+							className="w-full max-w-md border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+							placeholder="6"
+						/>
+						<p className="text-sm text-slate-500 mt-1">
+							Phase 2 ends automatically when everyone has voted or
+							after this time (1-168 hours)
+						</p>
+					</div>
+				)}
 
 				<button
 					onClick={handleSave}
@@ -266,9 +292,19 @@ function UsersPanel() {
 
 	const load = async () => {
 		setLoading(true);
-		const res = await fetch("/api/admin/users");
-		const data = await res.json();
-		setItems(data);
+		try {
+			const res = await fetch("/api/admin/users");
+			if (res.ok) {
+				const data = await res.json();
+				setItems(Array.isArray(data) ? data : []);
+			} else {
+				console.error("Error loading users:", res.status);
+				setItems([]);
+			}
+		} catch (error) {
+			console.error("Error loading users:", error);
+			setItems([]);
+		}
 		setLoading(false);
 	};
 	useEffect(() => {
@@ -409,6 +445,7 @@ function UsersPanel() {
 }
 
 function SessionsPanel() {
+	const { data: session } = useSession();
 	const [sessions, setSessions] = useState([]);
 	const [loading, setLoading] = useState(true);
 	const [creating, setCreating] = useState(false);
@@ -424,10 +461,16 @@ function SessionsPanel() {
 		setLoading(true);
 		try {
 			const res = await fetch("/api/admin/sessions");
-			const data = await res.json();
-			setSessions(data);
+			if (res.ok) {
+				const data = await res.json();
+				setSessions(Array.isArray(data) ? data : []);
+			} else {
+				console.error("Error loading sessions:", res.status);
+				setSessions([]);
+			}
 		} catch (error) {
 			console.error("Error loading sessions:", error);
+			setSessions([]);
 		}
 		setLoading(false);
 	};
@@ -598,7 +641,8 @@ function SessionsPanel() {
 							</div>
 						</div>
 
-						{activeSession.activeUsersWithStatus &&
+						{session?.user?.isSuperAdmin &&
+							activeSession.activeUsersWithStatus &&
 							activeSession.activeUsersWithStatus.length > 0 && (
 								<div className="mt-4 pt-4 border-t border-green-200">
 									<h4 className="font-semibold text-sm text-slate-700 mb-2">
@@ -721,10 +765,16 @@ function TopProposalsPanel() {
 		setLoading(true);
 		try {
 			const res = await fetch("/api/admin/top-proposals");
-			const data = await res.json();
-			setTopProposals(data);
+			if (res.ok) {
+				const data = await res.json();
+				setTopProposals(Array.isArray(data) ? data : []);
+			} else {
+				console.error("Error loading top proposals:", res.status);
+				setTopProposals([]);
+			}
 		} catch (error) {
 			console.error("Error loading top proposals:", error);
+			setTopProposals([]);
 		}
 		setLoading(false);
 	};
@@ -767,14 +817,6 @@ function TopProposalsPanel() {
 											</span>
 											<p className="text-slate-600">
 												{tp.solution}
-											</p>
-										</div>
-										<div>
-											<span className="font-semibold text-slate-700">
-												Cost:
-											</span>
-											<p className="text-slate-600">
-												{tp.estimatedCost}
 											</p>
 										</div>
 									</div>
@@ -820,10 +862,16 @@ function EmailPanel() {
 	const loadSessions = async () => {
 		try {
 			const res = await fetch("/api/admin/sessions");
-			const data = await res.json();
-			setSessions(data.filter((s) => s.status === "closed"));
+			if (res.ok) {
+				const data = await res.json();
+				setSessions(Array.isArray(data) ? data.filter((s) => s.status === "closed") : []);
+			} else {
+				console.error("Error loading sessions:", res.status);
+				setSessions([]);
+			}
 		} catch (error) {
 			console.error("Error loading sessions:", error);
+			setSessions([]);
 		}
 	};
 
@@ -1013,5 +1061,167 @@ function EmailPanel() {
 				</div>
 			)}
 		</section>
+	);
+}
+
+function AdminApplicationsPanel() {
+	const [applications, setApplications] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const [message, setMessage] = useState("");
+
+	useEffect(() => {
+		fetchApplications();
+	}, []);
+
+	const fetchApplications = async () => {
+		try {
+			const res = await fetch("/api/admin/admin-applications");
+			if (res.ok) {
+				const data = await res.json();
+				setApplications(data.applications || []);
+			}
+		} catch (error) {
+			console.error("Error fetching applications:", error);
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const handleApplication = async (userId, action, sessionLimit = 10) => {
+		try {
+			const res = await fetchWithCsrf("/api/admin/admin-applications", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ userId, action, sessionLimit }),
+			});
+
+			if (res.ok) {
+				setMessage(`Application ${action}ed successfully`);
+				// Refresh the list
+				await fetchApplications();
+				setTimeout(() => setMessage(""), 3000);
+			} else {
+				const data = await res.json();
+				setMessage(`Error: ${data.message}`);
+			}
+		} catch (error) {
+			console.error("Error processing application:", error);
+			setMessage("Error processing application");
+		}
+	};
+
+	if (loading) {
+		return <div className="p-4">Loading...</div>;
+	}
+
+	return (
+		<section className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+			<h2 className="text-xl font-bold mb-4">Admin Applications</h2>
+
+			{message && (
+				<div
+					className={`mb-4 p-3 rounded-lg ${
+						message.startsWith("Error")
+							? "bg-red-100 text-red-700"
+							: "bg-green-100 text-green-700"
+					}`}
+				>
+					{message}
+				</div>
+			)}
+
+			{applications.length === 0 ? (
+				<p className="text-slate-600">No pending applications</p>
+			) : (
+				<div className="space-y-4">
+					{applications.map((app) => (
+						<ApplicationCard
+							key={app._id}
+							application={app}
+							onApprove={(sessionLimit) =>
+								handleApplication(app._id, "approve", sessionLimit)
+							}
+							onDeny={() => handleApplication(app._id, "deny")}
+						/>
+					))}
+				</div>
+			)}
+		</section>
+	);
+}
+
+function ApplicationCard({ application, onApprove, onDeny }) {
+	const [sessionLimit, setSessionLimit] = useState(application.requestedSessions || 10);
+	const [showLimitInput, setShowLimitInput] = useState(false);
+
+	return (
+		<div className="border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+			<div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+				<div className="flex-1">
+					<h3 className="font-semibold text-lg">{application.name}</h3>
+					<p className="text-sm text-slate-600">{application.email}</p>
+					{application.organization && (
+						<p className="text-sm text-slate-700 mt-1">
+							<span className="font-medium">Organization:</span> {application.organization}
+						</p>
+					)}
+					<p className="text-sm text-slate-700 mt-1">
+						<span className="font-medium">Requested sessions:</span> {application.requestedSessions || 10}
+					</p>
+					<p className="text-xs text-slate-500 mt-1">
+						Applied: {new Date(application.appliedForAdminAt).toLocaleDateString()}
+					</p>
+				</div>
+
+				<div className="flex flex-col sm:flex-row gap-2">
+					{!showLimitInput ? (
+						<>
+							<button
+								onClick={() => setShowLimitInput(true)}
+								className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+							>
+								Approve
+							</button>
+							<button
+								onClick={onDeny}
+								className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
+							>
+								Deny
+							</button>
+						</>
+					) : (
+						<div className="flex flex-col gap-2">
+							<div className="flex items-center gap-2">
+								<label className="text-sm font-medium whitespace-nowrap">
+									Session limit:
+								</label>
+								<input
+									type="number"
+									min="1"
+									max="50"
+									value={sessionLimit}
+									onChange={(e) => setSessionLimit(parseInt(e.target.value) || 10)}
+									className="w-20 border border-slate-300 rounded px-2 py-1 text-sm"
+								/>
+							</div>
+							<div className="flex gap-2">
+								<button
+									onClick={() => onApprove(sessionLimit)}
+									className="flex-1 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+								>
+									Confirm
+								</button>
+								<button
+									onClick={() => setShowLimitInput(false)}
+									className="flex-1 px-3 py-1 bg-slate-300 text-slate-700 rounded hover:bg-slate-400 text-sm"
+								>
+									Cancel
+								</button>
+							</div>
+						</div>
+					)}
+				</div>
+			</div>
+		</div>
 	);
 }

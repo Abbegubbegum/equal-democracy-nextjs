@@ -4,6 +4,11 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { csrfProtection } from "@/lib/csrf";
 import broadcaster from "@/lib/sse-broadcaster";
+import {
+	hasAdminAccess,
+	isSuperAdmin,
+	checkAdminSessionLimit,
+} from "@/lib/admin-helper";
 
 export default async function handler(req, res) {
 	await dbConnect();
@@ -13,16 +18,21 @@ export default async function handler(req, res) {
 		return;
 	}
 
-	// Check if user is admin
+	// Check if user has admin access
 	const session = await getServerSession(req, res, authOptions);
-	if (!session || !session.user?.isAdmin) {
+	if (!session || !hasAdminAccess(session.user)) {
 		return res.status(403).json({ error: "Unauthorized" });
 	}
 
 	if (req.method === "GET") {
 		try {
-			// Get all sessions
-			const sessions = await Session.find()
+			// Superadmins see all sessions, regular admins see only their own
+			const filter = isSuperAdmin(session.user)
+				? {}
+				: { createdBy: session.user.id };
+
+			// Get sessions based on filter
+			const sessions = await Session.find(filter)
 				.sort({ createdAt: -1 })
 				.lean();
 
@@ -87,6 +97,16 @@ export default async function handler(req, res) {
 				return res.status(400).json({ error: "Place is required" });
 			}
 
+			// Check session limits for regular admins
+			const limitCheck = await checkAdminSessionLimit(session.user.id);
+			if (!limitCheck.canCreate) {
+				return res.status(400).json({
+					error: limitCheck.message,
+					currentCount: limitCheck.currentCount,
+					limit: limitCheck.limit,
+				});
+			}
+
 			// Check if there's already an active session
 			const activeSession = await Session.findOne({ status: "active" });
 			if (activeSession) {
@@ -100,6 +120,7 @@ export default async function handler(req, res) {
 				place: place.trim(),
 				status: "active",
 				startDate: new Date(),
+				createdBy: session.user.id,
 			});
 
 			// Broadcast new session event to all connected clients

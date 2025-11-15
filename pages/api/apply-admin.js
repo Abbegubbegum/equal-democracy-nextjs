@@ -3,6 +3,7 @@ import { authOptions } from "./auth/[...nextauth]";
 import connectDB from "../../lib/mongodb";
 import { User } from "../../lib/models";
 import { csrfProtection } from "../../lib/csrf";
+import { sendAdminApplicationNotification } from "../../lib/email";
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -78,6 +79,28 @@ export default async function handler(req, res) {
 		user.organization = organization;
 		user.requestedSessions = sessions;
 		await user.save();
+
+		// Send email notifications to all superadmins
+		try {
+			const superadmins = await User.find({ isSuperAdmin: true });
+
+			// Send email to each superadmin
+			for (const superadmin of superadmins) {
+				if (superadmin.email) {
+					await sendAdminApplicationNotification(
+						superadmin.email,
+						name,
+						user.email,
+						organization,
+						sessions,
+						"sv" // Default to Swedish, could be made configurable
+					);
+				}
+			}
+		} catch (emailError) {
+			// Log error but don't fail the request
+			console.error("Error sending admin application emails:", emailError);
+		}
 
 		return res.status(200).json({
 			message:

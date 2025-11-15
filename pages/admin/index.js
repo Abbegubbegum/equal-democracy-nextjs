@@ -451,9 +451,13 @@ function SessionsPanel() {
 	const [creating, setCreating] = useState(false);
 	const [newPlace, setNewPlace] = useState("");
 	const [message, setMessage] = useState("");
+	const [remainingSessions, setRemainingSessions] = useState(null);
+	const [showRequestMore, setShowRequestMore] = useState(false);
+	const [requestedSessions, setRequestedSessions] = useState("10");
 
 	useEffect(() => {
 		loadSessions();
+		loadSessionLimit();
 		setNewPlace("Vallentuna");
 	}, []);
 
@@ -475,10 +479,37 @@ function SessionsPanel() {
 		setLoading(false);
 	};
 
+	const loadSessionLimit = async () => {
+		try {
+			const res = await fetch("/api/admin/session-limit");
+			if (res.ok) {
+				const data = await res.json();
+				setRemainingSessions(data.remaining);
+			}
+		} catch (error) {
+			console.error("Error loading session limit:", error);
+		}
+	};
+
 	const createSession = async () => {
 		if (!newPlace) {
 			setMessage("Place required");
 			return;
+		}
+
+		// Check if this is the last session and warn user
+		if (
+			!session?.user?.isSuperAdmin &&
+			remainingSessions === 1 &&
+			!showRequestMore
+		) {
+			const shouldContinue = confirm(
+				"This is your last session. Do you want to apply for more sessions?"
+			);
+			if (shouldContinue) {
+				setShowRequestMore(true);
+				return;
+			}
 		}
 
 		setCreating(true);
@@ -496,6 +527,7 @@ function SessionsPanel() {
 			if (res.ok) {
 				setMessage("Session created!");
 				loadSessions();
+				loadSessionLimit(); // Reload to update remaining sessions
 				setNewPlace("Vallentuna");
 				setTimeout(() => setMessage(""), 3000);
 			} else {
@@ -508,6 +540,36 @@ function SessionsPanel() {
 		}
 
 		setCreating(false);
+	};
+
+	const requestMoreSessions = async () => {
+		const sessions = parseInt(requestedSessions);
+		if (isNaN(sessions) || sessions < 1 || sessions > 50) {
+			alert("Please enter a number between 1 and 50");
+			return;
+		}
+
+		try {
+			const res = await fetchWithCsrf("/api/admin/request-more-sessions", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ requestedSessions: sessions }),
+			});
+
+			if (res.ok) {
+				alert(
+					"Your request for more sessions has been submitted. A superadmin will review it shortly."
+				);
+				setShowRequestMore(false);
+				setRequestedSessions("10");
+			} else {
+				const error = await res.json();
+				alert(`Error: ${error.message}`);
+			}
+		} catch (error) {
+			console.error("Error requesting more sessions:", error);
+			alert("Could not submit request");
+		}
 	};
 
 	const closeSession = async (sessionId) => {
@@ -549,7 +611,7 @@ function SessionsPanel() {
 
 	return (
 		<section className="bg-white rounded-xl p-6 shadow space-y-6">
-			{!activeSession && (
+			{!activeSession && !showRequestMore && (
 				<div>
 					<h2 className="text-xl font-bold mb-4">
 						Create New Session
@@ -568,6 +630,14 @@ function SessionsPanel() {
 								placeholder="e.g. 'City Name' or 'Topic'"
 							/>
 						</div>
+
+						{!session?.user?.isSuperAdmin &&
+							remainingSessions !== null && (
+								<p className="text-sm text-slate-600">
+									Remaining sessions:{" "}
+									<strong>{remainingSessions}</strong>
+								</p>
+							)}
 
 						<button
 							onClick={createSession}
@@ -588,6 +658,49 @@ function SessionsPanel() {
 								{message}
 							</div>
 						)}
+					</div>
+				</div>
+			)}
+
+			{showRequestMore && (
+				<div className="p-6 bg-yellow-50 border border-yellow-300 rounded-lg">
+					<h2 className="text-xl font-bold mb-4">
+						Request More Sessions
+					</h2>
+					<p className="mb-4 text-slate-700">
+						You are about to use your last session. How many
+						additional sessions would you like to request?
+					</p>
+					<div className="space-y-4">
+						<div>
+							<label className="block text-sm font-medium text-slate-700 mb-2">
+								Number of Sessions (1-50)
+							</label>
+							<input
+								type="number"
+								min="1"
+								max="50"
+								value={requestedSessions}
+								onChange={(e) =>
+									setRequestedSessions(e.target.value)
+								}
+								className="w-full max-w-md border border-slate-300 rounded-lg px-4 py-2"
+							/>
+						</div>
+						<div className="flex gap-2">
+							<button
+								onClick={requestMoreSessions}
+								className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold"
+							>
+								Submit Request
+							</button>
+							<button
+								onClick={() => setShowRequestMore(false)}
+								className="px-6 py-2 bg-slate-300 text-slate-700 rounded-lg hover:bg-slate-400 font-semibold"
+							>
+								Cancel
+							</button>
+						</div>
 					</div>
 				</div>
 			)}

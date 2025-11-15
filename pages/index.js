@@ -721,12 +721,6 @@ export default function HomePage() {
 								</button>
 							)}
 							<button
-								onClick={() => router.push("/dashboard")}
-								className="text-white hover:text-accent-400 font-medium whitespace-nowrap"
-							>
-								{t("nav.myActivity")}
-							</button>
-							<button
 								onClick={() => signOut()}
 								className="text-white hover:text-accent-400 whitespace-nowrap"
 							>

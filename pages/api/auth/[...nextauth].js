@@ -73,6 +73,7 @@ export const authOptions = {
 						email: user.email,
 						name: user.name,
 						isAdmin: !!user.isAdmin,
+						isSuperAdmin: !!user.isSuperAdmin,
 					};
 				} catch (error) {
 					console.error("Auth error:", error);
@@ -91,6 +92,7 @@ export const authOptions = {
 			if (user) {
 				token.id = user.id;
 				token.isAdmin = !!user.isAdmin;
+				token.isSuperAdmin = !!user.isSuperAdmin;
 			}
 			return token;
 		},
@@ -111,6 +113,7 @@ export const authOptions = {
 					session.user.email = dbUser.email;
 					session.user.name = dbUser.name;
 					session.user.isAdmin = !!dbUser.isAdmin;
+					session.user.isSuperAdmin = !!dbUser.isSuperAdmin;
 				} catch (error) {
 					console.error("Session validation error:", error);
 					// Return null to invalidate the session

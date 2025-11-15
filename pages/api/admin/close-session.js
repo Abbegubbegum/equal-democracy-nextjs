@@ -64,7 +64,6 @@ export default async function handler(req, res) {
 					title: proposal.title,
 					problem: proposal.problem,
 					solution: proposal.solution,
-					estimatedCost: proposal.estimatedCost,
 					authorName: proposal.authorName,
 					yesVotes: yesVotes,
 					noVotes: noVotes,

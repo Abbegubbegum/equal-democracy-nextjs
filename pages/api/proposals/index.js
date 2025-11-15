@@ -66,9 +66,9 @@ export default async function handler(req, res) {
 				.json({ message: "You have to be logged in" });
 		}
 
-		const { title, problem, solution, estimatedCost } = req.body;
+		const { title, problem, solution } = req.body;
 
-		if (!title || !problem || !solution || !estimatedCost) {
+		if (!title || !problem || !solution) {
 			return res.status(400).json({ message: "All fields are required" });
 		}
 
@@ -102,7 +102,6 @@ export default async function handler(req, res) {
 				title,
 				problem,
 				solution,
-				estimatedCost,
 				authorId: session.user.id,
 				authorName: session.user.name,
 				status: "active",
@@ -119,7 +118,6 @@ export default async function handler(req, res) {
 				title: proposal.title,
 				problem: proposal.problem,
 				solution: proposal.solution,
-				estimatedCost: proposal.estimatedCost,
 				status: proposal.status,
 				thumbsUpCount: 0,
 				averageRating: 0,

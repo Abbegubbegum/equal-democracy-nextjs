@@ -37,7 +37,7 @@ export default function HomePage() {
 	const { theme, config } = useConfig();
 	const [proposals, setProposals] = useState([]);
 	const [loading, setLoading] = useState(true);
-	const [view, setView] = useState("home"); // 'home', 'create', 'vote'
+	const [view, setView] = useState("home"); // 'home', 'create', 'vote', 'apply-admin'
 	const [selectedProposal, setSelectedProposal] = useState(null);
 	const [placeName, setPlaceName] = useState("");
 	const [currentPhase, setCurrentPhase] = useState("phase1"); // 'phase1', 'phase2', 'closed'
@@ -271,11 +271,36 @@ export default function HomePage() {
 		}
 	};
 
+	const handleApplyForAdmin = async (name, organization, requestedSessions) => {
+		try {
+			const res = await fetchWithCsrf("/api/apply-admin", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					name,
+					organization,
+					requestedSessions: parseInt(requestedSessions),
+				}),
+			});
+
+			const data = await res.json();
+
+			if (res.ok) {
+				alert(t("admin.applicationSubmitted"));
+				setView("home");
+			} else {
+				alert(data.message || t("errors.generic"));
+			}
+		} catch (error) {
+			console.error("Error applying for admin:", error);
+			alert(t("errors.generic"));
+		}
+	};
+
 	const handleCreateProposal = async (
 		title,
 		problem,
-		solution,
-		estimatedCost
+		solution
 	) => {
 		try {
 			const res = await fetchWithCsrf("/api/proposals", {
@@ -285,7 +310,6 @@ export default function HomePage() {
 					title,
 					problem,
 					solution,
-					estimatedCost,
 				}),
 			});
 
@@ -612,6 +636,18 @@ export default function HomePage() {
 		);
 	}
 
+	if (view === "apply-admin") {
+		return (
+			<ApplyAdminView
+				onSubmit={handleApplyForAdmin}
+				onBack={() => setView("home")}
+				userEmail={session.user.email}
+				userName={session.user.name}
+				t={t}
+			/>
+		);
+	}
+
 	// Home view
 	// In Phase 1: show active proposals, sorted by creation time (newest first)
 	// In Phase 2: show top proposals (40%), sorted by rating (highest first)
@@ -674,6 +710,14 @@ export default function HomePage() {
 									className="text-white hover:text-accent-400 font-medium whitespace-nowrap"
 								>
 									{t("nav.admin")}
+								</button>
+							)}
+							{!session.user.isAdmin && !session.user.isSuperAdmin && (
+								<button
+									onClick={() => setView("apply-admin")}
+									className="text-white hover:text-accent-400 font-medium whitespace-nowrap"
+								>
+									{t("nav.applyForAdmin")}
 								</button>
 							)}
 							<button
@@ -1100,15 +1144,6 @@ function ProposalCard({
 							{proposal.solution}
 						</p>
 					</div>
-
-					<div>
-						<p className="font-semibold text-gray-700">
-							{t("proposals.estimatedCost")}
-						</p>
-						<p className="text-gray-600">
-							{proposal.estimatedCost}
-						</p>
-					</div>
 				</div>
 
 				{/* Show "Visa argument" indicator when collapsed in Phase 2 - inside clickable area */}
@@ -1484,6 +1519,140 @@ function ProposalCard({
 }
 
 // ============================================================================
+// APPLY ADMIN VIEW
+// ============================================================================
+
+function ApplyAdminView({ onSubmit, onBack, userEmail, userName, t }) {
+	const { theme } = useConfig();
+	const [name, setName] = useState(userName || "");
+	const [organization, setOrganization] = useState("");
+	const [requestedSessions, setRequestedSessions] = useState("10");
+	const [submitting, setSubmitting] = useState(false);
+
+	const primaryColor = theme.colors.primary[600];
+	const primaryDark = theme.colors.primary[900];
+	const accentColor = theme.colors.accent[400];
+
+	const handleSubmit = async (e) => {
+		e.preventDefault();
+
+		if (!name || !organization || !requestedSessions) {
+			alert(t("errors.generic"));
+			return;
+		}
+
+		const sessions = parseInt(requestedSessions);
+		if (isNaN(sessions) || sessions < 1 || sessions > 50) {
+			alert("Please enter a number between 1 and 50 for sessions");
+			return;
+		}
+
+		setSubmitting(true);
+		await onSubmit(name, organization, sessions);
+		setSubmitting(false);
+	};
+
+	return (
+		<div className="min-h-screen" style={{ backgroundColor: primaryColor }}>
+			<div
+				className="p-4 sm:p-6"
+				style={{ backgroundColor: primaryDark }}
+			>
+				<div className="max-w-2xl mx-auto">
+					<button
+						onClick={onBack}
+						className="text-white hover:text-accent-400 mb-4 flex items-center gap-2"
+					>
+						← {t("common.back")}
+					</button>
+					<h1 className="text-2xl sm:text-3xl font-bold text-white break-words">
+						{t("admin.applyForAdmin")}
+					</h1>
+				</div>
+			</div>
+
+			<div className="max-w-2xl mx-auto p-4 sm:p-6">
+				<form
+					onSubmit={handleSubmit}
+					className="bg-white rounded-2xl shadow-lg p-6 space-y-6"
+				>
+					<div>
+						<label className="block text-sm font-medium text-slate-700 mb-2">
+							{t("auth.email")}
+						</label>
+						<input
+							type="email"
+							value={userEmail}
+							disabled
+							className="w-full border border-slate-300 rounded-lg px-4 py-3 bg-slate-100 text-slate-600"
+						/>
+					</div>
+
+					<div>
+						<label className="block text-sm font-medium text-slate-700 mb-2">
+							{t("auth.name")} *
+						</label>
+						<input
+							type="text"
+							value={name}
+							onChange={(e) => setName(e.target.value)}
+							className="w-full border border-slate-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+							placeholder={t("auth.name")}
+							required
+						/>
+					</div>
+
+					<div>
+						<label className="block text-sm font-medium text-slate-700 mb-2">
+							{t("admin.organization")} *
+						</label>
+						<input
+							type="text"
+							value={organization}
+							onChange={(e) => setOrganization(e.target.value)}
+							className="w-full border border-slate-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+							placeholder={t("admin.organizationPlaceholder")}
+							required
+						/>
+					</div>
+
+					<div>
+						<label className="block text-sm font-medium text-slate-700 mb-2">
+							{t("admin.requestedSessions")} * (1-50)
+						</label>
+						<input
+							type="number"
+							min="1"
+							max="50"
+							value={requestedSessions}
+							onChange={(e) => setRequestedSessions(e.target.value)}
+							className="w-full border border-slate-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+							placeholder="10"
+							required
+						/>
+						<p className="text-sm text-slate-500 mt-1">
+							{t("admin.requestedSessionsHelp")}
+						</p>
+					</div>
+
+					<button
+						type="submit"
+						disabled={submitting}
+						className="w-full font-bold py-4 rounded-xl shadow-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+						style={{
+							backgroundColor: accentColor,
+							color: primaryDark,
+						}}
+					>
+						{submitting ? t("common.submit") + "..." : t("common.submit")}
+					</button>
+				</form>
+			</div>
+		</div>
+	);
+}
+
+// ============================================================================
 // CREATE PROPOSAL VIEW
 // ============================================================================
 
@@ -1491,7 +1660,6 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 	const [title, setTitle] = useState("");
 	const [problem, setProblem] = useState("");
 	const [solution, setSolution] = useState("");
-	const [estimatedCost, setEstimatedCost] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 
 	const handleSubmit = async (e) => {
@@ -1499,15 +1667,13 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 		if (
 			title.trim() &&
 			problem.trim() &&
-			solution.trim() &&
-			estimatedCost.trim()
+			solution.trim()
 		) {
 			setSubmitting(true);
 			await onSubmit(
 				title.trim(),
 				problem.trim(),
-				solution.trim(),
-				estimatedCost.trim()
+				solution.trim()
 			);
 			setSubmitting(false);
 		}
@@ -1585,32 +1751,12 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 							</p>
 						</div>
 
-						<div>
-							<label className="block text-sm font-medium text-gray-700 mb-2">
-								{t("createProposal.costLabel")}
-							</label>
-							<input
-								type="text"
-								value={estimatedCost}
-								onChange={(e) =>
-									setEstimatedCost(e.target.value)
-								}
-								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:outline-none"
-								placeholder={t(
-									"createProposal.costPlaceholder"
-								)}
-								maxLength={100}
-								required
-							/>
-						</div>
-
 						<button
 							type="submit"
 							disabled={
 								!title.trim() ||
 								!problem.trim() ||
 								!solution.trim() ||
-								!estimatedCost.trim() ||
 								submitting
 							}
 							className="w-full bg-primary-800 hover:bg-primary-900 disabled:bg-gray-300 text-white font-bold py-4 rounded-xl transition-colors shadow-lg"
@@ -1798,15 +1944,6 @@ function VoteView({
 							</h3>
 							<p className="text-base sm:text-lg leading-relaxed text-gray-800 break-words">
 								{currentProposal.solution}
-							</p>
-						</div>
-
-						<div className="border-t border-gray-200 pt-4 sm:pt-6">
-							<h3 className="text-xs sm:text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">
-								{t("proposals.estimatedCost")}
-							</h3>
-							<p className="text-lg sm:text-xl font-semibold text-primary-900 break-words">
-								{currentProposal.estimatedCost}
 							</p>
 						</div>
 					</div>

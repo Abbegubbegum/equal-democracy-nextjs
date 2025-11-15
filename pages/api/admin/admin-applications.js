@@ -4,6 +4,10 @@ import connectDB from "../../../lib/mongodb";
 import { User } from "../../../lib/models";
 import { csrfProtection } from "../../../lib/csrf";
 import { isSuperAdmin } from "../../../lib/admin-helper";
+import {
+	sendAdminApprovalNotification,
+	sendAdminDenialNotification,
+} from "../../../lib/email";
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -88,6 +92,27 @@ export default async function handler(req, res) {
 			}
 
 			await user.save();
+
+			// Send email notification to the applicant
+			try {
+				if (action === "approve") {
+					await sendAdminApprovalNotification(
+						user.email,
+						user.name,
+						user.sessionLimit,
+						"sv" // Default to Swedish, could be made configurable
+					);
+				} else {
+					await sendAdminDenialNotification(
+						user.email,
+						user.name,
+						"sv" // Default to Swedish, could be made configurable
+					);
+				}
+			} catch (emailError) {
+				// Log error but don't fail the request
+				console.error("Error sending notification email:", emailError);
+			}
 
 			return res.status(200).json({
 				message: `Admin application ${action}ed successfully`,

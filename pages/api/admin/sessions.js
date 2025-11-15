@@ -125,8 +125,20 @@ export default async function handler(req, res) {
 
 			// Decrement remainingSessions for regular admins (not superadmins)
 			const user = await User.findById(session.user.id);
-			if (user && user.isAdmin && !user.isSuperAdmin && user.remainingSessions > 0) {
+			if (
+				user &&
+				user.isAdmin &&
+				!user.isSuperAdmin &&
+				user.remainingSessions > 0
+			) {
 				user.remainingSessions -= 1;
+
+				// If this was the last session, revoke admin rights
+				if (user.remainingSessions === 0) {
+					user.isAdmin = false;
+					user.adminStatus = "none";
+				}
+
 				await user.save();
 			}
 

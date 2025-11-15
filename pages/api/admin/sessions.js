@@ -102,8 +102,8 @@ export default async function handler(req, res) {
 			if (!limitCheck.canCreate) {
 				return res.status(400).json({
 					error: limitCheck.message,
-					currentCount: limitCheck.currentCount,
-					limit: limitCheck.limit,
+					remaining: limitCheck.remaining,
+					total: limitCheck.total,
 				});
 			}
 
@@ -122,6 +122,13 @@ export default async function handler(req, res) {
 				startDate: new Date(),
 				createdBy: session.user.id,
 			});
+
+			// Decrement remainingSessions for regular admins (not superadmins)
+			const user = await User.findById(session.user.id);
+			if (user && user.isAdmin && !user.isSuperAdmin && user.remainingSessions > 0) {
+				user.remainingSessions -= 1;
+				await user.save();
+			}
 
 			// Broadcast new session event to all connected clients
 			await broadcaster.broadcast("new-session", {

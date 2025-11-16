@@ -3,6 +3,7 @@ import { Session, Proposal, FinalVote, TopProposal } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { csrfProtection } from "@/lib/csrf";
+import { hasAdminAccess, isSuperAdmin } from "@/lib/admin-helper";
 
 export default async function handler(req, res) {
 	await dbConnect();
@@ -12,9 +13,9 @@ export default async function handler(req, res) {
 		return;
 	}
 
-	// Check if user is admin
+	// Check if user has admin access
 	const session = await getServerSession(req, res, authOptions);
-	if (!session || !session.user?.isAdmin) {
+	if (!session || !hasAdminAccess(session.user)) {
 		return res.status(403).json({ error: "Unauthorized" });
 	}
 
@@ -37,6 +38,17 @@ export default async function handler(req, res) {
 
 		if (sessionToClose.status === "closed") {
 			return res.status(400).json({ error: "Session is already closed" });
+		}
+
+		// Check if user is authorized to close this session
+		// Only the creator or a superadmin can close a session
+		if (
+			!isSuperAdmin(session.user) &&
+			sessionToClose.createdBy?.toString() !== session.user.id
+		) {
+			return res.status(403).json({
+				error: "You can only close sessions that you created",
+			});
 		}
 
 		// Get all top3 proposals from this session

@@ -1,9 +1,9 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "../../../lib/mongodb";
-import { User } from "../../../lib/models";
+import { User, SessionRequest } from "../../../lib/models";
 import { csrfProtection } from "../../../lib/csrf";
-import { sendAdminApplicationNotification } from "../../../lib/email";
+import { sendSessionRequestNotification } from "../../../lib/email";
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -53,10 +53,24 @@ export default async function handler(req, res) {
 			});
 		}
 
-		// Update user with request
-		user.requestedSessions = sessions;
-		user.appliedForAdminAt = new Date(); // Update timestamp
-		await user.save();
+		// Check if there's already a pending request for this user
+		const existingRequest = await SessionRequest.findOne({
+			userId: user._id,
+			status: "pending",
+		});
+
+		if (existingRequest) {
+			return res.status(400).json({
+				message: "You already have a pending request for more sessions",
+			});
+		}
+
+		// Create a new session request
+		await SessionRequest.create({
+			userId: user._id,
+			requestedSessions: sessions,
+			status: "pending",
+		});
 
 		// Send email notifications to all superadmins
 		try {
@@ -65,11 +79,12 @@ export default async function handler(req, res) {
 			// Send email to each superadmin
 			for (const superadmin of superadmins) {
 				if (superadmin.email) {
-					await sendAdminApplicationNotification(
+					await sendSessionRequestNotification(
 						superadmin.email,
 						user.name,
 						user.email,
 						user.organization || "N/A",
+						user.remainingSessions || 0,
 						sessions,
 						"sv" // Default to Swedish, could be made configurable
 					);

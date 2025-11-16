@@ -39,8 +39,10 @@ The following MongoDB models have been added to `lib/models.js`:
 The following packages were installed:
 
 ```bash
-npm install @anthropic-ai/sdk pdf-parse formidable d3
+npm install @anthropic-ai/sdk formidable d3
 ```
+
+**Note**: We use Claude's native PDF reading capability, so pdf-parse is not required!
 
 ## File Structure
 
@@ -215,8 +217,9 @@ Potential features to add:
 
 1. Check that `ANTHROPIC_API_KEY` is set in `.env.local`
 2. Ensure PDF is in Swedish (or update prompts in `ai-extractor.js`)
-3. Check PDF format is compatible with `pdf-parse` library
+3. Check PDF file size is under 10MB (upload limit)
 4. Review Claude API console for errors
+5. Claude reads PDFs natively - no additional dependencies needed!
 
 ### Treemap Not Rendering
 

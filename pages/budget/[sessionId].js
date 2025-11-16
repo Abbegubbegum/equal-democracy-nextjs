@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
 import { ArrowLeft, Save, Info } from "lucide-react";
-import TreemapViz from "../../../components/budget/TreemapViz";
-import CategoryInput from "../../../components/budget/CategoryInput";
-import { fetchWithCsrf } from "../../../lib/fetch-with-csrf";
+import TreemapViz from "../../components/budget/TreemapViz";
+import CategoryInput from "../../components/budget/CategoryInput";
+import { fetchWithCsrf } from "../../lib/fetch-with-csrf";
 
 export default function BudgetVotingPage() {
 	const { data: session, status } = useSession();

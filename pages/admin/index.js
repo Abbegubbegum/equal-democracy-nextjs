@@ -9,6 +9,7 @@ import {
 	Trophy,
 	Mail,
 	PlusCircle,
+	Wallet,
 } from "lucide-react";
 import { fetchWithCsrf } from "../../lib/fetch-with-csrf";
 
@@ -64,6 +65,12 @@ export default function AdminPage() {
 						icon={<Calendar className="w-4 h-4" />}
 						active={tab === "sessions"}
 						onClick={() => setTab("sessions")}
+					/>
+					<Tab
+						label="Budget Admin"
+						icon={<Wallet className="w-4 h-4" />}
+						active={tab === "budget"}
+						onClick={() => router.push("/budget/admin")}
 					/>
 					<Tab
 						label="Top Proposals"

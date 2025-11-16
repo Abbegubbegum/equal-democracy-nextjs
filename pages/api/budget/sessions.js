@@ -3,6 +3,7 @@ import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "../../../lib/mongodb";
 import { BudgetSession, User } from "../../../lib/models";
 import { csrfProtection } from "../../../lib/csrf";
+import { generateSessionId, ensureUniqueSessionId } from "../../../lib/budget/session-id";
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -85,8 +86,13 @@ export default async function handler(req, res) {
 				});
 			}
 
+			// Generate user-friendly session ID
+			const baseSessionId = generateSessionId(name, municipality);
+			const sessionId = await ensureUniqueSessionId(baseSessionId, BudgetSession);
+
 			// Create new budget session
 			const budgetSession = new BudgetSession({
+				sessionId,
 				name,
 				municipality,
 				totalBudget,
@@ -129,7 +135,7 @@ export default async function handler(req, res) {
 				return res.status(400).json({ message: "Session ID is required" });
 			}
 
-			const budgetSession = await BudgetSession.findById(sessionId);
+			const budgetSession = await BudgetSession.findOne({ sessionId });
 
 			if (!budgetSession) {
 				return res.status(404).json({ message: "Budget session not found" });
@@ -184,7 +190,7 @@ export default async function handler(req, res) {
 				return res.status(400).json({ message: "Session ID is required" });
 			}
 
-			const budgetSession = await BudgetSession.findById(sessionId);
+			const budgetSession = await BudgetSession.findOne({ sessionId });
 
 			if (!budgetSession) {
 				return res.status(404).json({ message: "Budget session not found" });
@@ -197,7 +203,7 @@ export default async function handler(req, res) {
 				});
 			}
 
-			await BudgetSession.findByIdAndDelete(sessionId);
+			await BudgetSession.findByIdAndDelete(budgetSession._id);
 
 			return res.status(200).json({
 				message: "Budget session deleted successfully",

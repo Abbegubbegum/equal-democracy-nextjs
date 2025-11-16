@@ -31,8 +31,9 @@ export default async function handler(req, res) {
 				? {}
 				: { createdBy: session.user.id };
 
-			// Get sessions based on filter
+			// Get sessions based on filter and populate creator info
 			const sessions = await Session.find(filter)
+				.populate("createdBy", "name email")
 				.sort({ createdAt: -1 })
 				.lean();
 
@@ -125,6 +126,7 @@ export default async function handler(req, res) {
 
 			// Decrement remainingSessions for regular admins (not superadmins)
 			const user = await User.findById(session.user.id);
+			let isLastSession = false;
 			if (
 				user &&
 				user.isAdmin &&
@@ -132,13 +134,7 @@ export default async function handler(req, res) {
 				user.remainingSessions > 0
 			) {
 				user.remainingSessions -= 1;
-
-				// If this was the last session, revoke admin rights
-				if (user.remainingSessions === 0) {
-					user.isAdmin = false;
-					user.adminStatus = "none";
-				}
-
+				isLastSession = user.remainingSessions === 0;
 				await user.save();
 			}
 
@@ -151,7 +147,11 @@ export default async function handler(req, res) {
 				startDate: newSession.startDate,
 			});
 
-			return res.status(201).json(newSession);
+			return res.status(201).json({
+				...newSession.toObject(),
+				isLastSession,
+				remainingSessions: user?.remainingSessions || 0,
+			});
 		} catch (error) {
 			console.error("Error creating session:", error);
 			if (error.code === 11000) {

@@ -144,6 +144,9 @@ export default function HomePage() {
 
 	useEffect(() => {
 		if (session) {
+			// Check for session timeouts first
+			checkSessionTimeout();
+
 			fetchProposals();
 			fetchSessionInfo();
 			checkUserVote(); // Check if user has already voted
@@ -242,6 +245,21 @@ export default function HomePage() {
 		}
 	};
 
+	const checkSessionTimeout = async () => {
+		try {
+			// Call the timeout checker endpoint
+			// This runs silently in the background
+			await fetch("/api/check-session-timeout", {
+				method: "POST",
+			});
+			// We don't need to do anything with the response
+			// If a session was closed, SSE will notify us
+		} catch (error) {
+			// Silent fail - this is a background check
+			console.error("Error checking session timeout:", error);
+		}
+	};
+
 	const checkUserVote = async () => {
 		try {
 			const res = await fetch("/api/votes?checkSession=true");
@@ -271,7 +289,11 @@ export default function HomePage() {
 		}
 	};
 
-	const handleApplyForAdmin = async (name, organization, requestedSessions) => {
+	const handleApplyForAdmin = async (
+		name,
+		organization,
+		requestedSessions
+	) => {
 		try {
 			const res = await fetchWithCsrf("/api/apply-admin", {
 				method: "POST",
@@ -297,11 +319,7 @@ export default function HomePage() {
 		}
 	};
 
-	const handleCreateProposal = async (
-		title,
-		problem,
-		solution
-	) => {
+	const handleCreateProposal = async (title, problem, solution) => {
 		try {
 			const res = await fetchWithCsrf("/api/proposals", {
 				method: "POST",
@@ -704,22 +722,44 @@ export default function HomePage() {
 							</div>
 						</div>
 						<div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm">
-							{session.user.isAdmin && (
-								<button
-									onClick={() => router.push("/admin")}
-									className="text-white hover:text-accent-400 font-medium whitespace-nowrap"
-								>
-									{t("nav.admin")}
-								</button>
+							{session.user.isSuperAdmin && (
+								<>
+									<button
+										onClick={() => router.push("/admin")}
+										className="text-white hover:text-accent-400 font-medium whitespace-nowrap"
+									>
+										{t("nav.admin")}
+									</button>
+									<button
+										onClick={() =>
+											router.push("/manage-sessions")
+										}
+										className="text-white hover:text-accent-400 font-medium whitespace-nowrap"
+									>
+										Manage Sessions
+									</button>
+								</>
 							)}
-							{!session.user.isAdmin && !session.user.isSuperAdmin && (
-								<button
-									onClick={() => setView("apply-admin")}
-									className="text-white hover:text-accent-400 font-medium whitespace-nowrap"
-								>
-									{t("nav.applyForAdmin")}
-								</button>
-							)}
+							{session.user.isAdmin &&
+								!session.user.isSuperAdmin && (
+									<button
+										onClick={() =>
+											router.push("/manage-sessions")
+										}
+										className="text-white hover:text-accent-400 font-medium whitespace-nowrap"
+									>
+										Manage Sessions
+									</button>
+								)}
+							{!session.user.isAdmin &&
+								!session.user.isSuperAdmin && (
+									<button
+										onClick={() => setView("apply-admin")}
+										className="text-white hover:text-accent-400 font-medium whitespace-nowrap"
+									>
+										{t("nav.applyForAdmin")}
+									</button>
+								)}
 							<button
 								onClick={() => signOut()}
 								className="text-white hover:text-accent-400 whitespace-nowrap"
@@ -1280,7 +1320,10 @@ function ProposalCard({
 					</div>
 
 					{/* Comment input */}
-					<form onSubmit={handleSubmitComment} className="flex flex-col sm:flex-row gap-2">
+					<form
+						onSubmit={handleSubmitComment}
+						className="flex flex-col sm:flex-row gap-2"
+					>
 						<input
 							type="text"
 							value={commentText}
@@ -1619,7 +1662,9 @@ function ApplyAdminView({ onSubmit, onBack, userEmail, userName, t }) {
 							min="1"
 							max="50"
 							value={requestedSessions}
-							onChange={(e) => setRequestedSessions(e.target.value)}
+							onChange={(e) =>
+								setRequestedSessions(e.target.value)
+							}
 							className="w-full border border-slate-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
 							placeholder="10"
 							required
@@ -1638,7 +1683,9 @@ function ApplyAdminView({ onSubmit, onBack, userEmail, userName, t }) {
 							color: primaryDark,
 						}}
 					>
-						{submitting ? t("common.submit") + "..." : t("common.submit")}
+						{submitting
+							? t("common.submit") + "..."
+							: t("common.submit")}
 					</button>
 				</form>
 			</div>
@@ -1658,17 +1705,9 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 
 	const handleSubmit = async (e) => {
 		e.preventDefault();
-		if (
-			title.trim() &&
-			problem.trim() &&
-			solution.trim()
-		) {
+		if (title.trim() && problem.trim() && solution.trim()) {
 			setSubmitting(true);
-			await onSubmit(
-				title.trim(),
-				problem.trim(),
-				solution.trim()
-			);
+			await onSubmit(title.trim(), problem.trim(), solution.trim());
 			setSubmitting(false);
 		}
 	};
@@ -1688,7 +1727,10 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 						{t("createProposal.title")}
 					</h2>
 
-					<form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+					<form
+						onSubmit={handleSubmit}
+						className="space-y-4 sm:space-y-6"
+					>
 						<div>
 							<label className="block text-sm font-medium text-gray-700 mb-2">
 								{t("createProposal.nameOfProposal")}
@@ -1988,7 +2030,9 @@ function VoteView({
 							<div className="border-t-4 border-green-400 pt-6 sm:pt-8 space-y-4">
 								<div className="text-center">
 									<div className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 sm:px-6 py-2 sm:py-3 rounded-full font-semibold text-sm sm:text-base">
-										<span className="text-xl sm:text-2xl">✓</span>
+										<span className="text-xl sm:text-2xl">
+											✓
+										</span>
 										<span>{t("voting.youHaveVoted")}</span>
 									</div>
 								</div>

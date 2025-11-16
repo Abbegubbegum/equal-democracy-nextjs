@@ -22,6 +22,11 @@ export default async function handler(req, res) {
 					name: u.name,
 					email: u.email,
 					isAdmin: !!u.isAdmin,
+					isSuperAdmin: !!u.isSuperAdmin,
+					remainingSessions: u.remainingSessions || 0,
+					sessionLimit: u.sessionLimit || 10,
+					organization: u.organization || "",
+					adminStatus: u.adminStatus || "none",
 					createdAt: u.createdAt,
 				}))
 			);
@@ -34,7 +39,15 @@ export default async function handler(req, res) {
 					.status(400)
 					.json({ message: "id och updates is required" });
 			}
-			const allowed = { name: 1, email: 1, isAdmin: 1, password: 0 }; // don't patch password here
+			const allowed = {
+				name: 1,
+				email: 1,
+				isAdmin: 1,
+				isSuperAdmin: 1,
+				remainingSessions: 1,
+				sessionLimit: 1,
+				password: 0
+			}; // don't patch password here
 			const safeUpdates = Object.fromEntries(
 				Object.entries(updates).filter(([k]) => allowed[k])
 			);
@@ -47,7 +60,13 @@ export default async function handler(req, res) {
 				return res.status(404).json({ message: "User not found" });
 			return res
 				.status(200)
-				.json({ id: user._id.toString(), isAdmin: !!user.isAdmin });
+				.json({
+					id: user._id.toString(),
+					isAdmin: !!user.isAdmin,
+					isSuperAdmin: !!user.isSuperAdmin,
+					remainingSessions: user.remainingSessions || 0,
+					sessionLimit: user.sessionLimit || 10,
+				});
 		}
 
 		if (req.method === "DELETE") {

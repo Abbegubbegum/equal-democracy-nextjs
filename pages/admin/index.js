@@ -1,7 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
-import { Shield, Users, Settings, Calendar, Trophy, Mail } from "lucide-react";
+import {
+	Shield,
+	Users,
+	Settings,
+	Calendar,
+	Trophy,
+	Mail,
+	PlusCircle,
+} from "lucide-react";
 import { fetchWithCsrf } from "../../lib/fetch-with-csrf";
 
 export default function AdminPage() {
@@ -12,11 +20,15 @@ export default function AdminPage() {
 	useEffect(() => {
 		if (status === "loading") return;
 		if (!session) router.replace("/login");
-		else if (!session.user?.isAdmin && !session.user?.isSuperAdmin) router.replace("/");
+		// Redirect session admins to manage-sessions page
+		else if (session.user?.isAdmin && !session.user?.isSuperAdmin)
+			router.replace("/manage-sessions");
+		// Only allow super admins on this page
+		else if (!session.user?.isSuperAdmin) router.replace("/");
 	}, [status, session, router]);
 
 	if (status === "loading") return <div className="p-8">Loading…</div>;
-	if (!session?.user?.isAdmin && !session?.user?.isSuperAdmin) return null;
+	if (!session?.user?.isSuperAdmin) return null;
 
 	return (
 		<div className="min-h-screen bg-gray-50">
@@ -27,9 +39,12 @@ export default function AdminPage() {
 							<Shield className="w-5 h-5 text-slate-900" />
 						</div>
 						<div>
-							<h1 className="text-2xl font-bold">Admin</h1>
+							<h1 className="text-2xl font-bold">
+								Super Admin Panel
+							</h1>
 							<p className="text-slate-300 text-sm">
-								Full control over data
+								Full control over users, sessions, and system
+								settings
 							</p>
 						</div>
 					</div>
@@ -50,34 +65,36 @@ export default function AdminPage() {
 						active={tab === "sessions"}
 						onClick={() => setTab("sessions")}
 					/>
-					{session.user?.isSuperAdmin && (
-						<>
-							<Tab
-								label="Top Proposals"
-								icon={<Trophy className="w-4 h-4" />}
-								active={tab === "top-proposals"}
-								onClick={() => setTab("top-proposals")}
-							/>
-							<Tab
-								label="Admin Applications"
-								icon={<Shield className="w-4 h-4" />}
-								active={tab === "admin-applications"}
-								onClick={() => setTab("admin-applications")}
-							/>
-							<Tab
-								label="Email"
-								icon={<Mail className="w-4 h-4" />}
-								active={tab === "email"}
-								onClick={() => setTab("email")}
-							/>
-							<Tab
-								label="Users"
-								icon={<Users className="w-4 h-4" />}
-								active={tab === "users"}
-								onClick={() => setTab("users")}
-							/>
-						</>
-					)}
+					<Tab
+						label="Top Proposals"
+						icon={<Trophy className="w-4 h-4" />}
+						active={tab === "top-proposals"}
+						onClick={() => setTab("top-proposals")}
+					/>
+					<Tab
+						label="Admin Applications"
+						icon={<Shield className="w-4 h-4" />}
+						active={tab === "admin-applications"}
+						onClick={() => setTab("admin-applications")}
+					/>
+					<Tab
+						label="Session Requests"
+						icon={<PlusCircle className="w-4 h-4" />}
+						active={tab === "session-requests"}
+						onClick={() => setTab("session-requests")}
+					/>
+					<Tab
+						label="Email"
+						icon={<Mail className="w-4 h-4" />}
+						active={tab === "email"}
+						onClick={() => setTab("email")}
+					/>
+					<Tab
+						label="Users"
+						icon={<Users className="w-4 h-4" />}
+						active={tab === "users"}
+						onClick={() => setTab("users")}
+					/>
 					<Tab
 						label="Settings"
 						icon={<Settings className="w-4 h-4" />}
@@ -87,11 +104,12 @@ export default function AdminPage() {
 				</nav>
 
 				{tab === "sessions" && <SessionsPanel />}
-				{session.user?.isSuperAdmin && tab === "top-proposals" && <TopProposalsPanel />}
-				{session.user?.isSuperAdmin && tab === "admin-applications" && <AdminApplicationsPanel />}
-				{session.user?.isSuperAdmin && tab === "email" && <EmailPanel />}
-				{tab === "settings" && <SettingsPanel isSuperAdmin={session.user?.isSuperAdmin} />}
-				{session.user?.isSuperAdmin && tab === "users" && <UsersPanel />}
+				{tab === "top-proposals" && <TopProposalsPanel />}
+				{tab === "admin-applications" && <AdminApplicationsPanel />}
+				{tab === "session-requests" && <SessionRequestsPanel />}
+				{tab === "email" && <EmailPanel />}
+				{tab === "settings" && <SettingsPanel isSuperAdmin={true} />}
+				{tab === "users" && <UsersPanel />}
 			</main>
 		</div>
 	);
@@ -114,24 +132,20 @@ function Tab({ label, icon, active, onClick }) {
 }
 
 function SettingsPanel({ isSuperAdmin }) {
-	const [phase2DurationHours, setPhase2DurationHours] = useState(6);
+	const [sessionLimitHours, setSessionLimitHours] = useState(24);
 	const [language, setLanguage] = useState("sv");
 	const [theme, setTheme] = useState("default");
 	const [loading, setLoading] = useState(true);
 	const [saving, setSaving] = useState(false);
 	const [message, setMessage] = useState("");
 
-	useEffect(() => {
-		loadSettings();
-	}, []);
-
-	const loadSettings = async () => {
+	const loadSettings = useCallback(async () => {
 		setLoading(true);
 		try {
 			const res = await fetch("/api/settings");
 			if (res.ok) {
 				const data = await res.json();
-				setPhase2DurationHours(data.phase2DurationHours || 6);
+				setSessionLimitHours(data.sessionLimitHours || 24);
 				setLanguage(data.language || "sv");
 				setTheme(data.theme || "default");
 			} else {
@@ -141,15 +155,19 @@ function SettingsPanel({ isSuperAdmin }) {
 			console.error("Error loading settings:", error);
 		}
 		setLoading(false);
-	};
+	}, []);
+
+	useEffect(() => {
+		loadSettings();
+	}, [loadSettings]);
 
 	const handleSave = async () => {
-		// Only validate phase2Duration if user is superadmin
+		// Only validate sessionLimit if user is superadmin
 		if (isSuperAdmin) {
-			const hours = Number(phase2DurationHours);
+			const hours = Number(sessionLimitHours);
 			if (isNaN(hours) || hours < 1 || hours > 168) {
 				setMessage(
-					"Error: Phase 2 duration must be between 1 and 168 hours"
+					"Error: Session limit must be between 1 and 168 hours"
 				);
 				return;
 			}
@@ -163,9 +181,9 @@ function SettingsPanel({ isSuperAdmin }) {
 				theme,
 			};
 
-			// Only include phase2DurationHours if user is superadmin
+			// Only include sessionLimitHours if user is superadmin
 			if (isSuperAdmin) {
-				body.phase2DurationHours = Number(phase2DurationHours);
+				body.sessionLimitHours = Number(sessionLimitHours);
 			}
 
 			const res = await fetchWithCsrf("/api/settings", {
@@ -242,20 +260,22 @@ function SettingsPanel({ isSuperAdmin }) {
 				{isSuperAdmin && (
 					<div>
 						<label className="block text-sm font-medium text-slate-700 mb-2">
-							Phase 2 Duration (hours)
+							Session Time Limit (hours)
 						</label>
 						<input
 							type="number"
 							min="1"
 							max="168"
-							value={phase2DurationHours}
-							onChange={(e) => setPhase2DurationHours(e.target.value)}
+							value={sessionLimitHours}
+							onChange={(e) =>
+								setSessionLimitHours(e.target.value)
+							}
 							className="w-full max-w-md border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-							placeholder="6"
+							placeholder="24"
 						/>
 						<p className="text-sm text-slate-500 mt-1">
-							Phase 2 ends automatically when everyone has voted or
-							after this time (1-168 hours)
+							Sessions automatically close when everyone has voted
+							or after this time limit (1-168 hours from session start)
 						</p>
 					</div>
 				)}
@@ -288,9 +308,16 @@ function UsersPanel() {
 	const [items, setItems] = useState([]);
 	const [loading, setLoading] = useState(true);
 	const [editing, setEditing] = useState(null);
-	const [form, setForm] = useState({ name: "", email: "", isAdmin: false });
+	const [form, setForm] = useState({
+		name: "",
+		email: "",
+		isAdmin: false,
+		isSuperAdmin: false,
+		remainingSessions: 0,
+		sessionLimit: 10,
+	});
 
-	const load = async () => {
+	const load = useCallback(async () => {
 		setLoading(true);
 		try {
 			const res = await fetch("/api/admin/users");
@@ -306,14 +333,22 @@ function UsersPanel() {
 			setItems([]);
 		}
 		setLoading(false);
-	};
+	}, []);
+
 	useEffect(() => {
 		load();
-	}, []);
+	}, [load]);
 
 	const startEdit = (u) => {
 		setEditing(u.id);
-		setForm({ name: u.name, email: u.email, isAdmin: !!u.isAdmin });
+		setForm({
+			name: u.name,
+			email: u.email,
+			isAdmin: !!u.isAdmin,
+			isSuperAdmin: !!u.isSuperAdmin,
+			remainingSessions: u.remainingSessions || 0,
+			sessionLimit: u.sessionLimit || 10,
+		});
 	};
 	const cancel = () => {
 		setEditing(null);
@@ -336,531 +371,276 @@ function UsersPanel() {
 	if (loading) return <div className="p-4 bg-white rounded-xl">Loading…</div>;
 
 	return (
-		<section className="bg-white rounded-xl p-4 shadow">
-			<table className="w-full text-sm">
-				<thead>
-					<tr className="text-left text-slate-500">
-						<th>Name</th>
-						<th>Email</th>
-						<th>Admin</th>
-						<th>Created</th>
-						<th></th>
-					</tr>
-				</thead>
-				<tbody>
-					{items.map((u) => (
-						<tr key={u.id} className="border-t">
-							<td>
-								{editing === u.id ? (
-									<input
-										className="border rounded px-2 py-1"
-										value={form.name}
-										onChange={(e) =>
-											setForm((f) => ({
-												...f,
-												name: e.target.value,
-											}))
-										}
-									/>
-								) : (
-									u.name
-								)}
-							</td>
-							<td>
-								{editing === u.id ? (
-									<input
-										className="border rounded px-2 py-1"
-										value={form.email}
-										onChange={(e) =>
-											setForm((f) => ({
-												...f,
-												email: e.target.value,
-											}))
-										}
-									/>
-								) : (
-									u.email
-								)}
-							</td>
-							<td>
-								{editing === u.id ? (
-									<input
-										type="checkbox"
-										checked={form.isAdmin}
-										onChange={(e) =>
-											setForm((f) => ({
-												...f,
-												isAdmin: e.target.checked,
-											}))
-										}
-									/>
-								) : u.isAdmin ? (
-									"✓"
-								) : (
-									"–"
-								)}
-							</td>
-							<td>
-								{new Date(u.createdAt).toLocaleString("sv-SE")}
-							</td>
-							<td className="text-right">
-								{editing === u.id ? (
-									<div className="flex gap-2 justify-end">
-										<button
-											onClick={save}
-											className="px-3 py-1 rounded bg-green-600 text-white"
-										>
-											Save
-										</button>
-										<button
-											onClick={cancel}
-											className="px-3 py-1 rounded bg-slate-200"
-										>
-											Cancel
-										</button>
-									</div>
-								) : (
-									<div className="flex gap-2 justify-end">
-										<button
-											onClick={() => startEdit(u)}
-											className="px-3 py-1 rounded bg-slate-200"
-										>
-											Edit
-										</button>
-										<button
-											onClick={() => remove(u.id)}
-											className="px-3 py-1 rounded bg-red-600 text-white"
-										>
-											Delete
-										</button>
-									</div>
-								)}
-							</td>
+		<section className="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+			<h2 className="text-xl font-bold mb-4">Users</h2>
+			<div className="overflow-x-auto">
+				<table className="w-full text-sm">
+					<thead>
+						<tr className="text-left text-slate-500 border-b">
+							<th className="pb-2">Name</th>
+							<th className="pb-2">Email</th>
+							<th className="pb-2">Role</th>
+							<th className="pb-2">Sessions</th>
+							<th className="pb-2">Created</th>
+							<th className="pb-2"></th>
 						</tr>
-					))}
-				</tbody>
-			</table>
+					</thead>
+					<tbody>
+						{items.map((u) => (
+							<tr key={u.id} className="border-t">
+								<td className="py-3">
+									{editing === u.id ? (
+										<input
+											className="border rounded px-2 py-1 w-full"
+											value={form.name}
+											onChange={(e) =>
+												setForm((f) => ({
+													...f,
+													name: e.target.value,
+												}))
+											}
+										/>
+									) : (
+										<div>
+											<div className="font-medium">
+												{u.name}
+											</div>
+											{u.organization && (
+												<div className="text-xs text-slate-500">
+													{u.organization}
+												</div>
+											)}
+										</div>
+									)}
+								</td>
+								<td className="py-3">
+									{editing === u.id ? (
+										<input
+											className="border rounded px-2 py-1 w-full"
+											value={form.email}
+											onChange={(e) =>
+												setForm((f) => ({
+													...f,
+													email: e.target.value,
+												}))
+											}
+										/>
+									) : (
+										u.email
+									)}
+								</td>
+								<td className="py-3">
+									{editing === u.id ? (
+										<div className="space-y-2">
+											<label className="flex items-center gap-2">
+												<input
+													type="checkbox"
+													checked={form.isSuperAdmin}
+													onChange={(e) =>
+														setForm((f) => ({
+															...f,
+															isSuperAdmin:
+																e.target
+																	.checked,
+															isAdmin: e.target
+																.checked
+																? true
+																: f.isAdmin,
+														}))
+													}
+												/>
+												<span className="text-xs">
+													Super Admin
+												</span>
+											</label>
+											<label className="flex items-center gap-2">
+												<input
+													type="checkbox"
+													checked={form.isAdmin}
+													disabled={form.isSuperAdmin}
+													onChange={(e) =>
+														setForm((f) => ({
+															...f,
+															isAdmin:
+																e.target
+																	.checked,
+														}))
+													}
+												/>
+												<span className="text-xs">
+													Admin
+												</span>
+											</label>
+										</div>
+									) : (
+										<div>
+											{u.isSuperAdmin ? (
+												<span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-purple-100 text-purple-800">
+													Super Admin
+												</span>
+											) : u.isAdmin ? (
+												<span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800">
+													Admin
+												</span>
+											) : (
+												<span className="text-slate-400">
+													User
+												</span>
+											)}
+										</div>
+									)}
+								</td>
+								<td className="py-3">
+									{editing === u.id ? (
+										<div className="space-y-1">
+											<div className="flex items-center gap-1">
+												<label className="text-xs text-slate-600">
+													Remaining:
+												</label>
+												<input
+													type="number"
+													min="0"
+													max="50"
+													className="border rounded px-2 py-1 w-16 text-xs"
+													value={
+														form.remainingSessions
+													}
+													onChange={(e) =>
+														setForm((f) => ({
+															...f,
+															remainingSessions:
+																parseInt(
+																	e.target
+																		.value
+																) || 0,
+														}))
+													}
+												/>
+											</div>
+											<div className="flex items-center gap-1">
+												<label className="text-xs text-slate-600">
+													Limit:
+												</label>
+												<input
+													type="number"
+													min="1"
+													max="50"
+													className="border rounded px-2 py-1 w-16 text-xs"
+													value={form.sessionLimit}
+													onChange={(e) =>
+														setForm((f) => ({
+															...f,
+															sessionLimit:
+																parseInt(
+																	e.target
+																		.value
+																) || 10,
+														}))
+													}
+												/>
+											</div>
+										</div>
+									) : (
+										<div className="text-xs">
+											{u.isAdmin && !u.isSuperAdmin ? (
+												<>
+													<div>
+														<span className="text-slate-600">
+															Remaining:
+														</span>{" "}
+														<span className="font-medium">
+															{u.remainingSessions ||
+																0}
+														</span>
+													</div>
+													<div>
+														<span className="text-slate-600">
+															Limit:
+														</span>{" "}
+														<span className="font-medium">
+															{u.sessionLimit ||
+																10}
+														</span>
+													</div>
+												</>
+											) : u.isSuperAdmin ? (
+												<span className="text-slate-400">
+													Unlimited
+												</span>
+											) : (
+												<span className="text-slate-400">
+													–
+												</span>
+											)}
+										</div>
+									)}
+								</td>
+								<td className="py-3 text-xs text-slate-500">
+									{new Date(u.createdAt).toLocaleDateString(
+										"sv-SE"
+									)}
+								</td>
+								<td className="py-3 text-right">
+									{editing === u.id ? (
+										<div className="flex gap-2 justify-end">
+											<button
+												onClick={save}
+												className="px-3 py-1 rounded bg-green-600 text-white text-xs font-medium hover:bg-green-700"
+											>
+												Save
+											</button>
+											<button
+												onClick={cancel}
+												className="px-3 py-1 rounded bg-slate-200 text-xs font-medium hover:bg-slate-300"
+											>
+												Cancel
+											</button>
+										</div>
+									) : (
+										<div className="flex gap-2 justify-end">
+											<button
+												onClick={() => startEdit(u)}
+												className="px-3 py-1 rounded bg-slate-200 text-xs font-medium hover:bg-slate-300"
+											>
+												Edit
+											</button>
+											<button
+												onClick={() => remove(u.id)}
+												className="px-3 py-1 rounded bg-red-600 text-white text-xs font-medium hover:bg-red-700"
+											>
+												Delete
+											</button>
+										</div>
+									)}
+								</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
 		</section>
 	);
 }
 
 function SessionsPanel() {
-	const { data: session } = useSession();
-	const [sessions, setSessions] = useState([]);
-	const [loading, setLoading] = useState(true);
-	const [creating, setCreating] = useState(false);
-	const [newPlace, setNewPlace] = useState("");
-	const [message, setMessage] = useState("");
-	const [remainingSessions, setRemainingSessions] = useState(null);
-	const [showRequestMore, setShowRequestMore] = useState(false);
-	const [requestedSessions, setRequestedSessions] = useState("10");
-
-	useEffect(() => {
-		loadSessions();
-		loadSessionLimit();
-		setNewPlace("Vallentuna");
-	}, []);
-
-	const loadSessions = async () => {
-		setLoading(true);
-		try {
-			const res = await fetch("/api/admin/sessions");
-			if (res.ok) {
-				const data = await res.json();
-				setSessions(Array.isArray(data) ? data : []);
-			} else {
-				console.error("Error loading sessions:", res.status);
-				setSessions([]);
-			}
-		} catch (error) {
-			console.error("Error loading sessions:", error);
-			setSessions([]);
-		}
-		setLoading(false);
-	};
-
-	const loadSessionLimit = async () => {
-		try {
-			const res = await fetch("/api/admin/session-limit");
-			if (res.ok) {
-				const data = await res.json();
-				setRemainingSessions(data.remaining);
-			}
-		} catch (error) {
-			console.error("Error loading session limit:", error);
-		}
-	};
-
-	const createSession = async () => {
-		if (!newPlace) {
-			setMessage("Place required");
-			return;
-		}
-
-		// Check if this is the last session and warn user
-		if (
-			!session?.user?.isSuperAdmin &&
-			remainingSessions === 1 &&
-			!showRequestMore
-		) {
-			const shouldContinue = confirm(
-				"This is your last session. Do you want to apply for more sessions?"
-			);
-			if (shouldContinue) {
-				setShowRequestMore(true);
-				return;
-			}
-		}
-
-		setCreating(true);
-		setMessage("");
-
-		try {
-			const res = await fetchWithCsrf("/api/admin/sessions", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					place: newPlace,
-				}),
-			});
-
-			if (res.ok) {
-				setMessage("Session created!");
-				loadSessions();
-				loadSessionLimit(); // Reload to update remaining sessions
-				setNewPlace("Vallentuna");
-				setTimeout(() => setMessage(""), 3000);
-			} else {
-				const error = await res.json();
-				setMessage(`Error: ${error.error}`);
-			}
-		} catch (error) {
-			console.error("Error creating session:", error);
-			setMessage("Could not create session");
-		}
-
-		setCreating(false);
-	};
-
-	const requestMoreSessions = async () => {
-		const sessions = parseInt(requestedSessions);
-		if (isNaN(sessions) || sessions < 1 || sessions > 50) {
-			alert("Please enter a number between 1 and 50");
-			return;
-		}
-
-		try {
-			const res = await fetchWithCsrf("/api/admin/request-more-sessions", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ requestedSessions: sessions }),
-			});
-
-			if (res.ok) {
-				alert(
-					"Your request for more sessions has been submitted. A superadmin will review it shortly."
-				);
-				setShowRequestMore(false);
-				setRequestedSessions("10");
-			} else {
-				const error = await res.json();
-				alert(`Error: ${error.message}`);
-			}
-		} catch (error) {
-			console.error("Error requesting more sessions:", error);
-			alert("Could not submit request");
-		}
-	};
-
-	const closeSession = async (sessionId) => {
-		if (
-			!confirm(
-				"Are you sure you want to close this session? All proposals will be archived and winning proposals moved to top proposals."
-			)
-		) {
-			return;
-		}
-
-		try {
-			const res = await fetchWithCsrf("/api/admin/close-session", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ sessionId }),
-			});
-
-			if (res.ok) {
-				const data = await res.json();
-				alert(
-					`Session closed! ${data.topProposals.length} top proposals saved.`
-				);
-				loadSessions();
-			} else {
-				const error = await res.json();
-				alert(`Error: ${error.error}`);
-			}
-		} catch (error) {
-			console.error("Error closing session:", error);
-			alert("Could not close session");
-		}
-	};
-
-	if (loading) return <div className="p-4 bg-white rounded-xl">Loading…</div>;
-
-	const activeSession = sessions.find((s) => s.status === "active");
-	const closedSessions = sessions.filter((s) => s.status === "closed");
+	const router = useRouter();
 
 	return (
-		<section className="bg-white rounded-xl p-6 shadow space-y-6">
-			{!activeSession && !showRequestMore && (
-				<div>
-					<h2 className="text-xl font-bold mb-4">
-						Create New Session
-					</h2>
-
-					<div className="space-y-4">
-						<div>
-							<label className="block text-sm font-medium text-slate-700 mb-2">
-								What to Improve
-							</label>
-							<input
-								type="text"
-								value={newPlace}
-								onChange={(e) => setNewPlace(e.target.value)}
-								className="w-full max-w-md border border-slate-300 rounded-lg px-4 py-2"
-								placeholder="e.g. 'City Name' or 'Topic'"
-							/>
-						</div>
-
-						{!session?.user?.isSuperAdmin &&
-							remainingSessions !== null && (
-								<p className="text-sm text-slate-600">
-									Remaining sessions:{" "}
-									<strong>{remainingSessions}</strong>
-								</p>
-							)}
-
-						<button
-							onClick={createSession}
-							disabled={creating}
-							className="px-6 py-2 bg-accent-500 text-slate-900 rounded-lg hover:bg-accent-600 font-semibold disabled:bg-slate-400"
-						>
-							{creating ? "Creating..." : "Create session"}
-						</button>
-
-						{message && (
-							<div
-								className={`p-3 rounded-lg ${
-									message.startsWith("Error")
-										? "bg-red-100 text-red-700"
-										: "bg-green-100 text-green-700"
-								}`}
-							>
-								{message}
-							</div>
-						)}
-					</div>
-				</div>
-			)}
-
-			{showRequestMore && (
-				<div className="p-6 bg-yellow-50 border border-yellow-300 rounded-lg">
-					<h2 className="text-xl font-bold mb-4">
-						Request More Sessions
-					</h2>
-					<p className="mb-4 text-slate-700">
-						You are about to use your last session. How many
-						additional sessions would you like to request?
-					</p>
-					<div className="space-y-4">
-						<div>
-							<label className="block text-sm font-medium text-slate-700 mb-2">
-								Number of Sessions (1-50)
-							</label>
-							<input
-								type="number"
-								min="1"
-								max="50"
-								value={requestedSessions}
-								onChange={(e) =>
-									setRequestedSessions(e.target.value)
-								}
-								className="w-full max-w-md border border-slate-300 rounded-lg px-4 py-2"
-							/>
-						</div>
-						<div className="flex gap-2">
-							<button
-								onClick={requestMoreSessions}
-								className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold"
-							>
-								Submit Request
-							</button>
-							<button
-								onClick={() => setShowRequestMore(false)}
-								className="px-6 py-2 bg-slate-300 text-slate-700 rounded-lg hover:bg-slate-400 font-semibold"
-							>
-								Cancel
-							</button>
-						</div>
-					</div>
-				</div>
-			)}
-
-			<div>
-				<h2 className="text-xl font-bold mb-4">Active Session</h2>
-				{activeSession ? (
-					<div className="p-4 border border-green-300 bg-green-50 rounded-lg space-y-4">
-						<div className="flex items-center justify-between">
-							<div>
-								<h3 className="font-bold text-lg">
-									{activeSession.place}
-								</h3>
-								<p className="text-sm text-slate-600">
-									Started:{" "}
-									{new Date(
-										activeSession.startDate
-									).toLocaleString("sv-SE", {
-										year: "numeric",
-										month: "short",
-										day: "numeric",
-										hour: "2-digit",
-										minute: "2-digit",
-									})}
-								</p>
-								<p className="text-sm text-slate-500">
-									Duration:{" "}
-									{Math.floor(
-										(new Date() -
-											new Date(activeSession.startDate)) /
-											(1000 * 60 * 60)
-									)}{" "}
-									hours
-								</p>
-								<p className="text-sm font-semibold text-primary-700 mt-2">
-									Current phase:{" "}
-									{activeSession.phase === "phase1"
-										? "Phase 1 (Rating)"
-										: "Phase 2 (Debate & Voting)"}
-								</p>
-							</div>
-							<div className="flex flex-col gap-2">
-								<button
-									onClick={() =>
-										closeSession(activeSession._id)
-									}
-									className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-								>
-									Close session
-								</button>
-							</div>
-						</div>
-
-						{session?.user?.isSuperAdmin &&
-							activeSession.activeUsersWithStatus &&
-							activeSession.activeUsersWithStatus.length > 0 && (
-								<div className="mt-4 pt-4 border-t border-green-200">
-									<h4 className="font-semibold text-sm text-slate-700 mb-2">
-										Active Users (
-										{
-											activeSession.activeUsersWithStatus
-												.length
-										}
-										)
-									</h4>
-									<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-										{activeSession.activeUsersWithStatus.map(
-											(user) => (
-												<div
-													key={user._id}
-													className="flex items-center justify-between p-2 bg-white rounded border border-slate-200"
-												>
-													<div className="flex-1 min-w-0">
-														<p className="text-sm font-medium text-slate-900 truncate">
-															{user.name}
-														</p>
-														<p className="text-xs text-slate-500 truncate">
-															{user.email}
-														</p>
-													</div>
-													{activeSession.phase ===
-														"phase2" && (
-														<div className="ml-2 flex-shrink-0">
-															{user.hasVoted ? (
-																<span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
-																	✓ Voted
-																</span>
-															) : (
-																<span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
-																	Pending
-																</span>
-															)}
-														</div>
-													)}
-												</div>
-											)
-										)}
-									</div>
-								</div>
-							)}
-					</div>
-				) : (
-					<p className="text-slate-600">No active session</p>
-				)}
-			</div>
-
-			<div>
-				<h2 className="text-xl font-bold mb-4">Closed Sessions</h2>
-				{closedSessions.length > 0 ? (
-					<div className="space-y-2">
-						{closedSessions.map((session) => {
-							const startDate = new Date(session.startDate);
-							const endDate = new Date(session.endDate);
-							const durationHours = Math.floor(
-								(endDate - startDate) / (1000 * 60 * 60)
-							);
-							const durationDays = Math.floor(durationHours / 24);
-							const remainingHours = durationHours % 24;
-
-							return (
-								<div
-									key={session._id}
-									className="p-4 border border-slate-200 rounded-lg"
-								>
-									<h3 className="font-bold text-lg">
-										{session.place}
-									</h3>
-									<p className="text-sm text-slate-600">
-										Started:{" "}
-										{startDate.toLocaleString("sv-SE", {
-											year: "numeric",
-											month: "short",
-											day: "numeric",
-											hour: "2-digit",
-											minute: "2-digit",
-										})}
-									</p>
-									<p className="text-sm text-slate-600">
-										Ended:{" "}
-										{endDate.toLocaleString("sv-SE", {
-											year: "numeric",
-											month: "short",
-											day: "numeric",
-											hour: "2-digit",
-											minute: "2-digit",
-										})}
-									</p>
-									<p className="text-sm text-slate-500">
-										Duration:{" "}
-										{durationDays > 0
-											? `${durationDays}d ${remainingHours}h`
-											: `${remainingHours}h`}
-									</p>
-								</div>
-							);
-						})}
-					</div>
-				) : (
-					<p className="text-slate-600">No closed sessions</p>
-				)}
+		<section className="bg-white rounded-xl p-6 shadow">
+			<div className="text-center py-12">
+				<h2 className="text-2xl font-bold mb-4 text-slate-800">
+					Session Management
+				</h2>
+				<p className="text-slate-600 mb-6 max-w-md mx-auto">
+					Session management has been moved to a dedicated page for
+					better organization and accessibility.
+				</p>
+				<button
+					onClick={() => router.push("/manage-sessions")}
+					className="px-6 py-3 bg-accent-500 text-slate-900 rounded-lg hover:bg-accent-600 font-semibold shadow-md hover:shadow-lg transition-all"
+				>
+					Go to Manage Sessions
+				</button>
 			</div>
 		</section>
 	);
@@ -870,11 +650,7 @@ function TopProposalsPanel() {
 	const [topProposals, setTopProposals] = useState([]);
 	const [loading, setLoading] = useState(true);
 
-	useEffect(() => {
-		loadTopProposals();
-	}, []);
-
-	const loadTopProposals = async () => {
+	const loadTopProposals = useCallback(async () => {
 		setLoading(true);
 		try {
 			const res = await fetch("/api/admin/top-proposals");
@@ -890,7 +666,11 @@ function TopProposalsPanel() {
 			setTopProposals([]);
 		}
 		setLoading(false);
-	};
+	}, []);
+
+	useEffect(() => {
+		loadTopProposals();
+	}, [loadTopProposals]);
 
 	if (loading) return <div className="p-4 bg-white rounded-xl">Loading…</div>;
 
@@ -968,16 +748,16 @@ function EmailPanel() {
 	const [sending, setSending] = useState(false);
 	const [message, setMessage] = useState("");
 
-	useEffect(() => {
-		loadSessions();
-	}, []);
-
-	const loadSessions = async () => {
+	const loadSessions = useCallback(async () => {
 		try {
 			const res = await fetch("/api/admin/sessions");
 			if (res.ok) {
 				const data = await res.json();
-				setSessions(Array.isArray(data) ? data.filter((s) => s.status === "closed") : []);
+				setSessions(
+					Array.isArray(data)
+						? data.filter((s) => s.status === "closed")
+						: []
+				);
 			} else {
 				console.error("Error loading sessions:", res.status);
 				setSessions([]);
@@ -986,7 +766,11 @@ function EmailPanel() {
 			console.error("Error loading sessions:", error);
 			setSessions([]);
 		}
-	};
+	}, []);
+
+	useEffect(() => {
+		loadSessions();
+	}, [loadSessions]);
 
 	const sendResultsEmail = async () => {
 		if (!selectedSession) {
@@ -1252,7 +1036,11 @@ function AdminApplicationsPanel() {
 							key={app._id}
 							application={app}
 							onApprove={(sessionLimit) =>
-								handleApplication(app._id, "approve", sessionLimit)
+								handleApplication(
+									app._id,
+									"approve",
+									sessionLimit
+								)
 							}
 							onDeny={() => handleApplication(app._id, "deny")}
 						/>
@@ -1264,25 +1052,36 @@ function AdminApplicationsPanel() {
 }
 
 function ApplicationCard({ application, onApprove, onDeny }) {
-	const [sessionLimit, setSessionLimit] = useState(application.requestedSessions || 10);
+	const [sessionLimit, setSessionLimit] = useState(
+		application.requestedSessions || 10
+	);
 	const [showLimitInput, setShowLimitInput] = useState(false);
 
 	return (
 		<div className="border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow">
 			<div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
 				<div className="flex-1">
-					<h3 className="font-semibold text-lg">{application.name}</h3>
-					<p className="text-sm text-slate-600">{application.email}</p>
+					<h3 className="font-semibold text-lg">
+						{application.name}
+					</h3>
+					<p className="text-sm text-slate-600">
+						{application.email}
+					</p>
 					{application.organization && (
 						<p className="text-sm text-slate-700 mt-1">
-							<span className="font-medium">Organization:</span> {application.organization}
+							<span className="font-medium">Organization:</span>{" "}
+							{application.organization}
 						</p>
 					)}
 					<p className="text-sm text-slate-700 mt-1">
-						<span className="font-medium">Requested sessions:</span> {application.requestedSessions || 10}
+						<span className="font-medium">Requested sessions:</span>{" "}
+						{application.requestedSessions || 10}
 					</p>
 					<p className="text-xs text-slate-500 mt-1">
-						Applied: {new Date(application.appliedForAdminAt).toLocaleDateString()}
+						Applied:{" "}
+						{new Date(
+							application.appliedForAdminAt
+						).toLocaleDateString()}
 					</p>
 				</div>
 
@@ -1313,7 +1112,11 @@ function ApplicationCard({ application, onApprove, onDeny }) {
 									min="1"
 									max="50"
 									value={sessionLimit}
-									onChange={(e) => setSessionLimit(parseInt(e.target.value) || 10)}
+									onChange={(e) =>
+										setSessionLimit(
+											parseInt(e.target.value) || 10
+										)
+									}
 									className="w-20 border border-slate-300 rounded px-2 py-1 text-sm"
 								/>
 							</div>
@@ -1326,6 +1129,195 @@ function ApplicationCard({ application, onApprove, onDeny }) {
 								</button>
 								<button
 									onClick={() => setShowLimitInput(false)}
+									className="flex-1 px-3 py-1 bg-slate-300 text-slate-700 rounded hover:bg-slate-400 text-sm"
+								>
+									Cancel
+								</button>
+							</div>
+						</div>
+					)}
+				</div>
+			</div>
+		</div>
+	);
+}
+
+function SessionRequestsPanel() {
+	const [requests, setRequests] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const [message, setMessage] = useState("");
+
+	useEffect(() => {
+		fetchRequests();
+	}, []);
+
+	const fetchRequests = async () => {
+		try {
+			const res = await fetch("/api/admin/session-requests");
+			if (res.ok) {
+				const data = await res.json();
+				setRequests(data.requests || []);
+			}
+		} catch (error) {
+			console.error("Error fetching session requests:", error);
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const handleRequest = async (requestId, action, grantedSessions = null) => {
+		try {
+			const res = await fetchWithCsrf("/api/admin/session-requests", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ requestId, action, grantedSessions }),
+			});
+
+			if (res.ok) {
+				const data = await res.json();
+				setMessage(data.message);
+				// Refresh the list
+				await fetchRequests();
+				setTimeout(() => setMessage(""), 3000);
+			} else {
+				const data = await res.json();
+				setMessage(`Error: ${data.message}`);
+			}
+		} catch (error) {
+			console.error("Error processing request:", error);
+			setMessage("Error processing request");
+		}
+	};
+
+	if (loading) {
+		return <div className="p-4">Loading...</div>;
+	}
+
+	return (
+		<section className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+			<h2 className="text-xl font-bold mb-4">Session Requests</h2>
+			<p className="text-sm text-slate-600 mb-4">
+				Existing admins requesting more sessions
+			</p>
+
+			{message && (
+				<div
+					className={`mb-4 p-3 rounded-lg ${
+						message.startsWith("Error")
+							? "bg-red-100 text-red-700"
+							: "bg-green-100 text-green-700"
+					}`}
+				>
+					{message}
+				</div>
+			)}
+
+			{requests.length === 0 ? (
+				<p className="text-slate-600">No pending session requests</p>
+			) : (
+				<div className="space-y-4">
+					{requests.map((request) => (
+						<SessionRequestCard
+							key={request._id}
+							request={request}
+							onApprove={(grantedSessions) =>
+								handleRequest(
+									request._id,
+									"approve",
+									grantedSessions
+								)
+							}
+							onDeny={() => handleRequest(request._id, "deny")}
+						/>
+					))}
+				</div>
+			)}
+		</section>
+	);
+}
+
+function SessionRequestCard({ request, onApprove, onDeny }) {
+	const [grantedSessions, setGrantedSessions] = useState(
+		request.requestedSessions
+	);
+	const [showSessionInput, setShowSessionInput] = useState(false);
+
+	return (
+		<div className="border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+			<div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+				<div className="flex-1">
+					<h3 className="font-semibold text-lg">
+						{request.userId.name}
+					</h3>
+					<p className="text-sm text-slate-600">
+						{request.userId.email}
+					</p>
+					{request.userId.organization && (
+						<p className="text-sm text-slate-700 mt-1">
+							<span className="font-medium">Organization:</span>{" "}
+							{request.userId.organization}
+						</p>
+					)}
+					<p className="text-sm text-slate-700 mt-1">
+						<span className="font-medium">
+							Current remaining sessions:
+						</span>{" "}
+						{request.userId.remainingSessions}
+					</p>
+					<p className="text-sm text-slate-700 mt-1">
+						<span className="font-medium">Requested sessions:</span>{" "}
+						{request.requestedSessions}
+					</p>
+					<p className="text-xs text-slate-500 mt-1">
+						Requested:{" "}
+						{new Date(request.createdAt).toLocaleDateString()}
+					</p>
+				</div>
+
+				<div className="flex flex-col sm:flex-row gap-2">
+					{!showSessionInput ? (
+						<>
+							<button
+								onClick={() => setShowSessionInput(true)}
+								className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium"
+							>
+								Approve
+							</button>
+							<button
+								onClick={onDeny}
+								className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium"
+							>
+								Deny
+							</button>
+						</>
+					) : (
+						<div className="flex flex-col gap-2">
+							<div className="flex items-center gap-2">
+								<label className="text-sm font-medium whitespace-nowrap">
+									Grant sessions:
+								</label>
+								<input
+									type="number"
+									min="1"
+									max="50"
+									value={grantedSessions}
+									onChange={(e) =>
+										setGrantedSessions(
+											parseInt(e.target.value) || 1
+										)
+									}
+									className="w-20 border border-slate-300 rounded px-2 py-1 text-sm"
+								/>
+							</div>
+							<div className="flex gap-2">
+								<button
+									onClick={() => onApprove(grantedSessions)}
+									className="flex-1 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
+								>
+									Confirm
+								</button>
+								<button
+									onClick={() => setShowSessionInput(false)}
 									className="flex-1 px-3 py-1 bg-slate-300 text-slate-700 rounded hover:bg-slate-400 text-sm"
 								>
 									Cancel

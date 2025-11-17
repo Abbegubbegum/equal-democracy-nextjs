@@ -34,14 +34,15 @@ export default function IncomeCategoryInput({ category, allocation, onUpdate, ta
 			: allocation?.amount || defaultValue
 	);
 
-	// Sync with allocation prop changes
+	// Sync with allocation prop changes - use effect only to update when external value changes
+	const taxRateKr = allocation?.taxRateKr;
+	const allocationAmount = allocation?.amount;
 	useEffect(() => {
-		if (isTaxIncome && allocation?.taxRateKr) {
-			setValue(allocation.taxRateKr);
-		} else if (allocation?.amount) {
-			setValue(allocation.amount);
+		const newValue = isTaxIncome && taxRateKr !== undefined ? taxRateKr : allocationAmount;
+		if (newValue !== undefined && newValue !== value) {
+			setValue(newValue);
 		}
-	}, [allocation, isTaxIncome]);
+	}, [isTaxIncome, taxRateKr, allocationAmount, value]);
 
 	function handleSliderChange(e) {
 		const newValue = parseFloat(e.target.value);

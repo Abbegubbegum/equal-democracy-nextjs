@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
 import { Wallet } from "lucide-react";
@@ -19,13 +19,7 @@ export default function BudgetIndexPage() {
 		}
 	}, [status, router]);
 
-	useEffect(() => {
-		if (session) {
-			fetchActiveSessions();
-		}
-	}, [session]);
-
-	async function fetchActiveSessions() {
+	const fetchActiveSessions = useCallback(async () => {
 		try {
 			const response = await fetch("/api/budget/sessions?status=active");
 			const data = await response.json();
@@ -41,7 +35,13 @@ export default function BudgetIndexPage() {
 		} finally {
 			setLoading(false);
 		}
-	}
+	}, [router]);
+
+	useEffect(() => {
+		if (session) {
+			fetchActiveSessions();
+		}
+	}, [session, fetchActiveSessions]);
 
 	if (status === "loading" || loading) {
 		return (

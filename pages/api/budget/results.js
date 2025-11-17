@@ -23,7 +23,7 @@ export default async function handler(req, res) {
 				return res.status(400).json({ message: "Session ID is required" });
 			}
 
-			const budgetSession = await BudgetSession.findById(sessionId);
+			const budgetSession = await BudgetSession.findOne({ sessionId });
 
 			if (!budgetSession) {
 				return res.status(404).json({ message: "Budget session not found" });
@@ -93,7 +93,7 @@ export default async function handler(req, res) {
 				return res.status(400).json({ message: "Session ID is required" });
 			}
 
-			const budgetSession = await BudgetSession.findById(sessionId);
+			const budgetSession = await BudgetSession.findOne({ sessionId });
 
 			if (!budgetSession) {
 				return res.status(404).json({ message: "Budget session not found" });

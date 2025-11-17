@@ -19,12 +19,13 @@ export default function CategoryInput({ category, allocation, onUpdate, readOnly
 	const [isEditing, setIsEditing] = useState(false);
 	const [editValue, setEditValue] = useState("");
 
-	// Sync with allocation prop changes
+	// Sync with allocation prop changes - use effect only to update when external value changes
+	const allocationAmount = allocation?.amount;
 	useEffect(() => {
-		if (allocation?.amount) {
-			setValue(allocation.amount);
+		if (allocationAmount !== undefined && allocationAmount !== value) {
+			setValue(allocationAmount);
 		}
-	}, [allocation?.amount]);
+	}, [allocationAmount, value]);
 
 	function handleSliderChange(e) {
 		const newAmount = parseInt(e.target.value);

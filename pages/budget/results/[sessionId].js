@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
 import { ArrowLeft, Users, TrendingUp, DollarSign } from "lucide-react";
@@ -14,18 +14,7 @@ export default function BudgetResultsPage() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 
-	useEffect(() => {
-		if (status === "loading") return;
-		if (!session) {
-			router.replace("/login");
-			return;
-		}
-		if (sessionId) {
-			fetchResults();
-		}
-	}, [status, session, sessionId]);
-
-	async function fetchResults() {
+	const fetchResults = useCallback(async () => {
 		try {
 			setLoading(true);
 			const response = await fetch(`/api/budget/results?sessionId=${sessionId}`);
@@ -42,7 +31,18 @@ export default function BudgetResultsPage() {
 		} finally {
 			setLoading(false);
 		}
-	}
+	}, [sessionId]);
+
+	useEffect(() => {
+		if (status === "loading") return;
+		if (!session) {
+			router.replace("/login");
+			return;
+		}
+		if (sessionId) {
+			fetchResults();
+		}
+	}, [status, session, sessionId, router, fetchResults]);
 
 	if (loading) {
 		return (

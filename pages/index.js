@@ -1,6 +1,6 @@
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
 	Users,
 	Plus,
@@ -61,6 +61,168 @@ export default function HomePage() {
 	const [playNotification] = useSound("/sounds/notification.mp3", {
 		volume: 0.5,
 	});
+
+	// Define all callback functions before they're used in SSE hook or useEffect
+	const fetchWinningProposals = useCallback(async () => {
+		try {
+			const res = await fetch("/api/top-proposals");
+			const data = await res.json();
+			setWinningProposals(data);
+		} catch (error) {
+			console.error("Error fetching winning proposals:", error);
+		}
+	}, []);
+
+	const fetchProposals = useCallback(async () => {
+		try {
+			const res = await fetch("/api/proposals");
+			const data = await res.json();
+			// Ensure data is always an array
+			setProposals(Array.isArray(data) ? data : []);
+		} catch (error) {
+			console.error("Error fetching proposals:", error);
+			setProposals([]); // Set empty array on error
+		} finally {
+			setLoading(false);
+		}
+	}, []);
+
+	const fetchSessionInfo = useCallback(async () => {
+		try {
+			const res = await fetch("/api/sessions/current");
+			const data = await res.json();
+
+			// Check if there's no active session
+			if (data.noActiveSession) {
+				setHasActiveSession(false);
+				setCurrentPhase(null);
+				setPlaceName("");
+				return;
+			}
+
+			// Active session exists
+			setHasActiveSession(true);
+
+			// Set place name from session
+			if (data.place) {
+				setPlaceName(data.place);
+			}
+
+			if (data.phase) {
+				const previousPhase = currentPhase;
+
+				// Show results modal if session is closed and we haven't shown it yet
+				// This covers both: users on the page when it closes, and users loading after it's closed
+				if (data.phase === "closed" && !showSessionClosed) {
+					await fetchWinningProposals();
+					playEndSign(); // Play sound when results are shown
+					setShowSessionClosed(true);
+				}
+
+				setCurrentPhase(data.phase);
+
+				// Mark that initial load is complete
+				if (isInitialLoad) {
+					setIsInitialLoad(false);
+				}
+			}
+		} catch (error) {
+			console.error("Error fetching session info:", error);
+		}
+	}, [currentPhase, showSessionClosed, isInitialLoad, fetchWinningProposals, playEndSign]);
+
+	const checkSessionTimeout = useCallback(async () => {
+		try {
+			// Call the timeout checker endpoint
+			// This runs silently in the background
+			await fetch("/api/check-session-timeout", {
+				method: "POST",
+			});
+			// We don't need to do anything with the response
+			// If a session was closed, SSE will notify us
+		} catch (error) {
+			// Silent fail - this is a background check
+			console.error("Error checking session timeout:", error);
+		}
+	}, []);
+
+	const checkUserVote = useCallback(async () => {
+		try {
+			const res = await fetch("/api/votes?checkSession=true");
+			if (!res.ok) {
+				console.error("Error checking user vote:", res.status);
+				return;
+			}
+			const data = await res.json();
+			setUserHasVotedInSession(data.hasVotedInSession);
+			setVotedProposalId(data.votedProposalId);
+		} catch (error) {
+			console.error("Error checking user vote:", error);
+		}
+	}, []);
+
+	const checkPhaseTransition = useCallback(async () => {
+		try {
+			const res = await fetch("/api/sessions/check-phase-transition");
+			const data = await res.json();
+
+			if (data.transitionScheduled) {
+				// Transition is scheduled, show countdown
+				setTransitionCountdown(data.secondsRemaining);
+				// Clear any existing interval before starting a new one
+				if (transitionIntervalRef.current) {
+					clearInterval(transitionIntervalRef.current);
+					transitionIntervalRef.current = null;
+				}
+
+				// Start polling for execution
+				transitionIntervalRef.current = setInterval(async () => {
+					const execRes = await fetchWithCsrf(
+						"/api/sessions/execute-scheduled-transition",
+						{
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+						}
+					);
+
+					if (execRes.ok) {
+						const execData = await execRes.json();
+
+						if (execData.transitionExecuted) {
+							// Transition complete!
+							if (transitionIntervalRef.current) {
+								clearInterval(transitionIntervalRef.current);
+								transitionIntervalRef.current = null;
+							}
+							setTransitionCountdown(null);
+							setShowPhaseTransition(true);
+							playEndSign(); // Play sound when transition happens
+
+							// Update session info after delay
+							setTimeout(() => {
+								fetchSessionInfo();
+								fetchProposals();
+								setShowPhaseTransition(false);
+							}, 3000);
+						} else if (execData.secondsRemaining !== undefined) {
+							// Update countdown
+							setTransitionCountdown(execData.secondsRemaining);
+						}
+					}
+				}, 1000); // Check every second
+
+				// Clear interval after 110 seconds (safety)
+				setTimeout(() => {
+					if (transitionIntervalRef.current) {
+						clearInterval(transitionIntervalRef.current);
+						transitionIntervalRef.current = null;
+					}
+				}, 110000);
+			}
+		} catch (error) {
+			console.error("Error checking phase transition:", error);
+		}
+	}, [fetchSessionInfo, fetchProposals, playEndSign]);
 
 	// Setup SSE for real-time updates
 	useSSE({
@@ -152,7 +314,7 @@ export default function HomePage() {
 			checkUserVote(); // Check if user has already voted
 			checkPhaseTransition(); // Check if a transition is already scheduled
 		}
-	}, [session]);
+	}, [session, fetchProposals, fetchSessionInfo, checkUserVote, checkPhaseTransition, checkSessionTimeout]);
 
 	// Check if user has created a proposal
 	useEffect(() => {
@@ -189,105 +351,7 @@ export default function HomePage() {
 				transitionIntervalRef.current = null;
 			}
 		};
-	}, [session, currentPhase]);
-
-	const fetchSessionInfo = async () => {
-		try {
-			const res = await fetch("/api/sessions/current");
-			const data = await res.json();
-
-			// Check if there's no active session
-			if (data.noActiveSession) {
-				setHasActiveSession(false);
-				setCurrentPhase(null);
-				setPlaceName("");
-				return;
-			}
-
-			// Active session exists
-			setHasActiveSession(true);
-
-			// Set place name from session
-			if (data.place) {
-				setPlaceName(data.place);
-			}
-
-			if (data.phase) {
-				const previousPhase = currentPhase;
-
-				// Show results modal if session is closed and we haven't shown it yet
-				// This covers both: users on the page when it closes, and users loading after it's closed
-				if (data.phase === "closed" && !showSessionClosed) {
-					await fetchWinningProposals();
-					playEndSign(); // Play sound when results are shown
-					setShowSessionClosed(true);
-				}
-
-				setCurrentPhase(data.phase);
-
-				// Mark that initial load is complete
-				if (isInitialLoad) {
-					setIsInitialLoad(false);
-				}
-			}
-		} catch (error) {
-			console.error("Error fetching session info:", error);
-		}
-	};
-
-	const fetchWinningProposals = async () => {
-		try {
-			const res = await fetch("/api/top-proposals");
-			const data = await res.json();
-			setWinningProposals(data);
-		} catch (error) {
-			console.error("Error fetching winning proposals:", error);
-		}
-	};
-
-	const checkSessionTimeout = async () => {
-		try {
-			// Call the timeout checker endpoint
-			// This runs silently in the background
-			await fetch("/api/check-session-timeout", {
-				method: "POST",
-			});
-			// We don't need to do anything with the response
-			// If a session was closed, SSE will notify us
-		} catch (error) {
-			// Silent fail - this is a background check
-			console.error("Error checking session timeout:", error);
-		}
-	};
-
-	const checkUserVote = async () => {
-		try {
-			const res = await fetch("/api/votes?checkSession=true");
-			if (!res.ok) {
-				console.error("Error checking user vote:", res.status);
-				return;
-			}
-			const data = await res.json();
-			setUserHasVotedInSession(data.hasVotedInSession);
-			setVotedProposalId(data.votedProposalId);
-		} catch (error) {
-			console.error("Error checking user vote:", error);
-		}
-	};
-
-	const fetchProposals = async () => {
-		try {
-			const res = await fetch("/api/proposals");
-			const data = await res.json();
-			// Ensure data is always an array
-			setProposals(Array.isArray(data) ? data : []);
-		} catch (error) {
-			console.error("Error fetching proposals:", error);
-			setProposals([]); // Set empty array on error
-		} finally {
-			setLoading(false);
-		}
-	};
+	}, [session, currentPhase, fetchSessionInfo, fetchProposals]);
 
 	const handleApplyForAdmin = async (
 		name,
@@ -367,69 +431,6 @@ export default function HomePage() {
 			}
 		} catch (error) {
 			console.error("Error voting:", error);
-		}
-	};
-
-	const checkPhaseTransition = async () => {
-		try {
-			const res = await fetch("/api/sessions/check-phase-transition");
-			const data = await res.json();
-
-			if (data.transitionScheduled) {
-				// Transition is scheduled, show countdown
-				setTransitionCountdown(data.secondsRemaining);
-				// Clear any existing interval before starting a new one
-				if (transitionIntervalRef.current) {
-					clearInterval(transitionIntervalRef.current);
-					transitionIntervalRef.current = null;
-				}
-
-				// Start polling for execution
-				transitionIntervalRef.current = setInterval(async () => {
-					const execRes = await fetchWithCsrf(
-						"/api/sessions/execute-scheduled-transition",
-						{
-							method: "POST",
-							headers: { "Content-Type": "application/json" },
-						}
-					);
-
-					if (execRes.ok) {
-						const execData = await execRes.json();
-
-						if (execData.transitionExecuted) {
-							// Transition complete!
-							if (transitionIntervalRef.current) {
-								clearInterval(transitionIntervalRef.current);
-								transitionIntervalRef.current = null;
-							}
-							setTransitionCountdown(null);
-							setShowPhaseTransition(true);
-							playEndSign(); // Play sound when transition happens
-
-							// Update session info after delay
-							setTimeout(() => {
-								fetchSessionInfo();
-								fetchProposals();
-								setShowPhaseTransition(false);
-							}, 3000);
-						} else if (execData.secondsRemaining !== undefined) {
-							// Update countdown
-							setTransitionCountdown(execData.secondsRemaining);
-						}
-					}
-				}, 1000); // Check every second
-
-				// Clear interval after 110 seconds (safety)
-				setTimeout(() => {
-					if (transitionIntervalRef.current) {
-						clearInterval(transitionIntervalRef.current);
-						transitionIntervalRef.current = null;
-					}
-				}, 110000);
-			}
-		} catch (error) {
-			console.error("Error checking phase transition:", error);
 		}
 	};
 
@@ -1017,24 +1018,8 @@ function ProposalCard({
 	const isExpandedForDiscuss = expandedProposal === proposal._id;
 	const isPhase1 = currentPhase === "phase1";
 
-	useEffect(() => {
-		checkIfVoted();
-	}, [proposal._id]);
-
-	useEffect(() => {
-		if (isExpandedForDiscuss) {
-			fetchComments();
-		}
-	}, [isExpandedForDiscuss]);
-
-	// Refetch comments when commentUpdateTrigger changes (from SSE)
-	useEffect(() => {
-		if (isExpandedForDiscuss && commentUpdateTrigger > 0) {
-			fetchComments();
-		}
-	}, [commentUpdateTrigger]);
-
-	const checkIfVoted = async () => {
+	// Define callback functions before they're used in useEffect
+	const checkIfVoted = useCallback(async () => {
 		try {
 			const res = await fetch(`/api/thumbsup?proposalId=${proposal._id}`);
 			const data = await res.json();
@@ -1045,9 +1030,9 @@ function ProposalCard({
 		} finally {
 			setChecking(false);
 		}
-	};
+	}, [proposal._id]);
 
-	const fetchComments = async () => {
+	const fetchComments = useCallback(async () => {
 		setLoadingComments(true);
 		try {
 			const res = await fetch(`/api/comments?proposalId=${proposal._id}`);
@@ -1058,7 +1043,24 @@ function ProposalCard({
 		} finally {
 			setLoadingComments(false);
 		}
-	};
+	}, [proposal._id]);
+
+	useEffect(() => {
+		checkIfVoted();
+	}, [proposal._id, checkIfVoted]);
+
+	useEffect(() => {
+		if (isExpandedForDiscuss) {
+			fetchComments();
+		}
+	}, [isExpandedForDiscuss, fetchComments]);
+
+	// Refetch comments when commentUpdateTrigger changes (from SSE)
+	useEffect(() => {
+		if (isExpandedForDiscuss && commentUpdateTrigger > 0) {
+			fetchComments();
+		}
+	}, [commentUpdateTrigger, isExpandedForDiscuss, fetchComments]);
 
 	const handleStarClick = async (rating) => {
 		setConfirmedRating(rating);
@@ -1139,7 +1141,7 @@ function ProposalCard({
 		if (comments.length > 0) {
 			fetchAllRatings();
 		}
-	}, [comments.length]);
+	}, [comments.length, comments]);
 
 	return (
 		<div className="bg-white rounded-2xl shadow-md p-4 sm:p-6 space-y-4">
@@ -1830,11 +1832,8 @@ function VoteView({
 	const [hasVotedInThisSession, setHasVotedInThisSession] =
 		useState(userHasVoted);
 
-	useEffect(() => {
-		fetchVoteData();
-	}, []);
-
-	const fetchVoteData = async () => {
+	// Define callback functions before they're used in useEffect
+	const fetchVoteData = useCallback(async () => {
 		try {
 			const resultsPromises = proposals.map(async (p) => {
 				const res = await fetch(
@@ -1863,7 +1862,11 @@ function VoteView({
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [proposals, currentUser.id]);
+
+	useEffect(() => {
+		fetchVoteData();
+	}, [fetchVoteData]);
 
 	const handleVote = async (proposalId, choice) => {
 		setIsVoting(true);

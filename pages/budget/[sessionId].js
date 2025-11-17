@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
 import { ArrowLeft, Save, Info } from "lucide-react";
@@ -21,57 +21,7 @@ export default function BudgetVotingPage() {
 	const [success, setSuccess] = useState("");
 	const [showInfo, setShowInfo] = useState(true);
 
-	useEffect(() => {
-		if (status === "loading") return;
-		if (!session) {
-			router.replace("/login");
-			return;
-		}
-		if (sessionId) {
-			fetchBudgetSession();
-			fetchExistingVote();
-		}
-	}, [status, session, sessionId]);
-
-	async function fetchBudgetSession() {
-		try {
-			setLoading(true);
-			const response = await fetch(`/api/budget/sessions`);
-			const data = await response.json();
-
-			if (response.ok) {
-				const foundSession = data.sessions.find((s) => s.sessionId === sessionId);
-				if (foundSession) {
-					setBudgetSession(foundSession);
-					initializeAllocations(foundSession);
-				} else {
-					setError("Session not found");
-				}
-			} else {
-				setError(data.message);
-			}
-		} catch (err) {
-			setError("Failed to fetch budget session");
-		} finally {
-			setLoading(false);
-		}
-	}
-
-	async function fetchExistingVote() {
-		try {
-			const response = await fetch(`/api/budget/vote?sessionId=${sessionId}`);
-
-			if (response.ok) {
-				const data = await response.json();
-				setAllocations(data.vote.allocations);
-				setIncomeAllocations(data.vote.incomeAllocations);
-			}
-		} catch (err) {
-			// No existing vote, that's okay
-		}
-	}
-
-	function initializeAllocations(session) {
+	const initializeAllocations = useCallback((session) => {
 		// Initialize allocations with default values
 		if (allocations.length === 0) {
 			const defaultAllocations = session.categories.map((cat) => ({
@@ -101,9 +51,59 @@ export default function BudgetVotingPage() {
 			});
 			setIncomeAllocations(defaultIncomeAllocations);
 		}
-	}
+	}, [allocations.length, incomeAllocations.length]);
 
-	function updateAllocation(categoryId, newAmount) {
+	const fetchBudgetSession = useCallback(async () => {
+		try {
+			setLoading(true);
+			const response = await fetch(`/api/budget/sessions`);
+			const data = await response.json();
+
+			if (response.ok) {
+				const foundSession = data.sessions.find((s) => s.sessionId === sessionId);
+				if (foundSession) {
+					setBudgetSession(foundSession);
+					initializeAllocations(foundSession);
+				} else {
+					setError("Session not found");
+				}
+			} else {
+				setError(data.message);
+			}
+		} catch (err) {
+			setError("Failed to fetch budget session");
+		} finally {
+			setLoading(false);
+		}
+	}, [sessionId, initializeAllocations]);
+
+	const fetchExistingVote = useCallback(async () => {
+		try {
+			const response = await fetch(`/api/budget/vote?sessionId=${sessionId}`);
+
+			if (response.ok) {
+				const data = await response.json();
+				setAllocations(data.vote.allocations);
+				setIncomeAllocations(data.vote.incomeAllocations);
+			}
+		} catch (err) {
+			// No existing vote, that's okay
+		}
+	}, [sessionId]);
+
+	useEffect(() => {
+		if (status === "loading") return;
+		if (!session) {
+			router.replace("/login");
+			return;
+		}
+		if (sessionId) {
+			fetchBudgetSession();
+			fetchExistingVote();
+		}
+	}, [status, session, sessionId, router, fetchBudgetSession, fetchExistingVote]);
+
+	const updateAllocation = useCallback((categoryId, newAmount) => {
 		setAllocations((prev) => {
 			const existing = prev.find((a) => a.categoryId === categoryId);
 			if (existing) {
@@ -117,9 +117,9 @@ export default function BudgetVotingPage() {
 				];
 			}
 		});
-	}
+	}, []);
 
-	function updateIncomeAllocation(categoryId, newAmount, taxRateKr) {
+	const updateIncomeAllocation = useCallback((categoryId, newAmount, taxRateKr) => {
 		setIncomeAllocations((prev) => {
 			const existing = prev.find((a) => a.categoryId === categoryId);
 			if (existing) {
@@ -132,9 +132,9 @@ export default function BudgetVotingPage() {
 				return [...prev, { categoryId, amount: newAmount, taxRateKr }];
 			}
 		});
-	}
+	}, []);
 
-	async function handleSaveVote() {
+	const handleSaveVote = useCallback(async () => {
 		setError("");
 		setSuccess("");
 
@@ -172,7 +172,7 @@ export default function BudgetVotingPage() {
 		} finally {
 			setSaving(false);
 		}
-	}
+	}, [sessionId, allocations, incomeAllocations]);
 
 	const totalExpenses = allocations.reduce((sum, a) => sum + a.amount, 0);
 	const totalIncome = incomeAllocations.reduce((sum, a) => sum + a.amount, 0);

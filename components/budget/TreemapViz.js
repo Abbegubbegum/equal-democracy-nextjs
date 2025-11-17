@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import * as d3 from "d3";
 
 /**
@@ -21,27 +21,43 @@ export default function TreemapViz({
 	const width = 800;
 	const height = 600;
 
-	useEffect(() => {
-		if (!canvasRef.current || !session) return;
+	const wrapText = useCallback((ctx, text, maxWidth) => {
+		const words = text.split(" ");
+		const lines = [];
+		let currentLine = words[0];
 
-		const canvas = canvasRef.current;
-		const ctx = canvas.getContext("2d");
+		for (let i = 1; i < words.length; i++) {
+			const word = words[i];
+			const widthMeasure = ctx.measureText(currentLine + " " + word).width;
+			if (widthMeasure < maxWidth) {
+				currentLine += " " + word;
+			} else {
+				lines.push(currentLine);
+				currentLine = word;
+			}
+		}
+		lines.push(currentLine);
+		return lines;
+	}, []);
 
-		// Clear canvas
-		ctx.clearRect(0, 0, width, height);
+	const drawPattern = useCallback((ctx, x0, y0, x1, y1) => {
+		// Draw diagonal stripe pattern for unavoidable expenses
+		ctx.save();
+		ctx.strokeStyle = "rgba(0, 0, 0, 0.2)";
+		ctx.lineWidth = 2;
 
-		// Draw income layer (background)
-		if (showLayer === "income" || showLayer === "both") {
-			drawIncomeLayer(ctx, session, incomeAllocations);
+		const spacing = 10;
+		for (let i = x0 - y1; i < x1; i += spacing) {
+			ctx.beginPath();
+			ctx.moveTo(i, y1);
+			ctx.lineTo(i + y1 - y0, y0);
+			ctx.stroke();
 		}
 
-		// Draw expense layer (foreground)
-		if (showLayer === "expenses" || showLayer === "both") {
-			drawExpenseLayer(ctx, session, allocations);
-		}
-	}, [session, allocations, incomeAllocations, showLayer]);
+		ctx.restore();
+	}, []);
 
-	function drawIncomeLayer(ctx, session, incomeAllocations) {
+	const drawIncomeLayer = useCallback((ctx, session, incomeAllocations) => {
 		// Create treemap data for income
 		const data = {
 			name: "Income",
@@ -101,9 +117,9 @@ export default function TreemapViz({
 		});
 
 		ctx.globalAlpha = 1;
-	}
+	}, [wrapText]);
 
-	function drawExpenseLayer(ctx, session, allocations) {
+	const drawExpenseLayer = useCallback((ctx, session, allocations) => {
 		// Create treemap data for expenses
 		const data = {
 			name: "Expenses",
@@ -177,43 +193,27 @@ export default function TreemapViz({
 				);
 			}
 		});
-	}
+	}, [wrapText, drawPattern]);
 
-	function drawPattern(ctx, x0, y0, x1, y1) {
-		// Draw diagonal stripe pattern for unavoidable expenses
-		ctx.save();
-		ctx.strokeStyle = "rgba(0, 0, 0, 0.2)";
-		ctx.lineWidth = 2;
+	useEffect(() => {
+		if (!canvasRef.current || !session) return;
 
-		const spacing = 10;
-		for (let i = x0 - y1; i < x1; i += spacing) {
-			ctx.beginPath();
-			ctx.moveTo(i, y1);
-			ctx.lineTo(i + y1 - y0, y0);
-			ctx.stroke();
+		const canvas = canvasRef.current;
+		const ctx = canvas.getContext("2d");
+
+		// Clear canvas
+		ctx.clearRect(0, 0, width, height);
+
+		// Draw income layer (background)
+		if (showLayer === "income" || showLayer === "both") {
+			drawIncomeLayer(ctx, session, incomeAllocations);
 		}
 
-		ctx.restore();
-	}
-
-	function wrapText(ctx, text, maxWidth) {
-		const words = text.split(" ");
-		const lines = [];
-		let currentLine = words[0];
-
-		for (let i = 1; i < words.length; i++) {
-			const word = words[i];
-			const width = ctx.measureText(currentLine + " " + word).width;
-			if (width < maxWidth) {
-				currentLine += " " + word;
-			} else {
-				lines.push(currentLine);
-				currentLine = word;
-			}
+		// Draw expense layer (foreground)
+		if (showLayer === "expenses" || showLayer === "both") {
+			drawExpenseLayer(ctx, session, allocations);
 		}
-		lines.push(currentLine);
-		return lines;
-	}
+	}, [session, allocations, incomeAllocations, showLayer, drawIncomeLayer, drawExpenseLayer]);
 
 	return (
 		<div className="space-y-4">

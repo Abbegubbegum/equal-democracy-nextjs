@@ -34,10 +34,10 @@ export default function BudgetAdminPage() {
 						</div>
 					</div>
 					<button
-						onClick={() => router.push("/")}
+						onClick={() => router.push("/budget")}
 						className="px-4 py-2 bg-white hover:bg-gray-100 text-emerald-900 font-medium rounded-lg transition-colors shadow-sm"
 					>
-						Back to home
+						Back to Budget
 					</button>
 				</div>
 			</header>
@@ -279,9 +279,12 @@ function CreateSessionForm({ onSuccess, onCancel }) {
 		name: "",
 		municipality: "",
 		description: "",
+		taxBase: "", // e.g., 112384210 for Vallentuna (population × 1000)
+		defaultTaxRateKr: "19",
+		minTaxRateKr: "18",
+		maxTaxRateKr: "21",
 	});
-	const [expensesPdf, setExpensesPdf] = useState(null);
-	const [incomePdf, setIncomePdf] = useState(null);
+	const [pdf, setPdf] = useState(null);
 	const [submitting, setSubmitting] = useState(false);
 	const [processing, setProcessing] = useState(false);
 	const [error, setError] = useState("");
@@ -292,8 +295,8 @@ function CreateSessionForm({ onSuccess, onCancel }) {
 		setError("");
 		setUploadStatus("");
 
-		if (!expensesPdf && !incomePdf) {
-			setError("Please upload at least one PDF file (expenses or income)");
+		if (!pdf) {
+			setError("Please upload a PDF file");
 			return;
 		}
 
@@ -301,52 +304,61 @@ function CreateSessionForm({ onSuccess, onCancel }) {
 			setSubmitting(true);
 			setProcessing(true);
 
-			// Step 1: Extract data from expenses PDF
-			let expensesData = null;
-			if (expensesPdf) {
-				setUploadStatus("Processing expenses PDF with AI...");
-				const expensesFormData = new FormData();
-				expensesFormData.append("pdf", expensesPdf);
-				expensesFormData.append("documentType", "expenses");
+			// Step 1: Extract data from PDF using AI
+			setUploadStatus("Processing PDF with AI...");
+			const formDataPdf = new FormData();
+			formDataPdf.append("pdf", pdf);
+			formDataPdf.append("documentType", "expenses");
 
-				const expensesResponse = await fetch("/api/budget/upload-pdf", {
-					method: "POST",
-					body: expensesFormData,
-				});
+			const pdfResponse = await fetch("/api/budget/upload-pdf", {
+				method: "POST",
+				body: formDataPdf,
+			});
 
-				const expensesResult = await expensesResponse.json();
-				if (!expensesResponse.ok) {
-					throw new Error(expensesResult.message || "Failed to process expenses PDF");
-				}
-				expensesData = expensesResult.data;
+			const pdfResult = await pdfResponse.json();
+			if (!pdfResponse.ok) {
+				throw new Error(pdfResult.message || "Failed to process PDF");
 			}
+			const extractedData = pdfResult.data;
 
-			// Step 2: Extract data from income PDF
-			let incomeData = null;
-			if (incomePdf) {
-				setUploadStatus("Processing income PDF with AI...");
-				const incomeFormData = new FormData();
-				incomeFormData.append("pdf", incomePdf);
-				incomeFormData.append("documentType", "income");
-
-				const incomeResponse = await fetch("/api/budget/upload-pdf", {
-					method: "POST",
-					body: incomeFormData,
-				});
-
-				const incomeResult = await incomeResponse.json();
-				if (!incomeResponse.ok) {
-					throw new Error(incomeResult.message || "Failed to process income PDF");
-				}
-				incomeData = incomeResult.data;
-			}
-
-			// Step 3: Create budget session with extracted data
+			// Step 2: Create budget session with extracted data
 			setUploadStatus("Creating budget session...");
 
-			const totalBudget = expensesData?.totalBudget || incomeData?.totalIncome || 0;
-			const categories = expensesData?.categories || [];
-			const incomeCategories = incomeData?.incomeCategories || [];
+			const totalBudget = extractedData?.totalBudget || 0;
+			const categories = extractedData?.categories || [];
+			const incomeCategories = extractedData?.incomeCategories || [];
+
+			// Calculate Tax Base from AI-extracted data
+			// Tax Base = Skatteintäkter / Skattesats (kr)
+			let taxBase = undefined;
+			let defaultTaxRateKr = 19;
+			let minTaxRateKr = 18;
+			let maxTaxRateKr = 21;
+
+			if (extractedData?.taxRateKr && incomeCategories.length > 0) {
+				// Find skatteintäkter category
+				const taxIncome = incomeCategories.find(cat =>
+					cat.isTaxRate || cat.name.toLowerCase().includes("skatt")
+				);
+
+				if (taxIncome && taxIncome.amount > 0 && extractedData.taxRateKr > 0) {
+					// Calculate Tax Base: amount / taxRate
+					taxBase = Math.round(taxIncome.amount / extractedData.taxRateKr);
+					defaultTaxRateKr = extractedData.taxRateKr;
+
+					// Set reasonable min/max ranges (±10% of default rate)
+					minTaxRateKr = Math.max(1, Math.round((defaultTaxRateKr * 0.9) * 100) / 100);
+					maxTaxRateKr = Math.round((defaultTaxRateKr * 1.1) * 100) / 100;
+
+					console.log('Tax configuration calculated:', {
+						taxBase,
+						defaultTaxRateKr,
+						minTaxRateKr,
+						maxTaxRateKr,
+						taxIncomeAmount: taxIncome.amount
+					});
+				}
+			}
 
 			const response = await fetchWithCsrf("/api/budget/sessions", {
 				method: "POST",
@@ -357,6 +369,10 @@ function CreateSessionForm({ onSuccess, onCancel }) {
 					totalBudget,
 					categories,
 					incomeCategories,
+					taxBase,
+					defaultTaxRateKr,
+					minTaxRateKr,
+					maxTaxRateKr,
 				}),
 			});
 
@@ -443,40 +459,90 @@ function CreateSessionForm({ onSuccess, onCancel }) {
 				/>
 			</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-				<div>
-					<label className="block text-sm font-medium text-gray-700 mb-2">
-						Expenses PDF (Driftredovisning)
-					</label>
-					<input
-						type="file"
-						accept=".pdf"
-						onChange={(e) => setExpensesPdf(e.target.files[0])}
-						className="w-full p-2 border border-gray-300 rounded-lg"
-					/>
-					{expensesPdf && (
-						<p className="text-xs text-green-600 mt-1">
-							✓ {expensesPdf.name}
-						</p>
-					)}
-				</div>
+			{/* Tax Rate Configuration */}
+			<div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+				<h4 className="font-medium text-blue-900">Tax Rate Configuration (for Skatteintäkter)</h4>
+				<p className="text-xs text-blue-700">
+					For municipalities: Tax Base = Population × 1000 kr. Example: Vallentuna with 19 kr tax rate = 2135.3 mnkr means Tax Base = 112,384,210 kr.
+				</p>
 
-				<div>
-					<label className="block text-sm font-medium text-gray-700 mb-2">
-						Income PDF (Intäkter & Bidrag)
-					</label>
-					<input
-						type="file"
-						accept=".pdf"
-						onChange={(e) => setIncomePdf(e.target.files[0])}
-						className="w-full p-2 border border-gray-300 rounded-lg"
-					/>
-					{incomePdf && (
-						<p className="text-xs text-green-600 mt-1">
-							✓ {incomePdf.name}
-						</p>
-					)}
+				<div className="grid grid-cols-2 gap-3">
+					<div>
+						<label className="block text-sm font-medium text-blue-900 mb-1">
+							Tax Base (kr)
+						</label>
+						<input
+							type="number"
+							value={formData.taxBase}
+							onChange={(e) => setFormData({ ...formData, taxBase: e.target.value })}
+							className="w-full p-2 border border-blue-300 rounded-lg"
+							placeholder="112384210"
+						/>
+						<p className="text-xs text-blue-600 mt-1">Population × 1000</p>
+					</div>
+
+					<div>
+						<label className="block text-sm font-medium text-blue-900 mb-1">
+							Default Tax Rate (kr)
+						</label>
+						<input
+							type="number"
+							step="0.01"
+							value={formData.defaultTaxRateKr}
+							onChange={(e) => setFormData({ ...formData, defaultTaxRateKr: e.target.value })}
+							className="w-full p-2 border border-blue-300 rounded-lg"
+							placeholder="19"
+						/>
+					</div>
+
+					<div>
+						<label className="block text-sm font-medium text-blue-900 mb-1">
+							Min Tax Rate (kr)
+						</label>
+						<input
+							type="number"
+							step="0.01"
+							value={formData.minTaxRateKr}
+							onChange={(e) => setFormData({ ...formData, minTaxRateKr: e.target.value })}
+							className="w-full p-2 border border-blue-300 rounded-lg"
+							placeholder="18"
+						/>
+					</div>
+
+					<div>
+						<label className="block text-sm font-medium text-blue-900 mb-1">
+							Max Tax Rate (kr)
+						</label>
+						<input
+							type="number"
+							step="0.01"
+							value={formData.maxTaxRateKr}
+							onChange={(e) => setFormData({ ...formData, maxTaxRateKr: e.target.value })}
+							className="w-full p-2 border border-blue-300 rounded-lg"
+							placeholder="21"
+						/>
+					</div>
 				</div>
+			</div>
+
+			<div>
+				<label className="block text-sm font-medium text-gray-700 mb-2">
+					Upload PDF *
+				</label>
+				<input
+					type="file"
+					accept=".pdf"
+					onChange={(e) => setPdf(e.target.files[0])}
+					className="w-full p-2 border border-gray-300 rounded-lg"
+				/>
+				{pdf && (
+					<p className="text-xs text-green-600 mt-1">
+						✓ {pdf.name}
+					</p>
+				)}
+				<p className="text-xs text-gray-500 mt-1">
+					Upload budget PDF (Driftredovisning) with committee expenses
+				</p>
 			</div>
 
 			<div className="flex gap-2">

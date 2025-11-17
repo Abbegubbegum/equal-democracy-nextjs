@@ -80,12 +80,6 @@ export default async function handler(req, res) {
 				});
 			}
 
-			if (!incomeCategories || incomeCategories.length === 0) {
-				return res.status(400).json({
-					message: "At least one income category is required",
-				});
-			}
-
 			// Generate user-friendly session ID
 			const baseSessionId = generateSessionId(name, municipality);
 			const sessionId = await ensureUniqueSessionId(baseSessionId, BudgetSession);

@@ -66,7 +66,7 @@ export default async function handler(req, res) {
 			}
 
 			// Get budget session
-			const budgetSession = await BudgetSession.findById(sessionId);
+			const budgetSession = await BudgetSession.findOne({ sessionId });
 
 			if (!budgetSession) {
 				return res.status(404).json({ message: "Budget session not found" });
@@ -83,12 +83,6 @@ export default async function handler(req, res) {
 			if (!allocations || allocations.length === 0) {
 				return res.status(400).json({
 					message: "At least one allocation is required",
-				});
-			}
-
-			if (!incomeAllocations || incomeAllocations.length === 0) {
-				return res.status(400).json({
-					message: "At least one income allocation is required",
 				});
 			}
 

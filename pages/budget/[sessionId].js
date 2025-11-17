@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
 import { ArrowLeft, Save, Info } from "lucide-react";
-import TreemapViz from "../../components/budget/TreemapViz";
+import SimpleTreemap from "../../components/budget/SimpleTreemap";
 import CategoryInput from "../../components/budget/CategoryInput";
+import IncomeCategoryInput from "../../components/budget/IncomeCategoryInput";
 import { fetchWithCsrf } from "../../lib/fetch-with-csrf";
 
 export default function BudgetVotingPage() {
@@ -35,16 +36,16 @@ export default function BudgetVotingPage() {
 	async function fetchBudgetSession() {
 		try {
 			setLoading(true);
-			const response = await fetch(`/api/budget/sessions?status=active`);
+			const response = await fetch(`/api/budget/sessions`);
 			const data = await response.json();
 
 			if (response.ok) {
-				const activeSession = data.sessions.find((s) => s._id === sessionId);
-				if (activeSession) {
-					setBudgetSession(activeSession);
-					initializeAllocations(activeSession);
+				const foundSession = data.sessions.find((s) => s.sessionId === sessionId);
+				if (foundSession) {
+					setBudgetSession(foundSession);
+					initializeAllocations(foundSession);
 				} else {
-					setError("Session not found or not active");
+					setError("Session not found");
 				}
 			} else {
 				setError(data.message);
@@ -82,11 +83,22 @@ export default function BudgetVotingPage() {
 		}
 
 		if (incomeAllocations.length === 0) {
-			const defaultIncomeAllocations = session.incomeCategories.map((cat) => ({
-				categoryId: cat.id,
-				amount: cat.amount,
-				taxRatePercent: cat.taxRatePercent,
-			}));
+			const defaultIncomeAllocations = session.incomeCategories.map((cat) => {
+				// For tax income, calculate default tax rate if not provided
+				const isTaxIncome = cat.isTaxRate || cat.name.toLowerCase().includes("skatt");
+				let taxRateKr = cat.taxRateKr || 19; // Default 19 kr
+
+				// If we have amount and taxBase, calculate the rate
+				if (isTaxIncome && session.taxBase && cat.amount) {
+					taxRateKr = cat.amount / session.taxBase;
+				}
+
+				return {
+					categoryId: cat.id,
+					amount: cat.amount,
+					taxRateKr: isTaxIncome ? taxRateKr : undefined,
+				};
+			});
 			setIncomeAllocations(defaultIncomeAllocations);
 		}
 	}
@@ -107,15 +119,17 @@ export default function BudgetVotingPage() {
 		});
 	}
 
-	function updateIncomeAllocation(categoryId, newAmount) {
+	function updateIncomeAllocation(categoryId, newAmount, taxRateKr) {
 		setIncomeAllocations((prev) => {
 			const existing = prev.find((a) => a.categoryId === categoryId);
 			if (existing) {
 				return prev.map((a) =>
-					a.categoryId === categoryId ? { ...a, amount: newAmount } : a
+					a.categoryId === categoryId
+						? { ...a, amount: newAmount, taxRateKr: taxRateKr || a.taxRateKr }
+						: a
 				);
 			} else {
-				return [...prev, { categoryId, amount: newAmount }];
+				return [...prev, { categoryId, amount: newAmount, taxRateKr }];
 			}
 		});
 	}
@@ -193,16 +207,28 @@ export default function BudgetVotingPage() {
 		<div className="min-h-screen bg-gray-50">
 			<header className="bg-emerald-800 text-white p-6 shadow">
 				<div className="max-w-6xl mx-auto">
-					<button
-						onClick={() => router.push("/")}
-						className="flex items-center gap-2 text-emerald-200 hover:text-white mb-4"
-					>
-						<ArrowLeft className="w-4 h-4" />
-						Back
-					</button>
-					<h1 className="text-2xl font-bold">{budgetSession?.name}</h1>
+					<div className="flex items-center justify-between mb-4">
+						<button
+							onClick={() => router.push("/")}
+							className="flex items-center gap-2 text-emerald-200 hover:text-white"
+						>
+							<ArrowLeft className="w-4 h-4" />
+							Back
+						</button>
+						{session?.user?.isSuperAdmin && (
+							<button
+								onClick={() => router.push("/budget/admin")}
+								className="text-emerald-200 hover:text-white font-medium"
+							>
+								Budget Admin
+							</button>
+						)}
+					</div>
+					<h1 className="text-2xl font-bold">
+						Budget Voting for {budgetSession?.name}
+					</h1>
 					<p className="text-emerald-200 text-sm mt-1">
-						{budgetSession?.municipality} • Create your budget proposal
+						{budgetSession?.municipality}
 					</p>
 				</div>
 			</header>
@@ -286,18 +312,23 @@ export default function BudgetVotingPage() {
 					)}
 				</div>
 
-				{/* Treemap Visualization */}
+				{/* Expense Treemap Visualization */}
 				<div className="bg-white rounded-xl shadow-sm p-6">
 					<h2 className="text-lg font-bold text-gray-900 mb-4">
-						Visual Budget Overview
+						Expenses (Utgifter)
 					</h2>
-					<TreemapViz
-						session={budgetSession}
-						allocations={allocations}
-						incomeAllocations={incomeAllocations}
-						onUpdate={updateAllocation}
-					/>
+					<SimpleTreemap categories={budgetSession?.categories || []} />
 				</div>
+
+				{/* Income Treemap Visualization */}
+				{budgetSession?.incomeCategories && budgetSession.incomeCategories.length > 0 && (
+					<div className="bg-white rounded-xl shadow-sm p-6">
+						<h2 className="text-lg font-bold text-gray-900 mb-4">
+							Income (Intäkter)
+						</h2>
+						<SimpleTreemap categories={budgetSession.incomeCategories} />
+					</div>
+				)}
 
 				{/* Expense Categories */}
 				<div className="bg-white rounded-xl shadow-sm p-6">
@@ -322,16 +353,30 @@ export default function BudgetVotingPage() {
 						Income Sources
 					</h2>
 					<div className="space-y-3">
-						{budgetSession?.incomeCategories.map((category) => (
-							<CategoryInput
-								key={category.id}
-								category={category}
-								allocation={incomeAllocations.find(
-									(a) => a.categoryId === category.id
-								)}
-								onUpdate={updateIncomeAllocation}
-							/>
-						))}
+						{budgetSession?.incomeCategories.map((category) => {
+							// Tax rate info for 2025: 19 kr = 2135.3 mnkr
+							// This means tax base = 2135.3 mnkr / 19 kr = 112.4 million kr
+							const taxRateInfo = budgetSession.taxBase
+								? {
+										taxBase: budgetSession.taxBase,
+										defaultTaxRateKr: budgetSession.defaultTaxRateKr || 19,
+										minTaxRateKr: budgetSession.minTaxRateKr || 18,
+										maxTaxRateKr: budgetSession.maxTaxRateKr || 21,
+								  }
+								: null;
+
+							return (
+								<IncomeCategoryInput
+									key={category.id}
+									category={category}
+									allocation={incomeAllocations.find(
+										(a) => a.categoryId === category.id
+									)}
+									onUpdate={updateIncomeAllocation}
+									taxRateInfo={taxRateInfo}
+								/>
+							);
+						})}
 					</div>
 				</div>
 

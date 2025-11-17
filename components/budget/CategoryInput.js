@@ -1,36 +1,84 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 /**
  * Category Input Component
- * Allows users to input budget amounts with validation
+ * Allows users to input budget amounts with horizontal slider
  */
 export default function CategoryInput({ category, allocation, onUpdate, readOnly = false }) {
-	const [value, setValue] = useState(
-		allocation?.amount ? (allocation.amount / 1000000).toFixed(1) : "0"
-	);
-	const [error, setError] = useState("");
+	// Calculate slider range based on budget size
+	// For larger budgets, we need larger scales
+	// Minimum on LEFT, default in MIDDLE, maximum on RIGHT
+	const minValue = category.minAmount;
+	const defaultValue = category.defaultAmount || category.amount;
 
-	function handleChange(e) {
-		const newValue = e.target.value;
-		setValue(newValue);
+	// Calculate maximum so that default is in the middle
+	// If default should be at 50%, then: maxValue = minValue + 2 * (defaultValue - minValue)
+	const maxValue = minValue + 2 * (defaultValue - minValue);
 
-		const amount = parseFloat(newValue) * 1000000;
+	const [value, setValue] = useState(allocation?.amount || defaultValue);
+	const [isEditing, setIsEditing] = useState(false);
+	const [editValue, setEditValue] = useState("");
 
-		// Validate against minimum
-		if (amount < category.minAmount) {
-			setError(`Minimum: ${(category.minAmount / 1000000).toFixed(1)} mnkr`);
-		} else {
-			setError("");
-			onUpdate(category.id, amount);
+	// Sync with allocation prop changes
+	useEffect(() => {
+		if (allocation?.amount) {
+			setValue(allocation.amount);
+		}
+	}, [allocation?.amount]);
+
+	function handleSliderChange(e) {
+		const newAmount = parseInt(e.target.value);
+		setValue(newAmount);
+		onUpdate(category.id, newAmount);
+	}
+
+	function handleEditClick() {
+		setIsEditing(true);
+		setEditValue((value / 1000000).toFixed(1));
+	}
+
+	function handleEditChange(e) {
+		setEditValue(e.target.value);
+	}
+
+	function handleEditBlur() {
+		const newMnkr = parseFloat(editValue);
+		if (!isNaN(newMnkr)) {
+			const newAmount = newMnkr * 1000000;
+			// Validate range
+			if (newAmount >= minValue && newAmount <= maxValue) {
+				setValue(newAmount);
+				onUpdate(category.id, newAmount);
+			} else {
+				// Reset to current value if out of range
+				setEditValue((value / 1000000).toFixed(1));
+			}
+		}
+		setIsEditing(false);
+	}
+
+	function handleEditKeyDown(e) {
+		if (e.key === "Enter") {
+			handleEditBlur();
+		} else if (e.key === "Escape") {
+			setIsEditing(false);
+			setEditValue((value / 1000000).toFixed(1));
 		}
 	}
 
 	const isFixed = category.isFixed;
-	const isAtMinimum = allocation?.amount <= category.minAmount;
+	const valueInMnkr = (value / 1000000).toFixed(1);
+	const minInMnkr = (minValue / 1000000).toFixed(1);
+	const maxInMnkr = (maxValue / 1000000).toFixed(1);
+	const defaultInMnkr = (defaultValue / 1000000).toFixed(1);
+
+	// Calculate percentage position of default (minimum is always at 0%)
+	const defaultPercentage = ((defaultValue - minValue) / (maxValue - minValue)) * 100;
+	const currentPercentage = ((value - minValue) / (maxValue - minValue)) * 100;
 
 	return (
-		<div className="flex items-center gap-4 p-3 bg-white border border-gray-200 rounded-lg">
-			<div className="flex-1">
+		<div className="p-4 bg-white border border-gray-200 rounded-lg">
+			<div className="flex items-center justify-between mb-2">
 				<div className="flex items-center gap-2">
 					<h3 className="font-medium text-gray-900">{category.name}</h3>
 					{isFixed && (
@@ -38,35 +86,86 @@ export default function CategoryInput({ category, allocation, onUpdate, readOnly
 							Fixed
 						</span>
 					)}
-					{!isFixed && isAtMinimum && (
-						<span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full">
-							At minimum
-						</span>
+				</div>
+				<div className="text-right">
+					{isEditing ? (
+						<div className="flex items-center gap-1">
+							<input
+								type="number"
+								step="0.1"
+								value={editValue}
+								onChange={handleEditChange}
+								onBlur={handleEditBlur}
+								onKeyDown={handleEditKeyDown}
+								className="w-24 px-2 py-1 text-lg font-bold text-gray-900 border border-blue-400 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+								autoFocus
+							/>
+							<span className="text-sm text-gray-600">mnkr</span>
+						</div>
+					) : (
+						<div
+							className="flex items-center gap-1 cursor-pointer hover:bg-gray-100 px-2 py-1 rounded transition-colors"
+							onClick={handleEditClick}
+							title="Click to edit"
+						>
+							<span className="text-lg font-bold text-gray-900">{valueInMnkr}</span>
+							<span className="text-sm text-gray-600">mnkr</span>
+						</div>
 					)}
 				</div>
-				{category.minAmount > 0 && !isFixed && (
-					<p className="text-xs text-gray-500 mt-1">
-						Minimum: {(category.minAmount / 1000000).toFixed(1)} mnkr
-					</p>
-				)}
 			</div>
 
-			<div className="flex items-center gap-2">
-				<input
-					type="number"
-					step="0.1"
-					min={(category.minAmount / 1000000).toFixed(1)}
-					value={value}
-					onChange={handleChange}
-					disabled={readOnly || isFixed}
-					className={`w-32 p-2 border rounded-lg text-right ${
-						error ? "border-red-500" : "border-gray-300"
-					} ${readOnly || isFixed ? "bg-gray-100 cursor-not-allowed" : ""}`}
-				/>
-				<span className="text-sm text-gray-600 w-12">mnkr</span>
-			</div>
+			{isFixed ? (
+				<div className="py-2 text-sm text-gray-500 italic">
+					This amount is fixed and cannot be changed
+				</div>
+			) : (
+				<>
+					<div className="relative mb-2">
+						{/* Slider track - minimum on LEFT, maximum on RIGHT */}
+						<div className="relative h-2 bg-gray-200 rounded-full">
+							{/* Default position marker (blue line) */}
+							<div
+								className="absolute top-0 bottom-0 w-0.5 bg-blue-400 z-10"
+								style={{ left: `${defaultPercentage}%` }}
+							/>
+							{/* Filled track from left (minimum) to current position */}
+							<div
+								className="absolute top-0 bottom-0 left-0 bg-emerald-500 rounded-full"
+								style={{
+									width: `${currentPercentage}%`
+								}}
+							/>
+						</div>
 
-			{error && <p className="text-xs text-red-600">{error}</p>}
+						{/* Slider input */}
+						<input
+							type="range"
+							min={minValue}
+							max={maxValue}
+							step={Math.max(1000000, Math.floor((maxValue - minValue) / 100))} // Step size based on range
+							value={value}
+							onChange={handleSliderChange}
+							disabled={readOnly}
+							className="absolute top-0 w-full h-2 opacity-0 cursor-pointer disabled:cursor-not-allowed"
+							style={{ zIndex: 20 }}
+						/>
+					</div>
+
+					{/* Labels */}
+					<div className="flex justify-between text-xs text-gray-500 mb-1">
+						<span className="text-red-600 font-medium">
+							Min: {minInMnkr} mnkr
+						</span>
+						<span className="text-blue-600 font-medium">
+							Default: {defaultInMnkr} mnkr
+						</span>
+						<span className="text-gray-700 font-medium">
+							Max: {maxInMnkr} mnkr
+						</span>
+					</div>
+				</>
+			)}
 		</div>
 	);
 }

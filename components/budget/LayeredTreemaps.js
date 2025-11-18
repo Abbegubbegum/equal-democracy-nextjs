@@ -11,7 +11,7 @@ import SimpleTreemap from "./SimpleTreemap";
  * - Click on parenthesis text in header to toggle
  * - The offset remains the same, only Z-position changes
  */
-export default function LayeredTreemaps({ expenseCategories, incomeCategories, showingIncome: externalShowingIncome, onToggle }) {
+export default function LayeredTreemaps({ expenseCategories, incomeCategories, showingIncome: externalShowingIncome, onToggle, onExpenseChange, onIncomeChange, taxBaseInfo }) {
 	const [internalShowingIncome, setInternalShowingIncome] = useState(false);
 	const containerRef = useRef(null);
 	const touchStartX = useRef(0);
@@ -92,7 +92,7 @@ export default function LayeredTreemaps({ expenseCategories, incomeCategories, s
 						zIndex: showingIncome ? 1 : 10,
 					}}
 				>
-					<SimpleTreemap categories={expenseCategories || []} />
+					<SimpleTreemap categories={expenseCategories || []} onAmountChange={onExpenseChange} taxBaseInfo={null} />
 				</div>
 
 				{/* Income Treemap (blue) */}
@@ -111,7 +111,7 @@ export default function LayeredTreemaps({ expenseCategories, incomeCategories, s
 						zIndex: showingIncome ? 10 : 1,
 					}}
 				>
-					<SimpleTreemap categories={incomeCategories || []} />
+					<SimpleTreemap categories={incomeCategories || []} onAmountChange={onIncomeChange} taxBaseInfo={taxBaseInfo} />
 				</div>
 			</div>
 		</div>

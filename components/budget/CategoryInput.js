@@ -11,13 +11,23 @@ export default function CategoryInput({ category, allocation, onUpdate, readOnly
 	const defaultValue = category.defaultAmount || category.amount;
 
 	// Ensure minValue is less than defaultValue (use 70% of default as minimum if not specified)
-	const minValue = category.minAmount < defaultValue
+	let minValue = category.minAmount < defaultValue
 		? category.minAmount
 		: Math.floor(defaultValue * 0.7);
 
 	// Calculate maximum so that default is in the middle
 	// If default should be at 50%, then: maxValue = minValue + 2 * (defaultValue - minValue)
 	const maxValue = minValue + 2 * (defaultValue - minValue);
+
+	// If there's a fixed portion, adjust min/max to account for it
+	const fixedAmount = category.fixedPercentage
+		? (category.fixedPercentage / 100) * defaultValue
+		: 0;
+
+	if (fixedAmount > 0) {
+		// Minimum must include the fixed portion
+		minValue = Math.max(minValue, fixedAmount);
+	}
 
 	// Initialize with allocation amount if available, otherwise use defaultValue
 	const initialValue = allocation?.amount !== undefined ? allocation.amount : defaultValue;
@@ -82,10 +92,12 @@ export default function CategoryInput({ category, allocation, onUpdate, readOnly
 	const minInMnkr = (minValue / 1000000).toFixed(1);
 	const maxInMnkr = (maxValue / 1000000).toFixed(1);
 	const defaultInMnkr = (defaultValue / 1000000).toFixed(1);
+	const fixedInMnkr = (fixedAmount / 1000000).toFixed(1);
 
 	// Calculate percentage position of default (minimum is always at 0%)
 	const defaultPercentage = ((defaultValue - minValue) / (maxValue - minValue)) * 100;
 	const currentPercentage = ((value - minValue) / (maxValue - minValue)) * 100;
+	const fixedPercentage = fixedAmount > 0 ? ((fixedAmount - minValue) / (maxValue - minValue)) * 100 : 0;
 
 	return (
 		<div className="p-4 bg-white border border-gray-200 rounded-lg">
@@ -135,6 +147,16 @@ export default function CategoryInput({ category, allocation, onUpdate, readOnly
 					<div className="relative mb-2">
 						{/* Slider track - minimum on LEFT, maximum on RIGHT */}
 						<div className="relative h-2 bg-gray-200 rounded-full">
+							{/* Fixed portion overlay (if applicable) */}
+							{fixedAmount > 0 && (
+								<div
+									className="absolute top-0 bottom-0 left-0 bg-red-100 rounded-l-full"
+									style={{
+										width: `${fixedPercentage}%`,
+										backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(0, 0, 0, 0.1) 2px, rgba(0, 0, 0, 0.1) 4px)"
+									}}
+								/>
+							)}
 							{/* Default position marker (blue line) */}
 							<div
 								className="absolute top-0 bottom-0 w-0.5 bg-blue-400 z-10"
@@ -167,6 +189,11 @@ export default function CategoryInput({ category, allocation, onUpdate, readOnly
 					<div className="flex justify-between text-xs text-gray-500 mb-1">
 						<span className="text-red-600 font-medium">
 							Min: {minInMnkr} mnkr
+							{fixedAmount > 0 && (
+								<span className="block text-xs text-gray-500 italic">
+									({fixedInMnkr} mnkr fixed)
+								</span>
+							)}
 						</span>
 						<span className="text-blue-600 font-medium">
 							Default: {defaultInMnkr} mnkr

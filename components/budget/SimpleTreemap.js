@@ -1,13 +1,15 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 
 /**
  * Simple Mobile-Friendly Treemap for Budget Committees
  * Shows only expense categories with green-to-red color scale
  * Displays committee name and amount in mnkr
+ * Supports pinch-to-zoom gestures for adjusting amounts
  */
-export default function SimpleTreemap({ categories }) {
+export default function SimpleTreemap({ categories, onAmountChange, taxBaseInfo }) {
   const containerRef = useRef(null);
+  const [activeTouch, setActiveTouch] = useState(null);
 
   useEffect(() => {
     if (!containerRef.current || !categories || categories.length === 0) return;
@@ -39,15 +41,27 @@ export default function SimpleTreemap({ categories }) {
     };
 
     // Prepare data for treemap
+    // Filter out categories with zero or negative values to prevent layout issues
     const data = {
       name: "Budget",
-      children: categories.map((cat) => ({
-        name: simplifyName(cat.name),
-        value: cat.amount || cat.defaultAmount,
-        color: cat.color,
-        id: cat.id,
-      })),
+      children: categories
+        .filter((cat) => {
+          const value = cat.amount || cat.defaultAmount || 0;
+          return value > 0;
+        })
+        .map((cat) => ({
+          name: simplifyName(cat.name),
+          value: Math.max(cat.amount || cat.defaultAmount || 0, 100000), // Minimum 0.1 mnkr
+          color: cat.color,
+          id: cat.id,
+          fixedPercentage: cat.fixedPercentage || 0,
+        })),
     };
+
+    // If no valid categories, show placeholder
+    if (data.children.length === 0) {
+      return;
+    }
 
     // Sort items: smallest first (will be placed at top-right)
     const sortedData = {
@@ -81,6 +95,24 @@ export default function SimpleTreemap({ categories }) {
       .join("g")
       .attr("transform", (d) => `translate(${d.x0},${d.y0})`);
 
+    // Define dot pattern for fixed/unavoidable portions
+    const defs = svg.append("defs");
+
+    // Small dots pattern
+    const pattern = defs
+      .append("pattern")
+      .attr("id", "fixed-dots")
+      .attr("width", 4)
+      .attr("height", 4)
+      .attr("patternUnits", "userSpaceOnUse");
+
+    pattern
+      .append("circle")
+      .attr("cx", 2)
+      .attr("cy", 2)
+      .attr("r", 0.8)
+      .attr("fill", "rgba(0, 0, 0, 0.15)");
+
     // Add colored rectangles
     cells
       .append("rect")
@@ -88,7 +120,21 @@ export default function SimpleTreemap({ categories }) {
       .attr("height", (d) => d.y1 - d.y0)
       .attr("fill", (d) => d.data.color)
       .attr("stroke", "#fff")
-      .attr("stroke-width", 2);
+      .attr("stroke-width", 2)
+      .attr("class", "treemap-cell")
+      .attr("data-category-id", (d) => d.data.id);
+
+    // Add pattern overlay for fixed portions
+    cells
+      .filter((d) => d.data.fixedPercentage && d.data.fixedPercentage > 0)
+      .append("rect")
+      .attr("width", (d) => d.x1 - d.x0)
+      .attr("height", (d) => {
+        const rectHeight = d.y1 - d.y0;
+        return rectHeight * (d.data.fixedPercentage / 100);
+      })
+      .attr("fill", "url(#fixed-dots)")
+      .attr("pointer-events", "none");
 
     // Add text labels
     cells.each(function (d) {
@@ -144,6 +190,106 @@ export default function SimpleTreemap({ categories }) {
         .attr("font-size", `${amountFontSize}px`)
         .text(amountText);
     });
+
+    // Add pinch-to-zoom gesture support for mobile users
+    let touchState = null;
+    let handleTouchStart, handleTouchMove, handleTouchEnd;
+
+    if (onAmountChange) {
+      handleTouchStart = (e) => {
+        if (e.touches.length === 2) {
+          const target = e.target.closest('g');
+          if (!target) return;
+
+          const rect = target.querySelector('rect');
+          if (!rect) return;
+
+          const categoryId = rect.getAttribute('data-category-id');
+          const category = categories.find(c => c.id === categoryId);
+          if (!category) return;
+
+          const touch1 = e.touches[0];
+          const touch2 = e.touches[1];
+          const distance = Math.hypot(
+            touch2.clientX - touch1.clientX,
+            touch2.clientY - touch1.clientY
+          );
+
+          // Calculate min/max the same way as the sliders do
+          const defaultValue = category.defaultAmount || category.amount;
+          let minValue, maxValue;
+
+          // Check if this is a tax rate income category
+          if (category.isTaxRate && taxBaseInfo) {
+            // For tax income: use ±10% based on tax rates from session
+            minValue = taxBaseInfo.minTaxRateKr * taxBaseInfo.taxBase;
+            maxValue = taxBaseInfo.maxTaxRateKr * taxBaseInfo.taxBase;
+          } else {
+            // For expenses and regular income: use ±30% (70% to 130% of default)
+            minValue = category.minAmount < defaultValue
+              ? category.minAmount
+              : Math.floor(defaultValue * 0.7);
+            maxValue = minValue + 2 * (defaultValue - minValue);
+          }
+
+          // If there's a fixed portion, adjust min/max to account for it
+          const fixedAmount = category.fixedPercentage
+            ? (category.fixedPercentage / 100) * defaultValue
+            : 0;
+
+          if (fixedAmount > 0) {
+            // Minimum must include the fixed portion
+            minValue = Math.max(minValue, fixedAmount);
+          }
+
+          touchState = {
+            categoryId,
+            initialDistance: distance,
+            initialAmount: category.amount || category.defaultAmount,
+            minAmount: minValue,
+            maxAmount: maxValue,
+          };
+
+          setActiveTouch(categoryId);
+          e.preventDefault();
+        }
+      };
+
+      handleTouchMove = (e) => {
+        if (e.touches.length === 2 && touchState) {
+          const touch1 = e.touches[0];
+          const touch2 = e.touches[1];
+          const distance = Math.hypot(
+            touch2.clientX - touch1.clientX,
+            touch2.clientY - touch1.clientY
+          );
+
+          const distanceChange = distance - touchState.initialDistance;
+          // Sensitivity: 1 million kr per 10 pixels of pinch distance change
+          const amountChange = distanceChange * 100000; // 0.1 mnkr per pixel
+          let newAmount = touchState.initialAmount + amountChange;
+
+          // Clamp to min/max
+          newAmount = Math.max(touchState.minAmount, Math.min(touchState.maxAmount, newAmount));
+
+          onAmountChange(touchState.categoryId, newAmount);
+          e.preventDefault();
+        }
+      };
+
+      handleTouchEnd = (e) => {
+        if (touchState && e.touches.length < 2) {
+          touchState = null;
+          setActiveTouch(null);
+        }
+      };
+
+      const svgElement = svg.node();
+      svgElement.addEventListener('touchstart', handleTouchStart, { passive: false });
+      svgElement.addEventListener('touchmove', handleTouchMove, { passive: false });
+      svgElement.addEventListener('touchend', handleTouchEnd);
+      svgElement.addEventListener('touchcancel', handleTouchEnd);
+    }
 
     // Responsive resize handler
     const handleResize = () => {
@@ -228,8 +374,15 @@ export default function SimpleTreemap({ categories }) {
 
     return () => {
       window.removeEventListener("resize", handleResize);
+      if (onAmountChange && svg.node()) {
+        const svgElement = svg.node();
+        svgElement.removeEventListener('touchstart', handleTouchStart);
+        svgElement.removeEventListener('touchmove', handleTouchMove);
+        svgElement.removeEventListener('touchend', handleTouchEnd);
+        svgElement.removeEventListener('touchcancel', handleTouchEnd);
+      }
     };
-  }, [categories]);
+  }, [categories, onAmountChange, taxBaseInfo]);
 
   // Helper function to wrap text with hyphenation support
   function wrapText(text, maxWidth) {

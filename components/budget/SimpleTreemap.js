@@ -7,204 +7,303 @@ import * as d3 from "d3";
  * Displays committee name and amount in mnkr
  */
 export default function SimpleTreemap({ categories }) {
-	const containerRef = useRef(null);
+  const containerRef = useRef(null);
 
-	useEffect(() => {
-		if (!containerRef.current || !categories || categories.length === 0) return;
+  useEffect(() => {
+    if (!containerRef.current || !categories || categories.length === 0) return;
 
-		// Clear previous content
-		d3.select(containerRef.current).selectAll("*").remove();
+    // Clear previous content
+    d3.select(containerRef.current).selectAll("*").remove();
 
-		// Get container dimensions (mobile-responsive)
-		const container = containerRef.current;
-		const width = container.clientWidth;
-		const height = Math.min(width * 0.75, 600); // 4:3 aspect ratio, max 600px height
+    // Get container dimensions (mobile-responsive)
+    const container = containerRef.current;
+    const width = container.clientWidth;
+    const height = Math.min(width * 0.75, 600); // 4:3 aspect ratio, max 600px height
 
-		// Create SVG
-		const svg = d3
-			.select(container)
-			.append("svg")
-			.attr("width", width)
-			.attr("height", height)
-			.attr("viewBox", `0 0 ${width} ${height}`)
-			.style("font-family", "sans-serif");
+    // Create SVG
+    const svg = d3
+      .select(container)
+      .append("svg")
+      .attr("width", width)
+      .attr("height", height)
+      .attr("viewBox", `0 0 ${width} ${height}`)
+      .style("font-family", "sans-serif");
 
-		// Prepare data for treemap
-		const data = {
-			name: "Budget",
-			children: categories.map((cat) => ({
-				name: cat.name,
-				value: cat.amount || cat.defaultAmount,
-				color: cat.color,
-				id: cat.id,
-			})),
-		};
+    // Helper function to simplify names
+    const simplifyName = (name) => {
+      return name
+        .replace(/nämnden?$/i, "") // Remove "nämnden" or "nämnd" at end
+        .replace(/^Generella statsbidrag och utjämning$/i, "Statsbidrag")
+        .replace(/^Finansiella intäkter$/i, "Intäkter")
+        .trim();
+    };
 
-		// Create hierarchy
-		const root = d3
-			.hierarchy(data)
-			.sum((d) => d.value)
-			.sort((a, b) => b.value - a.value);
+    // Prepare data for treemap
+    const data = {
+      name: "Budget",
+      children: categories.map((cat) => ({
+        name: simplifyName(cat.name),
+        value: cat.amount || cat.defaultAmount,
+        color: cat.color,
+        id: cat.id,
+      })),
+    };
 
-		// Create treemap layout
-		const treemap = d3
-			.treemap()
-			.size([width, height])
-			.padding(2)
-			.round(true);
+    // Sort items: smallest first (will be placed at top-right)
+    const sortedData = {
+      name: "Budget",
+      children: [...data.children].sort((a, b) => a.value - b.value),
+    };
 
-		treemap(root);
+    // Create hierarchy
+    const root = d3
+      .hierarchy(sortedData)
+      .sum((d) => d.value)
+      .sort((a, b) => a.value - b.value);
 
-		// Draw rectangles
-		const cells = svg
-			.selectAll("g")
-			.data(root.leaves())
-			.join("g")
-			.attr("transform", (d) => `translate(${d.x0},${d.y0})`);
+    // Use D3's squarify treemap algorithm for proper area preservation
+    // This ensures total area = total budget value
+    const treemap = d3
+      .treemap()
+      .size([width, height])
+      .padding(2)
+      .tile(d3.treemapSquarify.ratio(1.5)); // Slightly wider rectangles for text readability
 
-		// Add colored rectangles
-		cells
-			.append("rect")
-			.attr("width", (d) => d.x1 - d.x0)
-			.attr("height", (d) => d.y1 - d.y0)
-			.attr("fill", (d) => d.data.color)
-			.attr("stroke", "#fff")
-			.attr("stroke-width", 2);
+    treemap(root);
 
-		// Add text labels
-		cells.each(function (d) {
-			const cell = d3.select(this);
-			const rectWidth = d.x1 - d.x0;
-			const rectHeight = d.y1 - d.y0;
-			const centerX = rectWidth / 2;
-			const centerY = rectHeight / 2;
+    const leaves = root.leaves();
+    const totalValue = root.value;
 
-			// Committee name (wrapped if needed)
-			const nameLines = wrapText(d.data.name, rectWidth - 10);
-			const fontSize = Math.min(rectWidth / 10, rectHeight / 10, 16);
+    // Draw rectangles
+    const cells = svg
+      .selectAll("g")
+      .data(root.leaves())
+      .join("g")
+      .attr("transform", (d) => `translate(${d.x0},${d.y0})`);
 
-			nameLines.forEach((line, i) => {
-				cell
-					.append("text")
-					.attr("x", centerX)
-					.attr("y", centerY - nameLines.length * fontSize / 2 + i * fontSize + fontSize / 2)
-					.attr("text-anchor", "middle")
-					.attr("dominant-baseline", "middle")
-					.attr("fill", "#1e293b")
-					.attr("font-size", `${fontSize}px`)
-					.attr("font-weight", "bold")
-					.text(line);
-			});
+    // Add colored rectangles
+    cells
+      .append("rect")
+      .attr("width", (d) => d.x1 - d.x0)
+      .attr("height", (d) => d.y1 - d.y0)
+      .attr("fill", (d) => d.data.color)
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 2);
 
-			// Amount in mnkr
-			const amountText = `${(d.value / 1000000).toFixed(1)} mnkr`;
-			const amountFontSize = Math.min(rectWidth / 12, rectHeight / 12, 14);
+    // Add text labels
+    cells.each(function (d) {
+      const cell = d3.select(this);
+      const rectWidth = d.x1 - d.x0;
+      const rectHeight = d.y1 - d.y0;
+      const centerX = rectWidth / 2;
 
-			cell
-				.append("text")
-				.attr("x", centerX)
-				.attr("y", centerY + nameLines.length * fontSize / 2 + amountFontSize)
-				.attr("text-anchor", "middle")
-				.attr("dominant-baseline", "middle")
-				.attr("fill", "#475569")
-				.attr("font-size", `${amountFontSize}px`)
-				.text(amountText);
-		});
+      // Determine if this is a small item
+      const proportion = d.value / totalValue;
+      const isSmall = proportion < 0.05;
 
-		// Responsive resize handler
-		const handleResize = () => {
-			if (!containerRef.current) return;
-			const newWidth = container.clientWidth;
-			const newHeight = Math.min(newWidth * 0.75, 600);
+      // Committee name (wrapped if needed)
+      const nameLines = wrapText(d.data.name, rectWidth - 8);
 
-			svg.attr("width", newWidth).attr("height", newHeight);
-			svg.attr("viewBox", `0 0 ${newWidth} ${newHeight}`);
+      // Font size: 8px minimum for small items, scales up for larger items
+      const fontSize = isSmall
+        ? Math.max(8, Math.min(rectHeight / 2.5, 10))
+        : Math.max(12, Math.min(rectWidth / 8, rectHeight / 6, 24));
 
-			// Recalculate treemap with new dimensions
-			treemap.size([newWidth, newHeight]);
-			treemap(root);
+      // For large items: place text near top (20px from top)
+      // For small items: center vertically
+      const textTopOffset = isSmall
+        ? rectHeight / 2
+        : Math.min(20 + fontSize, rectHeight / 3);
 
-			// Update positions and sizes
-			cells.attr("transform", (d) => `translate(${d.x0},${d.y0})`);
+      nameLines.forEach((line, i) => {
+        cell
+          .append("text")
+          .attr("x", centerX)
+          .attr("y", textTopOffset + i * fontSize)
+          .attr("text-anchor", "middle")
+          .attr("dominant-baseline", "hanging")
+          .attr("fill", "#1e293b")
+          .attr("font-size", `${fontSize}px`)
+          .attr("font-weight", "bold")
+          .text(line);
+      });
 
-			cells.select("rect")
-				.attr("width", (d) => d.x1 - d.x0)
-				.attr("height", (d) => d.y1 - d.y0);
+      // Amount in mnkr - smaller for small items
+      const amountText = `${(d.value / 1000000).toFixed(1)} mnkr`;
+      const amountFontSize = isSmall
+        ? Math.max(7, Math.min(rectHeight / 3, 9))
+        : Math.max(10, Math.min(rectWidth / 10, rectHeight / 8, 18));
 
-			// Update text positions
-			cells.each(function (d) {
-				const cell = d3.select(this);
-				const rectWidth = d.x1 - d.x0;
-				const rectHeight = d.y1 - d.y0;
-				const centerX = rectWidth / 2;
-				const centerY = rectHeight / 2;
+      cell
+        .append("text")
+        .attr("x", centerX)
+        .attr("y", textTopOffset + nameLines.length * fontSize + 4)
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "hanging")
+        .attr("fill", "#475569")
+        .attr("font-size", `${amountFontSize}px`)
+        .text(amountText);
+    });
 
-				cell.selectAll("text").remove();
+    // Responsive resize handler
+    const handleResize = () => {
+      if (!containerRef.current) return;
+      const newWidth = container.clientWidth;
+      const newHeight = Math.min(newWidth * 0.75, 600);
 
-				const nameLines = wrapText(d.data.name, rectWidth - 10);
-				const fontSize = Math.min(rectWidth / 10, rectHeight / 10, 16);
+      svg.attr("width", newWidth).attr("height", newHeight);
+      svg.attr("viewBox", `0 0 ${newWidth} ${newHeight}`);
 
-				nameLines.forEach((line, i) => {
-					cell
-						.append("text")
-						.attr("x", centerX)
-						.attr("y", centerY - nameLines.length * fontSize / 2 + i * fontSize + fontSize / 2)
-						.attr("text-anchor", "middle")
-						.attr("dominant-baseline", "middle")
-						.attr("fill", "#1e293b")
-						.attr("font-size", `${fontSize}px`)
-						.attr("font-weight", "bold")
-						.text(line);
-				});
+      // Recalculate treemap layout with new dimensions
+      const newTreemap = d3
+        .treemap()
+        .size([newWidth, newHeight])
+        .padding(2)
+        .tile(d3.treemapSquarify.ratio(1.5));
 
-				const amountText = `${(d.value / 1000000).toFixed(1)} mnkr`;
-				const amountFontSize = Math.min(rectWidth / 12, rectHeight / 12, 14);
+      newTreemap(root);
 
-				cell
-					.append("text")
-					.attr("x", centerX)
-					.attr("y", centerY + nameLines.length * fontSize / 2 + amountFontSize)
-					.attr("text-anchor", "middle")
-					.attr("dominant-baseline", "middle")
-					.attr("fill", "#475569")
-					.attr("font-size", `${amountFontSize}px`)
-					.text(amountText);
-			});
-		};
+      // Update positions and sizes
+      cells.attr("transform", (d) => `translate(${d.x0},${d.y0})`);
 
-		window.addEventListener("resize", handleResize);
+      cells
+        .select("rect")
+        .attr("width", (d) => d.x1 - d.x0)
+        .attr("height", (d) => d.y1 - d.y0);
 
-		return () => {
-			window.removeEventListener("resize", handleResize);
-		};
-	}, [categories]);
+      // Update text positions
+      cells.each(function (d) {
+        const cell = d3.select(this);
+        const rectWidth = d.x1 - d.x0;
+        const rectHeight = d.y1 - d.y0;
+        const centerX = rectWidth / 2;
 
-	// Helper function to wrap text
-	function wrapText(text, maxWidth) {
-		const words = text.split(/\s+/);
-		const lines = [];
-		let currentLine = words[0];
+        cell.selectAll("text").remove();
 
-		for (let i = 1; i < words.length; i++) {
-			const testLine = currentLine + " " + words[i];
-			// Rough estimate: 8px per character
-			if (testLine.length * 8 < maxWidth) {
-				currentLine = testLine;
-			} else {
-				lines.push(currentLine);
-				currentLine = words[i];
-			}
-		}
-		lines.push(currentLine);
-		return lines.slice(0, 3); // Max 3 lines
-	}
+        const proportion = d.value / totalValue;
+        const isSmall = proportion < 0.05;
 
-	return (
-		<div className="w-full">
-			<div
-				ref={containerRef}
-				className="w-full bg-gray-50 rounded-lg border border-gray-200 shadow-sm"
-			/>
-		</div>
-	);
+        const nameLines = wrapText(d.data.name, rectWidth - 10);
+        const fontSize = isSmall
+          ? Math.max(8, Math.min(rectHeight / 2.5, 10))
+          : Math.max(12, Math.min(rectWidth / 8, rectHeight / 6, 24));
+
+        // For large items: place text near top (20px from top)
+        // For small items: center vertically
+        const textTopOffset = isSmall
+          ? rectHeight / 2
+          : Math.min(20 + fontSize, rectHeight / 3);
+
+        nameLines.forEach((line, i) => {
+          cell
+            .append("text")
+            .attr("x", centerX)
+            .attr("y", textTopOffset + i * fontSize)
+            .attr("text-anchor", "middle")
+            .attr("dominant-baseline", "hanging")
+            .attr("fill", "#1e293b")
+            .attr("font-size", `${fontSize}px`)
+            .attr("font-weight", "bold")
+            .text(line);
+        });
+
+        const amountText = `${(d.value / 1000000).toFixed(1)} mnkr`;
+        const amountFontSize = isSmall
+          ? Math.max(7, Math.min(rectHeight / 3, 9))
+          : Math.max(10, Math.min(rectWidth / 10, rectHeight / 8, 18));
+
+        cell
+          .append("text")
+          .attr("x", centerX)
+          .attr("y", textTopOffset + nameLines.length * fontSize + 4)
+          .attr("text-anchor", "middle")
+          .attr("dominant-baseline", "hanging")
+          .attr("fill", "#475569")
+          .attr("font-size", `${amountFontSize}px`)
+          .text(amountText);
+      });
+    };
+
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [categories]);
+
+  // Helper function to wrap text with hyphenation support
+  function wrapText(text, maxWidth) {
+    const words = text.split(/\s+/);
+    const lines = [];
+    let currentLine = words[0] || "";
+
+    // Average character width estimate (adjusted for larger font sizes)
+    const avgCharWidth = 10;
+    const maxCharsPerLine = Math.floor(maxWidth / avgCharWidth);
+
+    for (let i = 1; i < words.length; i++) {
+      const word = words[i];
+      const testLine = currentLine + " " + word;
+
+      if (testLine.length <= maxCharsPerLine) {
+        currentLine = testLine;
+      } else {
+        // If current word is very long, try to hyphenate it
+        if (word.length > maxCharsPerLine && currentLine.length > 0) {
+          lines.push(currentLine);
+          currentLine = hyphenateWord(word, maxCharsPerLine);
+        } else if (word.length > maxCharsPerLine) {
+          currentLine = hyphenateWord(word, maxCharsPerLine);
+        } else {
+          lines.push(currentLine);
+          currentLine = word;
+        }
+      }
+    }
+
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+
+    return lines.slice(0, 3); // Max 3 lines
+  }
+
+  // Helper function to hyphenate long words
+  function hyphenateWord(word, maxChars) {
+    if (word.length <= maxChars) return word;
+
+    // Simple hyphenation: break at syllable-like positions
+    // For Swedish, common break points
+    const breakPoints = [
+      "ning",
+      "tion",
+      "sion",
+      "ling",
+      "het",
+      "ska",
+      "ligt",
+      "igt",
+      "are",
+      "or",
+    ];
+
+    for (let breakPoint of breakPoints) {
+      const index = word.indexOf(breakPoint);
+      if (index > 0 && index < maxChars - 1) {
+        return word.substring(0, index + breakPoint.length) + "-";
+      }
+    }
+
+    // Fallback: break at maxChars - 1 and add hyphen
+    return word.substring(0, maxChars - 1) + "-";
+  }
+
+  return (
+    <div className="w-full">
+      <div
+        ref={containerRef}
+        className="w-full bg-gray-50 rounded-lg border border-gray-200 shadow-sm"
+      />
+    </div>
+  );
 }

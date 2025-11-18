@@ -139,6 +139,15 @@ export default function BudgetVotingPage() {
 		});
 	}, []);
 
+	// Handlers for treemap pinch gestures
+	const handleExpensePinch = useCallback((categoryId, newAmount) => {
+		updateAllocation(categoryId, Math.round(newAmount));
+	}, [updateAllocation]);
+
+	const handleIncomePinch = useCallback((categoryId, newAmount) => {
+		updateIncomeAllocation(categoryId, Math.round(newAmount));
+	}, [updateIncomeAllocation]);
+
 	const handleSaveVote = useCallback(async () => {
 		setError("");
 		setSuccess("");
@@ -191,6 +200,23 @@ export default function BudgetVotingPage() {
 	const totalIncome = incomeAllocations.reduce((sum, a) => sum + a.amount, 0);
 	const balance = totalIncome - totalExpenses;
 	const isBalanced = Math.abs(balance) < 1000000; // Within 1 mnkr
+
+	// Create updated categories with current allocation amounts for the treemap
+	const updatedExpenseCategories = budgetSession?.categories.map(category => {
+		const allocation = allocations.find(a => a.categoryId === category.id);
+		return {
+			...category,
+			amount: allocation ? allocation.amount : category.amount
+		};
+	});
+
+	const updatedIncomeCategories = budgetSession?.incomeCategories.map(category => {
+		const allocation = incomeAllocations.find(a => a.categoryId === category.id);
+		return {
+			...category,
+			amount: allocation ? allocation.amount : category.amount
+		};
+	});
 
 	// Handle swipe up gesture to close info box
 	const handleTouchStart = (e) => {
@@ -335,10 +361,17 @@ export default function BudgetVotingPage() {
 				{/* Layered Treemap Visualizations */}
 				{budgetSession?.incomeCategories && budgetSession.incomeCategories.length > 0 && (
 					<LayeredTreemaps
-						expenseCategories={budgetSession.categories}
-						incomeCategories={budgetSession.incomeCategories}
+						expenseCategories={updatedExpenseCategories}
+						incomeCategories={updatedIncomeCategories}
 						showingIncome={showingIncome}
 						onToggle={setShowingIncome}
+						onExpenseChange={handleExpensePinch}
+						onIncomeChange={handleIncomePinch}
+						taxBaseInfo={budgetSession.taxBase ? {
+							taxBase: budgetSession.taxBase,
+							minTaxRateKr: budgetSession.minTaxRateKr || 18,
+							maxTaxRateKr: budgetSession.maxTaxRateKr || 21,
+						} : null}
 					/>
 				)}
 

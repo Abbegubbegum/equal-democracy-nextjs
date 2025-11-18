@@ -37,7 +37,7 @@ export default function BudgetAdminPage() {
 						onClick={() => router.push("/budget")}
 						className="px-4 py-2 bg-white hover:bg-gray-100 text-emerald-900 font-medium rounded-lg transition-colors shadow-sm"
 					>
-						Back to Budget
+						To Budget
 					</button>
 				</div>
 			</header>
@@ -279,10 +279,6 @@ function CreateSessionForm({ onSuccess, onCancel }) {
 		name: "",
 		municipality: "",
 		description: "",
-		taxBase: "", // e.g., 112384210 for Vallentuna (population × 1000)
-		defaultTaxRateKr: "19",
-		minTaxRateKr: "18",
-		maxTaxRateKr: "21",
 	});
 	const [pdf, setPdf] = useState(null);
 	const [submitting, setSubmitting] = useState(false);
@@ -412,8 +408,9 @@ function CreateSessionForm({ onSuccess, onCancel }) {
 			<div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
 				<p className="font-medium mb-2">How it works:</p>
 				<ol className="list-decimal list-inside space-y-1">
-					<li>Upload PDF(s) with budget data (expenses and/or income)</li>
-					<li>AI extracts all categories and amounts automatically</li>
+					<li>Upload PDF with budget data (expenses and income)</li>
+					<li>AI extracts all categories, amounts, and tax rate automatically</li>
+					<li>Tax configuration is calculated from extracted data (Skatteintäkter ÷ Skattesats)</li>
 					<li>Budget session is created and ready for voting</li>
 				</ol>
 			</div>
@@ -457,72 +454,6 @@ function CreateSessionForm({ onSuccess, onCancel }) {
 					placeholder="Brief description of this budget session..."
 					rows={2}
 				/>
-			</div>
-
-			{/* Tax Rate Configuration */}
-			<div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
-				<h4 className="font-medium text-blue-900">Tax Rate Configuration (for Skatteintäkter)</h4>
-				<p className="text-xs text-blue-700">
-					For municipalities: Tax Base = Population × 1000 kr. Example: Vallentuna with 19 kr tax rate = 2135.3 mnkr means Tax Base = 112,384,210 kr.
-				</p>
-
-				<div className="grid grid-cols-2 gap-3">
-					<div>
-						<label className="block text-sm font-medium text-blue-900 mb-1">
-							Tax Base (kr)
-						</label>
-						<input
-							type="number"
-							value={formData.taxBase}
-							onChange={(e) => setFormData({ ...formData, taxBase: e.target.value })}
-							className="w-full p-2 border border-blue-300 rounded-lg"
-							placeholder="112384210"
-						/>
-						<p className="text-xs text-blue-600 mt-1">Population × 1000</p>
-					</div>
-
-					<div>
-						<label className="block text-sm font-medium text-blue-900 mb-1">
-							Default Tax Rate (kr)
-						</label>
-						<input
-							type="number"
-							step="0.01"
-							value={formData.defaultTaxRateKr}
-							onChange={(e) => setFormData({ ...formData, defaultTaxRateKr: e.target.value })}
-							className="w-full p-2 border border-blue-300 rounded-lg"
-							placeholder="19"
-						/>
-					</div>
-
-					<div>
-						<label className="block text-sm font-medium text-blue-900 mb-1">
-							Min Tax Rate (kr)
-						</label>
-						<input
-							type="number"
-							step="0.01"
-							value={formData.minTaxRateKr}
-							onChange={(e) => setFormData({ ...formData, minTaxRateKr: e.target.value })}
-							className="w-full p-2 border border-blue-300 rounded-lg"
-							placeholder="18"
-						/>
-					</div>
-
-					<div>
-						<label className="block text-sm font-medium text-blue-900 mb-1">
-							Max Tax Rate (kr)
-						</label>
-						<input
-							type="number"
-							step="0.01"
-							value={formData.maxTaxRateKr}
-							onChange={(e) => setFormData({ ...formData, maxTaxRateKr: e.target.value })}
-							className="w-full p-2 border border-blue-300 rounded-lg"
-							placeholder="21"
-						/>
-					</div>
-				</div>
 			</div>
 
 			<div>
@@ -570,10 +501,60 @@ function CreateSessionForm({ onSuccess, onCancel }) {
 }
 
 function SettingsPanel() {
+	const [language, setLanguage] = useState("svenska");
+
+	useEffect(() => {
+		// Load saved language preference from localStorage
+		const savedLanguage = localStorage.getItem("budgetLanguage");
+		if (savedLanguage) {
+			setLanguage(savedLanguage);
+		}
+	}, []);
+
+	const handleLanguageChange = (newLanguage) => {
+		setLanguage(newLanguage);
+		localStorage.setItem("budgetLanguage", newLanguage);
+	};
+
 	return (
 		<div className="bg-white rounded-xl shadow-sm p-6">
 			<h2 className="text-xl font-bold text-gray-900 mb-6">Budget Settings</h2>
-			<p className="text-gray-600">Budget-specific settings will appear here.</p>
+
+			<div className="space-y-6">
+				{/* Language Selection */}
+				<div>
+					<label className="block text-sm font-medium text-gray-700 mb-3">
+						Language / Språk
+					</label>
+					<div className="flex gap-3">
+						<button
+							onClick={() => handleLanguageChange("svenska")}
+							className={`flex-1 px-4 py-3 rounded-lg border-2 font-medium transition-colors ${
+								language === "svenska"
+									? "border-emerald-500 bg-emerald-50 text-emerald-900"
+									: "border-gray-200 bg-white text-gray-700 hover:border-emerald-300"
+							}`}
+						>
+							Svenska
+						</button>
+						<button
+							onClick={() => handleLanguageChange("english")}
+							className={`flex-1 px-4 py-3 rounded-lg border-2 font-medium transition-colors ${
+								language === "english"
+									? "border-emerald-500 bg-emerald-50 text-emerald-900"
+									: "border-gray-200 bg-white text-gray-700 hover:border-emerald-300"
+							}`}
+						>
+							English
+						</button>
+					</div>
+					<p className="text-xs text-gray-500 mt-2">
+						{language === "svenska"
+							? "Välj språk för budgetgränssnittet"
+							: "Select language for the budget interface"}
+					</p>
+				</div>
+			</div>
 		</div>
 	);
 }

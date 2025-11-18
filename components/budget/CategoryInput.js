@@ -8,24 +8,34 @@ export default function CategoryInput({ category, allocation, onUpdate, readOnly
 	// Calculate slider range based on budget size
 	// For larger budgets, we need larger scales
 	// Minimum on LEFT, default in MIDDLE, maximum on RIGHT
-	const minValue = category.minAmount;
 	const defaultValue = category.defaultAmount || category.amount;
+
+	// Ensure minValue is less than defaultValue (use 70% of default as minimum if not specified)
+	const minValue = category.minAmount < defaultValue
+		? category.minAmount
+		: Math.floor(defaultValue * 0.7);
 
 	// Calculate maximum so that default is in the middle
 	// If default should be at 50%, then: maxValue = minValue + 2 * (defaultValue - minValue)
 	const maxValue = minValue + 2 * (defaultValue - minValue);
 
-	const [value, setValue] = useState(allocation?.amount || defaultValue);
+	// Initialize with allocation amount if available, otherwise use defaultValue
+	const initialValue = allocation?.amount !== undefined ? allocation.amount : defaultValue;
+	const [value, setValue] = useState(initialValue);
 	const [isEditing, setIsEditing] = useState(false);
 	const [editValue, setEditValue] = useState("");
 
 	// Sync with allocation prop changes - use effect only to update when external value changes
 	const allocationAmount = allocation?.amount;
 	useEffect(() => {
+		// Only update if we have a valid allocation amount that's different from current value
 		if (allocationAmount !== undefined && allocationAmount !== value) {
 			setValue(allocationAmount);
+		} else if (allocationAmount === undefined && value !== defaultValue) {
+			// If allocation is cleared, reset to default
+			setValue(defaultValue);
 		}
-	}, [allocationAmount, value]);
+	}, [allocationAmount, defaultValue, value]);
 
 	function handleSliderChange(e) {
 		const newAmount = parseInt(e.target.value);

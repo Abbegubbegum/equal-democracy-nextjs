@@ -80,6 +80,12 @@ function TaxIncomeSliders({ category, allocation, onUpdate, taxBase, taxRateInfo
 		setIsEditingAmount(false);
 	}
 
+	// Reset to default
+	function handleResetToDefault() {
+		setTaxRateKr(defaultTaxRate);
+		onUpdate(category.id, defaultAmount, defaultTaxRate);
+	}
+
 	// Calculate percentages for visual sliders
 	const defaultTaxRatePercentage = ((defaultTaxRate - minTaxRate) / (maxTaxRate - minTaxRate)) * 100;
 	const currentTaxRatePercentage = ((taxRateKr - minTaxRate) / (maxTaxRate - minTaxRate)) * 100;
@@ -153,7 +159,12 @@ function TaxIncomeSliders({ category, allocation, onUpdate, taxBase, taxRateInfo
 
 				<div className="flex justify-between text-xs text-gray-600">
 					<span>Min: {minTaxRate.toFixed(2)} kr</span>
-					<span className="text-blue-600 font-medium">Default: {defaultTaxRate.toFixed(2)} kr</span>
+					<button
+						onClick={handleResetToDefault}
+						className="text-blue-600 font-medium hover:text-blue-800 hover:underline cursor-pointer"
+					>
+						Default: {defaultTaxRate.toFixed(2)} kr
+					</button>
 					<span>Max: {maxTaxRate.toFixed(2)} kr</span>
 				</div>
 			</div>
@@ -221,7 +232,12 @@ function TaxIncomeSliders({ category, allocation, onUpdate, taxBase, taxRateInfo
 
 				<div className="flex justify-between text-xs text-gray-600">
 					<span>Min: {(minAmount / 1000000).toFixed(1)} mnkr</span>
-					<span className="text-blue-600 font-medium">Default: {(defaultAmount / 1000000).toFixed(1)} mnkr</span>
+					<button
+						onClick={handleResetToDefault}
+						className="text-blue-600 font-medium hover:text-blue-800 hover:underline cursor-pointer"
+					>
+						Default: {(defaultAmount / 1000000).toFixed(1)} mnkr
+					</button>
 					<span>Max: {(maxAmount / 1000000).toFixed(1)} mnkr</span>
 				</div>
 
@@ -303,6 +319,11 @@ export default function IncomeCategoryInput({ category, allocation, onUpdate, ta
 		setIsEditing(false);
 	}
 
+	function handleResetToDefault() {
+		setValue(defaultValue);
+		onUpdate(category.id, defaultValue);
+	}
+
 	// Calculate percentage for visual indicators
 	const defaultPercentage = ((defaultValue - minValue) / (maxValue - minValue)) * 100;
 	const currentPercentage = ((value - minValue) / (maxValue - minValue)) * 100;
@@ -365,7 +386,12 @@ export default function IncomeCategoryInput({ category, allocation, onUpdate, ta
 
 			<div className="flex justify-between text-xs text-gray-600">
 				<span>Min: {(minValue / 1000000).toFixed(1)} mnkr</span>
-				<span className="text-blue-600 font-medium">Default: {(defaultValue / 1000000).toFixed(1)} mnkr</span>
+				<button
+					onClick={handleResetToDefault}
+					className="text-blue-600 font-medium hover:text-blue-800 hover:underline cursor-pointer"
+				>
+					Default: {(defaultValue / 1000000).toFixed(1)} mnkr
+				</button>
 				<span>Max: {(maxValue / 1000000).toFixed(1)} mnkr</span>
 			</div>
 		</div>

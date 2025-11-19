@@ -8,6 +8,7 @@ export default function BudgetAdminPage() {
 	const { data: session, status } = useSession();
 	const router = useRouter();
 	const [tab, setTab] = useState("sessions");
+	const [theme, setTheme] = useState('green');
 
 	useEffect(() => {
 		if (status === "loading") return;
@@ -15,27 +16,73 @@ export default function BudgetAdminPage() {
 		else if (!session.user?.isSuperAdmin) router.replace("/");
 	}, [status, session, router]);
 
+	useEffect(() => {
+		// Fetch theme settings
+		async function fetchTheme() {
+			try {
+				const response = await fetch("/api/settings");
+				const data = await response.json();
+				if (response.ok && data.theme) {
+					setTheme(data.theme);
+				}
+			} catch (error) {
+				console.error("Failed to fetch theme:", error);
+			}
+		}
+		fetchTheme();
+	}, []);
+
+	// Get theme color classes
+	const getThemeClasses = () => {
+		switch (theme) {
+			case 'red':
+				return {
+					bg: 'bg-red-800',
+					bgLight: 'bg-red-400',
+					text: 'text-red-200',
+					textDark: 'text-red-900'
+				};
+			case 'blue':
+				return {
+					bg: 'bg-blue-800',
+					bgLight: 'bg-blue-400',
+					text: 'text-blue-200',
+					textDark: 'text-blue-900'
+				};
+			case 'green':
+			default:
+				return {
+					bg: 'bg-emerald-800',
+					bgLight: 'bg-emerald-400',
+					text: 'text-emerald-200',
+					textDark: 'text-emerald-900'
+				};
+		}
+	};
+
+	const themeColors = getThemeClasses();
+
 	if (status === "loading") return <div className="p-8">Loading…</div>;
 	if (!session?.user?.isSuperAdmin) return null;
 
 	return (
 		<div className="min-h-screen bg-gray-50">
-			<header className="bg-emerald-800 text-white p-6 shadow">
+			<header className={`${themeColors.bg} text-white p-6 shadow`}>
 				<div className="max-w-6xl mx-auto flex items-center justify-between">
 					<div className="flex items-center gap-3">
-						<div className="w-10 h-10 bg-emerald-400 rounded-full flex items-center justify-center">
-							<Wallet className="w-5 h-5 text-emerald-900" />
+						<div className={`w-10 h-10 ${themeColors.bgLight} rounded-full flex items-center justify-center`}>
+							<Wallet className={`w-5 h-5 ${themeColors.textDark}`} />
 						</div>
 						<div>
 							<h1 className="text-2xl font-bold">Budget Admin</h1>
-							<p className="text-emerald-200 text-sm">
+							<p className={`${themeColors.text} text-sm`}>
 								AI-powered median budget voting sessions
 							</p>
 						</div>
 					</div>
 					<button
 						onClick={() => router.push("/budget")}
-						className="px-4 py-2 bg-white hover:bg-gray-100 text-emerald-900 font-medium rounded-lg transition-colors shadow-sm"
+						className={`px-4 py-2 bg-white hover:bg-gray-100 ${themeColors.textDark} font-medium rounded-lg transition-colors shadow-sm`}
 					>
 						To Budget
 					</button>
@@ -501,24 +548,92 @@ function CreateSessionForm({ onSuccess, onCancel }) {
 }
 
 function SettingsPanel() {
-	const [language, setLanguage] = useState("svenska");
+	const [language, setLanguage] = useState("sv");
+	const [theme, setTheme] = useState("green");
+	const [loading, setLoading] = useState(true);
+	const [saving, setSaving] = useState(false);
+	const [message, setMessage] = useState("");
 
 	useEffect(() => {
-		// Load saved language preference from localStorage
-		const savedLanguage = localStorage.getItem("budgetLanguage");
-		if (savedLanguage) {
-			setLanguage(savedLanguage);
-		}
+		fetchSettings();
 	}, []);
 
-	const handleLanguageChange = (newLanguage) => {
+	async function fetchSettings() {
+		try {
+			const response = await fetch("/api/settings");
+			const data = await response.json();
+			if (response.ok) {
+				setLanguage(data.language || "sv");
+				setTheme(data.theme || "green");
+			}
+		} catch (error) {
+			console.error("Failed to fetch settings:", error);
+		} finally {
+			setLoading(false);
+		}
+	}
+
+	async function saveSettings(newLanguage, newTheme) {
+		try {
+			setSaving(true);
+			setMessage("");
+			const response = await fetchWithCsrf("/api/settings", {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					language: newLanguage,
+					theme: newTheme,
+				}),
+			});
+
+			if (response.ok) {
+				setMessage("Settings saved successfully!");
+				setTimeout(() => setMessage(""), 3000);
+			} else {
+				const data = await response.json();
+				setMessage(`Error: ${data.error}`);
+			}
+		} catch (error) {
+			setMessage("Failed to save settings");
+			console.error("Failed to save settings:", error);
+		} finally {
+			setSaving(false);
+		}
+	}
+
+	const handleLanguageChange = async (newLanguage) => {
 		setLanguage(newLanguage);
-		localStorage.setItem("budgetLanguage", newLanguage);
+		await saveSettings(newLanguage, theme);
 	};
+
+	const handleThemeChange = async (newTheme) => {
+		setTheme(newTheme);
+		await saveSettings(language, newTheme);
+	};
+
+	if (loading) {
+		return <div className="bg-white rounded-xl shadow-sm p-6">Loading settings...</div>;
+	}
 
 	return (
 		<div className="bg-white rounded-xl shadow-sm p-6">
 			<h2 className="text-xl font-bold text-gray-900 mb-6">Budget Settings</h2>
+
+			{saving && (
+				<div className="mb-4 p-3 bg-blue-50 text-blue-700 rounded-lg">
+					Saving settings...
+				</div>
+			)}
+
+			{message && (
+				<div className={`mb-4 p-3 rounded-lg ${
+					message.includes("Error")
+						? "bg-red-50 text-red-700"
+						: "bg-green-50 text-green-700"
+				}`}>
+					{message}
+				</div>
+			)}
 
 			<div className="space-y-6">
 				{/* Language Selection */}
@@ -528,30 +643,88 @@ function SettingsPanel() {
 					</label>
 					<div className="flex gap-3">
 						<button
-							onClick={() => handleLanguageChange("svenska")}
+							onClick={() => handleLanguageChange("sv")}
+							disabled={saving}
 							className={`flex-1 px-4 py-3 rounded-lg border-2 font-medium transition-colors ${
-								language === "svenska"
+								language === "sv"
 									? "border-emerald-500 bg-emerald-50 text-emerald-900"
 									: "border-gray-200 bg-white text-gray-700 hover:border-emerald-300"
-							}`}
+							} ${saving ? "opacity-50 cursor-not-allowed" : ""}`}
 						>
 							Svenska
 						</button>
 						<button
-							onClick={() => handleLanguageChange("english")}
+							onClick={() => handleLanguageChange("en")}
+							disabled={saving}
 							className={`flex-1 px-4 py-3 rounded-lg border-2 font-medium transition-colors ${
-								language === "english"
+								language === "en"
 									? "border-emerald-500 bg-emerald-50 text-emerald-900"
 									: "border-gray-200 bg-white text-gray-700 hover:border-emerald-300"
-							}`}
+							} ${saving ? "opacity-50 cursor-not-allowed" : ""}`}
 						>
 							English
 						</button>
 					</div>
 					<p className="text-xs text-gray-500 mt-2">
-						{language === "svenska"
+						{language === "sv"
 							? "Välj språk för budgetgränssnittet"
 							: "Select language for the budget interface"}
+					</p>
+				</div>
+
+				{/* Theme Selection */}
+				<div>
+					<label className="block text-sm font-medium text-gray-700 mb-3">
+						{language === "sv" ? "Färgtema för header" : "Header Color Theme"}
+					</label>
+					<div className="grid grid-cols-3 gap-3">
+						<button
+							onClick={() => handleThemeChange("green")}
+							disabled={saving}
+							className={`px-4 py-3 rounded-lg border-2 font-medium transition-colors ${
+								theme === "green"
+									? "border-emerald-500 bg-emerald-50 text-emerald-900"
+									: "border-gray-200 bg-white text-gray-700 hover:border-emerald-300"
+							} ${saving ? "opacity-50 cursor-not-allowed" : ""}`}
+						>
+							<div className="flex items-center justify-center gap-2">
+								<div className="w-4 h-4 rounded-full bg-emerald-600"></div>
+								{language === "sv" ? "Grön" : "Green"}
+							</div>
+						</button>
+						<button
+							onClick={() => handleThemeChange("red")}
+							disabled={saving}
+							className={`px-4 py-3 rounded-lg border-2 font-medium transition-colors ${
+								theme === "red"
+									? "border-red-500 bg-red-50 text-red-900"
+									: "border-gray-200 bg-white text-gray-700 hover:border-red-300"
+							} ${saving ? "opacity-50 cursor-not-allowed" : ""}`}
+						>
+							<div className="flex items-center justify-center gap-2">
+								<div className="w-4 h-4 rounded-full bg-red-600"></div>
+								{language === "sv" ? "Röd" : "Red"}
+							</div>
+						</button>
+						<button
+							onClick={() => handleThemeChange("blue")}
+							disabled={saving}
+							className={`px-4 py-3 rounded-lg border-2 font-medium transition-colors ${
+								theme === "blue"
+									? "border-blue-500 bg-blue-50 text-blue-900"
+									: "border-gray-200 bg-white text-gray-700 hover:border-blue-300"
+							} ${saving ? "opacity-50 cursor-not-allowed" : ""}`}
+						>
+							<div className="flex items-center justify-center gap-2">
+								<div className="w-4 h-4 rounded-full bg-blue-600"></div>
+								{language === "sv" ? "Blå" : "Blue"}
+							</div>
+						</button>
+					</div>
+					<p className="text-xs text-gray-500 mt-2">
+						{language === "sv"
+							? "Välj färgtema för header i budgetapplikationen"
+							: "Select color theme for the budget application header"}
 					</p>
 				</div>
 			</div>

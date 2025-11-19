@@ -22,7 +22,9 @@ export default function BudgetVotingPage() {
 	const [error, setError] = useState("");
 	const [success, setSuccess] = useState("");
 	const [showInfo, setShowInfo] = useState(false);
-	const [showingIncome, setShowingIncome] = useState(false);
+	const [viewMode, setViewMode] = useState('expenses-focus');
+	const [priorityCategoryId, setPriorityCategoryId] = useState(null);
+	const [theme, setTheme] = useState('green');
 	const infoBoxRef = useRef(null);
 	const touchStartY = useRef(0);
 
@@ -108,6 +110,22 @@ export default function BudgetVotingPage() {
 		}
 	}, [status, session, sessionId, router, fetchBudgetSession, fetchExistingVote]);
 
+	useEffect(() => {
+		// Fetch theme settings
+		async function fetchTheme() {
+			try {
+				const response = await fetch("/api/settings");
+				const data = await response.json();
+				if (response.ok && data.theme) {
+					setTheme(data.theme);
+				}
+			} catch (error) {
+				console.error("Failed to fetch theme:", error);
+			}
+		}
+		fetchTheme();
+	}, []);
+
 	const updateAllocation = useCallback((categoryId, newAmount) => {
 		setAllocations((prev) => {
 			const existing = prev.find((a) => a.categoryId === categoryId);
@@ -147,6 +165,11 @@ export default function BudgetVotingPage() {
 	const handleIncomePinch = useCallback((categoryId, newAmount) => {
 		updateIncomeAllocation(categoryId, Math.round(newAmount));
 	}, [updateIncomeAllocation]);
+
+	// Handler for category click - move clicked category to top of list
+	const handleCategoryClick = useCallback((categoryId) => {
+		setPriorityCategoryId(categoryId);
+	}, []);
 
 	const handleSaveVote = useCallback(async () => {
 		setError("");
@@ -218,6 +241,19 @@ export default function BudgetVotingPage() {
 		};
 	});
 
+	// Sort categories to put priorityCategoryId first
+	const sortedExpenseCategories = budgetSession?.categories ? [...budgetSession.categories].sort((a, b) => {
+		if (a.id === priorityCategoryId) return -1;
+		if (b.id === priorityCategoryId) return 1;
+		return 0;
+	}) : [];
+
+	const sortedIncomeCategories = budgetSession?.incomeCategories ? [...budgetSession.incomeCategories].sort((a, b) => {
+		if (a.id === priorityCategoryId) return -1;
+		if (b.id === priorityCategoryId) return 1;
+		return 0;
+	}) : [];
+
 	// Handle swipe up gesture to close info box
 	const handleTouchStart = (e) => {
 		touchStartY.current = e.touches[0].clientY;
@@ -233,6 +269,42 @@ export default function BudgetVotingPage() {
 		}
 	};
 
+	// Get theme color classes
+	const getThemeClasses = () => {
+		switch (theme) {
+			case 'red':
+				return {
+					bg: 'bg-red-800',
+					bgLight: 'bg-red-400',
+					text: 'text-red-200',
+					textDark: 'text-red-900',
+					hover: 'hover:text-white',
+					button: 'bg-red-600'
+				};
+			case 'blue':
+				return {
+					bg: 'bg-blue-800',
+					bgLight: 'bg-blue-400',
+					text: 'text-blue-200',
+					textDark: 'text-blue-900',
+					hover: 'hover:text-white',
+					button: 'bg-blue-600'
+				};
+			case 'green':
+			default:
+				return {
+					bg: 'bg-emerald-800',
+					bgLight: 'bg-emerald-400',
+					text: 'text-emerald-200',
+					textDark: 'text-emerald-900',
+					hover: 'hover:text-white',
+					button: 'bg-emerald-600'
+				};
+		}
+	};
+
+	const themeColors = getThemeClasses();
+
 	if (loading) {
 		return (
 			<div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -242,13 +314,14 @@ export default function BudgetVotingPage() {
 	}
 
 	if (error && !budgetSession) {
+		const errorTheme = getThemeClasses();
 		return (
 			<div className="min-h-screen bg-gray-50 flex items-center justify-center">
 				<div className="text-center">
 					<p className="text-red-600 mb-4">{error}</p>
 					<button
 						onClick={() => router.push("/")}
-						className="px-4 py-2 bg-emerald-600 text-white rounded-lg"
+						className={`px-4 py-2 ${errorTheme.button} text-white rounded-lg`}
 					>
 						{t("budget.goBack")}
 					</button>
@@ -259,12 +332,12 @@ export default function BudgetVotingPage() {
 
 	return (
 		<div className="min-h-screen bg-gray-50">
-			<header className="bg-emerald-800 text-white p-6 shadow">
+			<header className={`${themeColors.bg} text-white p-6 shadow`}>
 				<div className="max-w-6xl mx-auto">
 					<div className="flex items-center justify-between mb-4">
 						<button
 							onClick={() => router.push("/")}
-							className="flex items-center gap-2 text-emerald-200 hover:text-white"
+							className={`flex items-center gap-2 ${themeColors.text} ${themeColors.hover}`}
 						>
 							<ArrowLeft className="w-4 h-4" />
 							{t("common.back")}
@@ -272,7 +345,7 @@ export default function BudgetVotingPage() {
 						{session?.user?.isSuperAdmin && (
 							<button
 								onClick={() => router.push("/budget/admin")}
-								className="text-emerald-200 hover:text-white font-medium"
+								className={`${themeColors.text} ${themeColors.hover} font-medium`}
 							>
 								{t("budget.budgetAdmin")}
 							</button>
@@ -283,7 +356,7 @@ export default function BudgetVotingPage() {
 					</h1>
 					<button
 						onClick={() => setShowInfo(!showInfo)}
-						className="text-emerald-200 hover:text-white text-sm mt-1 flex items-center gap-1"
+						className={`${themeColors.text} ${themeColors.hover} text-sm mt-1 flex items-center gap-1`}
 					>
 						<Info className="w-4 h-4" />
 						{t("budget.information")}
@@ -324,49 +397,15 @@ export default function BudgetVotingPage() {
 					</div>
 				)}
 
-				{/* Budget Summary */}
-				<div className="bg-white rounded-xl shadow-sm p-6">
-					<h2 className="text-lg font-bold text-gray-900 mb-4">{t("budget.budgetSummary")}</h2>
-					<div className="grid grid-cols-3 gap-4">
-						<div>
-							<p className="text-sm text-gray-600">{t("budget.income")}</p>
-							<p className="text-2xl font-bold text-blue-600">
-								{(totalIncome / 1000000).toFixed(1)} {t("budget.mnkr")}
-							</p>
-						</div>
-						<div>
-							<p className="text-sm text-gray-600">{t("budget.expenses")}</p>
-							<p className="text-2xl font-bold text-green-600">
-								{(totalExpenses / 1000000).toFixed(1)} {t("budget.mnkr")}
-							</p>
-						</div>
-						<div>
-							<p className="text-sm text-gray-600">{t("budget.balance")}</p>
-							<p
-								className={`text-2xl font-bold ${
-									isBalanced
-										? "text-emerald-600"
-										: balance > 0
-										? "text-blue-600"
-										: "text-red-600"
-								}`}
-							>
-								{balance >= 0 ? "+" : ""}
-								{(balance / 1000000).toFixed(1)} {t("budget.mnkr")}
-							</p>
-						</div>
-					</div>
-				</div>
-
 				{/* Layered Treemap Visualizations */}
 				{budgetSession?.incomeCategories && budgetSession.incomeCategories.length > 0 && (
 					<LayeredTreemaps
 						expenseCategories={updatedExpenseCategories}
 						incomeCategories={updatedIncomeCategories}
-						showingIncome={showingIncome}
-						onToggle={setShowingIncome}
 						onExpenseChange={handleExpensePinch}
 						onIncomeChange={handleIncomePinch}
+						onViewModeChange={setViewMode}
+					onCategoryClick={handleCategoryClick}
 						taxBaseInfo={budgetSession.taxBase ? {
 							taxBase: budgetSession.taxBase,
 							minTaxRateKr: budgetSession.minTaxRateKr || 18,
@@ -375,14 +414,14 @@ export default function BudgetVotingPage() {
 					/>
 				)}
 
-				{/* Income Categories - shown first when showingIncome is true */}
-				{showingIncome && (
-					<div className="bg-white rounded-xl shadow-sm p-6">
+				{/* Income Categories - shown first when income is in focus */}
+				{viewMode === 'income-focus' && (
+					<div className="bg-white rounded-xl shadow-sm p-6 mt-2">
 						<h2 className="text-lg font-bold text-gray-900 mb-4">
 							{t("budget.incomeSources")}
 						</h2>
 						<div className="space-y-3">
-							{budgetSession?.incomeCategories.map((category) => {
+							{sortedIncomeCategories.map((category) => {
 								// Tax rate info for 2025: 19 kr = 2135.3 mnkr
 								// This means tax base = 2135.3 mnkr / 19 kr = 112.4 million kr
 								const taxRateInfo = budgetSession.taxBase
@@ -410,14 +449,14 @@ export default function BudgetVotingPage() {
 					</div>
 				)}
 
-				{/* Expense Categories - shown first when showingIncome is false */}
-				{!showingIncome && (
-					<div className="bg-white rounded-xl shadow-sm p-6">
+				{/* Expense Categories - shown first when expenses are in focus */}
+				{viewMode === 'expenses-focus' && (
+					<div className="bg-white rounded-xl shadow-sm p-6 mt-2">
 						<h2 className="text-lg font-bold text-gray-900 mb-4">
 							{t("budget.expenseCategories")}
 						</h2>
 						<div className="space-y-3">
-							{budgetSession?.categories.map((category) => (
+							{sortedExpenseCategories.map((category) => (
 								<CategoryInput
 									key={category.id}
 									category={category}
@@ -429,14 +468,14 @@ export default function BudgetVotingPage() {
 					</div>
 				)}
 
-				{/* Income Categories - shown second when showingIncome is false */}
-				{!showingIncome && (
+				{/* Income Categories - shown second when expenses are in focus */}
+				{viewMode === 'expenses-focus' && (
 					<div className="bg-white rounded-xl shadow-sm p-6">
 						<h2 className="text-lg font-bold text-gray-900 mb-4">
 							{t("budget.incomeSources")}
 						</h2>
 						<div className="space-y-3">
-							{budgetSession?.incomeCategories.map((category) => {
+							{sortedIncomeCategories.map((category) => {
 								// Tax rate info for 2025: 19 kr = 2135.3 mnkr
 								// This means tax base = 2135.3 mnkr / 19 kr = 112.4 million kr
 								const taxRateInfo = budgetSession.taxBase
@@ -464,14 +503,14 @@ export default function BudgetVotingPage() {
 					</div>
 				)}
 
-				{/* Expense Categories - shown second when showingIncome is true */}
-				{showingIncome && (
+				{/* Expense Categories - shown second when income is in focus */}
+				{viewMode === 'income-focus' && (
 					<div className="bg-white rounded-xl shadow-sm p-6">
 						<h2 className="text-lg font-bold text-gray-900 mb-4">
 							{t("budget.expenseCategories")}
 						</h2>
 						<div className="space-y-3">
-							{budgetSession?.categories.map((category) => (
+							{sortedExpenseCategories.map((category) => (
 								<CategoryInput
 									key={category.id}
 									category={category}
@@ -481,6 +520,57 @@ export default function BudgetVotingPage() {
 							))}
 						</div>
 					</div>
+				)}
+
+				{/* Both categories shown when in aligned mode */}
+				{viewMode === 'aligned' && (
+					<>
+						<div className="bg-white rounded-xl shadow-sm p-6 mt-2 md:mt-2">
+							<h2 className="text-lg font-bold text-gray-900 mb-4">
+								{t("budget.expenseCategories")}
+							</h2>
+							<div className="space-y-3">
+								{sortedExpenseCategories.map((category) => (
+									<CategoryInput
+										key={category.id}
+										category={category}
+										allocation={allocations.find((a) => a.categoryId === category.id)}
+										onUpdate={updateAllocation}
+									/>
+								))}
+							</div>
+						</div>
+
+						<div className="bg-white rounded-xl shadow-sm p-6">
+							<h2 className="text-lg font-bold text-gray-900 mb-4">
+								{t("budget.incomeSources")}
+							</h2>
+							<div className="space-y-3">
+								{sortedIncomeCategories.map((category) => {
+									const taxRateInfo = budgetSession.taxBase
+										? {
+												taxBase: budgetSession.taxBase,
+												defaultTaxRateKr: budgetSession.defaultTaxRateKr || 19,
+												minTaxRateKr: budgetSession.minTaxRateKr || 18,
+												maxTaxRateKr: budgetSession.maxTaxRateKr || 21,
+										  }
+										: null;
+
+									return (
+										<IncomeCategoryInput
+											key={category.id}
+											category={category}
+											allocation={incomeAllocations.find(
+												(a) => a.categoryId === category.id
+											)}
+											onUpdate={updateIncomeAllocation}
+											taxRateInfo={taxRateInfo}
+										/>
+									);
+								})}
+							</div>
+						</div>
+					</>
 				)}
 
 				{/* Success/Error Messages */}

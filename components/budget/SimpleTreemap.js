@@ -7,7 +7,7 @@ import * as d3 from "d3";
  * Displays committee name and amount in mnkr
  * Supports pinch-to-zoom gestures for adjusting amounts
  */
-export default function SimpleTreemap({ categories, onAmountChange, taxBaseInfo }) {
+export default function SimpleTreemap({ categories, onAmountChange, taxBaseInfo, onCategoryClick }) {
   const containerRef = useRef(null);
   const [activeTouch, setActiveTouch] = useState(null);
 
@@ -54,7 +54,6 @@ export default function SimpleTreemap({ categories, onAmountChange, taxBaseInfo 
           value: Math.max(cat.amount || cat.defaultAmount || 0, 100000), // Minimum 0.1 mnkr
           color: cat.color,
           id: cat.id,
-          fixedPercentage: cat.fixedPercentage || 0,
         })),
     };
 
@@ -93,25 +92,12 @@ export default function SimpleTreemap({ categories, onAmountChange, taxBaseInfo 
       .selectAll("g")
       .data(root.leaves())
       .join("g")
-      .attr("transform", (d) => `translate(${d.x0},${d.y0})`);
-
-    // Define dot pattern for fixed/unavoidable portions
-    const defs = svg.append("defs");
-
-    // Small dots pattern
-    const pattern = defs
-      .append("pattern")
-      .attr("id", "fixed-dots")
-      .attr("width", 4)
-      .attr("height", 4)
-      .attr("patternUnits", "userSpaceOnUse");
-
-    pattern
-      .append("circle")
-      .attr("cx", 2)
-      .attr("cy", 2)
-      .attr("r", 0.8)
-      .attr("fill", "rgba(0, 0, 0, 0.15)");
+      .attr("transform", (d) => `translate(${d.x0},${d.y0})`)
+      .on("click", function(_event, d) {
+        if (onCategoryClick) {
+          onCategoryClick(d.data.id);
+        }
+      });
 
     // Add colored rectangles
     cells
@@ -122,19 +108,8 @@ export default function SimpleTreemap({ categories, onAmountChange, taxBaseInfo 
       .attr("stroke", "#fff")
       .attr("stroke-width", 2)
       .attr("class", "treemap-cell")
-      .attr("data-category-id", (d) => d.data.id);
-
-    // Add pattern overlay for fixed portions
-    cells
-      .filter((d) => d.data.fixedPercentage && d.data.fixedPercentage > 0)
-      .append("rect")
-      .attr("width", (d) => d.x1 - d.x0)
-      .attr("height", (d) => {
-        const rectHeight = d.y1 - d.y0;
-        return rectHeight * (d.data.fixedPercentage / 100);
-      })
-      .attr("fill", "url(#fixed-dots)")
-      .attr("pointer-events", "none");
+      .attr("data-category-id", (d) => d.data.id)
+      .style("cursor", onCategoryClick ? "pointer" : "default");
 
     // Add text labels
     cells.each(function (d) {
@@ -230,16 +205,6 @@ export default function SimpleTreemap({ categories, onAmountChange, taxBaseInfo 
               ? category.minAmount
               : Math.floor(defaultValue * 0.7);
             maxValue = minValue + 2 * (defaultValue - minValue);
-          }
-
-          // If there's a fixed portion, adjust min/max to account for it
-          const fixedAmount = category.fixedPercentage
-            ? (category.fixedPercentage / 100) * defaultValue
-            : 0;
-
-          if (fixedAmount > 0) {
-            // Minimum must include the fixed portion
-            minValue = Math.max(minValue, fixedAmount);
           }
 
           touchState = {

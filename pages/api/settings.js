@@ -65,9 +65,9 @@ export default async function handler(req, res) {
 				});
 			}
 
-			if (theme && !["default", "green", "red"].includes(theme)) {
+			if (theme && !["default", "green", "red", "blue"].includes(theme)) {
 				return res.status(400).json({
-					error: "Invalid theme (must be default, green, or red)",
+					error: "Invalid theme (must be default, green, red, or blue)",
 				});
 			}
 

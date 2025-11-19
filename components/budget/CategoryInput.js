@@ -78,6 +78,11 @@ export default function CategoryInput({ category, allocation, onUpdate, readOnly
 		setIsEditing(false);
 	}
 
+	function handleResetToDefault() {
+		setValue(defaultValue);
+		onUpdate(category.id, defaultValue);
+	}
+
 	function handleEditKeyDown(e) {
 		if (e.key === "Enter") {
 			handleEditBlur();
@@ -195,9 +200,12 @@ export default function CategoryInput({ category, allocation, onUpdate, readOnly
 								</span>
 							)}
 						</span>
-						<span className="text-blue-600 font-medium">
+						<button
+							onClick={handleResetToDefault}
+							className="text-blue-600 font-medium hover:text-blue-800 hover:underline cursor-pointer"
+						>
 							Default: {defaultInMnkr} mnkr
-						</span>
+						</button>
 						<span className="text-gray-700 font-medium">
 							Max: {maxInMnkr} mnkr
 						</span>

@@ -217,7 +217,7 @@ export default function BudgetVotingPage() {
 		} finally {
 			setSaving(false);
 		}
-	}, [sessionId, allocations, incomeAllocations]);
+	}, [sessionId, allocations, incomeAllocations, t]);
 
 	const totalExpenses = allocations.reduce((sum, a) => sum + a.amount, 0);
 	const totalIncome = incomeAllocations.reduce((sum, a) => sum + a.amount, 0);

@@ -39,13 +39,14 @@ export default function CategoryInput({ category, allocation, onUpdate, readOnly
 	const allocationAmount = allocation?.amount;
 	useEffect(() => {
 		// Only update if we have a valid allocation amount that's different from current value
-		if (allocationAmount !== undefined && allocationAmount !== value) {
+		if (allocationAmount !== undefined) {
+			// eslint-disable-next-line react-hooks/set-state-in-effect
 			setValue(allocationAmount);
-		} else if (allocationAmount === undefined && value !== defaultValue) {
+		} else {
 			// If allocation is cleared, reset to default
 			setValue(defaultValue);
 		}
-	}, [allocationAmount, defaultValue, value]);
+	}, [allocationAmount, defaultValue]);
 
 	function handleSliderChange(e) {
 		const newAmount = parseInt(e.target.value);

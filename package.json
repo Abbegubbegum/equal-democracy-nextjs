@@ -5,18 +5,28 @@
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
-    "start": "next start"
+    "start": "next start",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix .",
+    "migrate:dry-run": "node scripts/migrate-database.js --dry-run",
+    "migrate:backup": "node scripts/migrate-database.js --backup-only",
+    "migrate": "node scripts/migrate-database.js --migrate"
   },
   "dependencies": {
     "@vercel/analytics": "^1.5.0",
+    "@anthropic-ai/sdk": "^0.69.0",
     "bcryptjs": "^3.0.2",
     "csrf": "^3.1.0",
+    "d3": "^7.9.0",
+    "dotenv": "^17.2.3",
+    "formidable": "^3.5.4",
     "lucide-react": "^0.546.0",
     "mongodb": "^6.20.0",
     "mongoose": "^8.19.1",
     "next": "15.5.6",
     "next-auth": "^4.24.11",
     "nodemailer": "^6.10.1",
+    "pdf-parse": "^2.4.5",
     "pusher": "^5.2.0",
     "pusher-js": "^8.4.0-rc2",
     "react": "19.1.0",
@@ -27,6 +37,8 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/bcryptjs": "^2.4.6",
+    "eslint": "^9.39.1",
+    "eslint-config-next": "^16.0.3",
     "tailwindcss": "^4"
   }
 }

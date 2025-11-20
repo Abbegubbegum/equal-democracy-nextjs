@@ -1,0 +1,19 @@
+Skicka flera admin requests? den knappen borde bara försvinna annars. 
+Om man inte borde kunna redigera sin ansökan?
+Man borde se hur många sessions man har kvar
+Skapa sessions borde bli som sin egen del, inte en del av admin panelen
+Ska session admins kunna stänga av sessioner? borde när de stänger av en session ta ifrån deras session räkning?
+Ska session admins kunna se tidigare skapade sessioner? kanske bara sina egna?
+Session admins borde bli av med sina rättigheter när man har slut, inte bara inte kunna klicka på knappen
+I riktiga admin panelen så är users hanteringen numera sönder pga nya admin systemet. Det borde uppdateras och där kan man ändra session admins session count
+Eller så har man det i en separat flik för hantering av session admins
+
+
+Annat: 
+I dashboarden, "Förslag jag har röstat på" kan misstolkas då det beskriver förslag som jag har gett en rating (0-5 stjärnor)
+Tycker att det borde finnas ett bättre namn på "röster" till skillnad från "slutröster"
+kanske ge mer information i dashboarden, inte bara vilka förslag jag har röstat på utan vad jag gav för rating
+Eller inte för vem använder ens den, helt onödig
+
+I mongodb databasen tycker jag att det inte ska vara isAdmin och isSuperAdmin för vad om man är den ena och inte den andra
+borde bara vara "role" som kan vara "user", "session-admin", "super-admin"

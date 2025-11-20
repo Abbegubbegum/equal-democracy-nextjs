@@ -20,14 +20,14 @@ export default async function handler(req, res) {
 			if (!settings) {
 				// Create default settings if none exist
 				settings = await Settings.create({
-					phase2DurationHours: 6,
+					sessionLimitHours: 24,
 					language: "sv",
 					theme: "default",
 				});
 			}
 
 			return res.status(200).json({
-				phase2DurationHours: settings.phase2DurationHours || 6,
+				sessionLimitHours: settings.sessionLimitHours || 24,
 				language: settings.language || "sv",
 				theme: settings.theme || "default",
 			});
@@ -45,16 +45,14 @@ export default async function handler(req, res) {
 				return res.status(403).json({ error: "Unauthorized" });
 			}
 
-			const { phase2DurationHours, language, theme } = req.body;
+			const { sessionLimitHours, language, theme } = req.body;
 
-			if (phase2DurationHours !== undefined) {
-				const hours = Number(phase2DurationHours);
+			if (sessionLimitHours !== undefined) {
+				const hours = Number(sessionLimitHours);
 				if (isNaN(hours) || hours < 1 || hours > 168) {
-					return res
-						.status(400)
-						.json({
-							error: "Phase 2 duration must be between 1 and 168 hours",
-						});
+					return res.status(400).json({
+						error: "Session limit must be between 1 and 168 hours",
+					});
 				}
 			}
 
@@ -62,19 +60,15 @@ export default async function handler(req, res) {
 				language &&
 				!["sv", "en", "sr", "es", "de"].includes(language)
 			) {
-				return res
-					.status(400)
-					.json({
-						error: "Invalid language (must be sv, en, sr, es, or de)",
-					});
+				return res.status(400).json({
+					error: "Invalid language (must be sv, en, sr, es, or de)",
+				});
 			}
 
-			if (theme && !["default", "green", "red"].includes(theme)) {
-				return res
-					.status(400)
-					.json({
-						error: "Invalid theme (must be default, green, or red)",
-					});
+			if (theme && !["default", "green", "red", "blue"].includes(theme)) {
+				return res.status(400).json({
+					error: "Invalid theme (must be default, green, red, or blue)",
+				});
 			}
 
 			// Update or create settings
@@ -82,13 +76,13 @@ export default async function handler(req, res) {
 
 			if (!settings) {
 				settings = await Settings.create({
-					phase2DurationHours: phase2DurationHours || 6,
+					sessionLimitHours: sessionLimitHours || 24,
 					language: language || "sv",
 					theme: theme || "default",
 				});
 			} else {
-				if (phase2DurationHours !== undefined) {
-					settings.phase2DurationHours = Number(phase2DurationHours);
+				if (sessionLimitHours !== undefined) {
+					settings.sessionLimitHours = Number(sessionLimitHours);
 				}
 				if (language) {
 					settings.language = language;
@@ -101,7 +95,7 @@ export default async function handler(req, res) {
 			}
 
 			return res.status(200).json({
-				phase2DurationHours: settings.phase2DurationHours,
+				sessionLimitHours: settings.sessionLimitHours,
 				language: settings.language,
 				theme: settings.theme,
 			});

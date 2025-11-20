@@ -260,17 +260,20 @@ async function checkAutoClose(activeSession) {
 			);
 		}
 
-		// Check condition 2: Time limit exceeded
-		if (activeSession.phase2StartTime) {
+		// Check condition 2: Time limit exceeded (check total session time)
+		if (activeSession.startDate) {
 			const settings = await Settings.findOne({});
-			const durationHours = settings?.phase2DurationHours || 6;
+			const sessionLimitHours = settings?.sessionLimitHours || 24;
 
-			const phase2StartTime = new Date(activeSession.phase2StartTime);
+			const sessionStartTime = new Date(activeSession.startDate);
 			const currentTime = new Date();
 			const elapsedHours =
-				(currentTime - phase2StartTime) / (1000 * 60 * 60);
+				(currentTime - sessionStartTime) / (1000 * 60 * 60);
 
-			if (elapsedHours >= durationHours) {
+			if (elapsedHours >= sessionLimitHours) {
+				console.log(
+					`[AUTO-CLOSE] ⏰ Session time limit exceeded (${elapsedHours.toFixed(1)}h / ${sessionLimitHours}h). Closing session...`
+				);
 				await closeSession(activeSession);
 				return true;
 			}
@@ -313,7 +316,6 @@ async function closeSession(activeSession) {
 					title: proposal.title,
 					problem: proposal.problem,
 					solution: proposal.solution,
-					estimatedCost: proposal.estimatedCost,
 					authorName: proposal.authorName,
 					yesVotes: yesVotes,
 					noVotes: noVotes,

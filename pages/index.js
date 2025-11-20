@@ -1,6 +1,6 @@
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
 	Users,
 	Plus,
@@ -37,7 +37,7 @@ export default function HomePage() {
 	const { theme, config } = useConfig();
 	const [proposals, setProposals] = useState([]);
 	const [loading, setLoading] = useState(true);
-	const [view, setView] = useState("home"); // 'home', 'create', 'vote'
+	const [view, setView] = useState("home"); // 'home', 'create', 'vote', 'apply-admin'
 	const [selectedProposal, setSelectedProposal] = useState(null);
 	const [placeName, setPlaceName] = useState("");
 	const [currentPhase, setCurrentPhase] = useState("phase1"); // 'phase1', 'phase2', 'closed'
@@ -61,6 +61,168 @@ export default function HomePage() {
 	const [playNotification] = useSound("/sounds/notification.mp3", {
 		volume: 0.5,
 	});
+
+	// Define all callback functions before they're used in SSE hook or useEffect
+	const fetchWinningProposals = useCallback(async () => {
+		try {
+			const res = await fetch("/api/top-proposals");
+			const data = await res.json();
+			setWinningProposals(data);
+		} catch (error) {
+			console.error("Error fetching winning proposals:", error);
+		}
+	}, []);
+
+	const fetchProposals = useCallback(async () => {
+		try {
+			const res = await fetch("/api/proposals");
+			const data = await res.json();
+			// Ensure data is always an array
+			setProposals(Array.isArray(data) ? data : []);
+		} catch (error) {
+			console.error("Error fetching proposals:", error);
+			setProposals([]); // Set empty array on error
+		} finally {
+			setLoading(false);
+		}
+	}, []);
+
+	const fetchSessionInfo = useCallback(async () => {
+		try {
+			const res = await fetch("/api/sessions/current");
+			const data = await res.json();
+
+			// Check if there's no active session
+			if (data.noActiveSession) {
+				setHasActiveSession(false);
+				setCurrentPhase(null);
+				setPlaceName("");
+				return;
+			}
+
+			// Active session exists
+			setHasActiveSession(true);
+
+			// Set place name from session
+			if (data.place) {
+				setPlaceName(data.place);
+			}
+
+			if (data.phase) {
+				const previousPhase = currentPhase;
+
+				// Show results modal if session is closed and we haven't shown it yet
+				// This covers both: users on the page when it closes, and users loading after it's closed
+				if (data.phase === "closed" && !showSessionClosed) {
+					await fetchWinningProposals();
+					playEndSign(); // Play sound when results are shown
+					setShowSessionClosed(true);
+				}
+
+				setCurrentPhase(data.phase);
+
+				// Mark that initial load is complete
+				if (isInitialLoad) {
+					setIsInitialLoad(false);
+				}
+			}
+		} catch (error) {
+			console.error("Error fetching session info:", error);
+		}
+	}, [currentPhase, showSessionClosed, isInitialLoad, fetchWinningProposals, playEndSign]);
+
+	const checkSessionTimeout = useCallback(async () => {
+		try {
+			// Call the timeout checker endpoint
+			// This runs silently in the background
+			await fetch("/api/check-session-timeout", {
+				method: "POST",
+			});
+			// We don't need to do anything with the response
+			// If a session was closed, SSE will notify us
+		} catch (error) {
+			// Silent fail - this is a background check
+			console.error("Error checking session timeout:", error);
+		}
+	}, []);
+
+	const checkUserVote = useCallback(async () => {
+		try {
+			const res = await fetch("/api/votes?checkSession=true");
+			if (!res.ok) {
+				console.error("Error checking user vote:", res.status);
+				return;
+			}
+			const data = await res.json();
+			setUserHasVotedInSession(data.hasVotedInSession);
+			setVotedProposalId(data.votedProposalId);
+		} catch (error) {
+			console.error("Error checking user vote:", error);
+		}
+	}, []);
+
+	const checkPhaseTransition = useCallback(async () => {
+		try {
+			const res = await fetch("/api/sessions/check-phase-transition");
+			const data = await res.json();
+
+			if (data.transitionScheduled) {
+				// Transition is scheduled, show countdown
+				setTransitionCountdown(data.secondsRemaining);
+				// Clear any existing interval before starting a new one
+				if (transitionIntervalRef.current) {
+					clearInterval(transitionIntervalRef.current);
+					transitionIntervalRef.current = null;
+				}
+
+				// Start polling for execution
+				transitionIntervalRef.current = setInterval(async () => {
+					const execRes = await fetchWithCsrf(
+						"/api/sessions/execute-scheduled-transition",
+						{
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+						}
+					);
+
+					if (execRes.ok) {
+						const execData = await execRes.json();
+
+						if (execData.transitionExecuted) {
+							// Transition complete!
+							if (transitionIntervalRef.current) {
+								clearInterval(transitionIntervalRef.current);
+								transitionIntervalRef.current = null;
+							}
+							setTransitionCountdown(null);
+							setShowPhaseTransition(true);
+							playEndSign(); // Play sound when transition happens
+
+							// Update session info after delay
+							setTimeout(() => {
+								fetchSessionInfo();
+								fetchProposals();
+								setShowPhaseTransition(false);
+							}, 3000);
+						} else if (execData.secondsRemaining !== undefined) {
+							// Update countdown
+							setTransitionCountdown(execData.secondsRemaining);
+						}
+					}
+				}, 1000); // Check every second
+
+				// Clear interval after 110 seconds (safety)
+				setTimeout(() => {
+					if (transitionIntervalRef.current) {
+						clearInterval(transitionIntervalRef.current);
+						transitionIntervalRef.current = null;
+					}
+				}, 110000);
+			}
+		} catch (error) {
+			console.error("Error checking phase transition:", error);
+		}
+	}, [fetchSessionInfo, fetchProposals, playEndSign]);
 
 	// Setup SSE for real-time updates
 	useSSE({
@@ -144,12 +306,15 @@ export default function HomePage() {
 
 	useEffect(() => {
 		if (session) {
+			// Check for session timeouts first
+			checkSessionTimeout();
+
 			fetchProposals();
 			fetchSessionInfo();
 			checkUserVote(); // Check if user has already voted
 			checkPhaseTransition(); // Check if a transition is already scheduled
 		}
-	}, [session]);
+	}, [session, fetchProposals, fetchSessionInfo, checkUserVote, checkPhaseTransition, checkSessionTimeout]);
 
 	// Check if user has created a proposal
 	useEffect(() => {
@@ -186,97 +351,39 @@ export default function HomePage() {
 				transitionIntervalRef.current = null;
 			}
 		};
-	}, [session, currentPhase]);
+	}, [session, currentPhase, fetchSessionInfo, fetchProposals]);
 
-	const fetchSessionInfo = async () => {
-		try {
-			const res = await fetch("/api/sessions/current");
-			const data = await res.json();
-
-			// Check if there's no active session
-			if (data.noActiveSession) {
-				setHasActiveSession(false);
-				setCurrentPhase(null);
-				setPlaceName("");
-				return;
-			}
-
-			// Active session exists
-			setHasActiveSession(true);
-
-			// Set place name from session
-			if (data.place) {
-				setPlaceName(data.place);
-			}
-
-			if (data.phase) {
-				const previousPhase = currentPhase;
-
-				// Show results modal if session is closed and we haven't shown it yet
-				// This covers both: users on the page when it closes, and users loading after it's closed
-				if (data.phase === "closed" && !showSessionClosed) {
-					await fetchWinningProposals();
-					playEndSign(); // Play sound when results are shown
-					setShowSessionClosed(true);
-				}
-
-				setCurrentPhase(data.phase);
-
-				// Mark that initial load is complete
-				if (isInitialLoad) {
-					setIsInitialLoad(false);
-				}
-			}
-		} catch (error) {
-			console.error("Error fetching session info:", error);
-		}
-	};
-
-	const fetchWinningProposals = async () => {
-		try {
-			const res = await fetch("/api/top-proposals");
-			const data = await res.json();
-			setWinningProposals(data);
-		} catch (error) {
-			console.error("Error fetching winning proposals:", error);
-		}
-	};
-
-	const checkUserVote = async () => {
-		try {
-			const res = await fetch("/api/votes?checkSession=true");
-			if (!res.ok) {
-				console.error("Error checking user vote:", res.status);
-				return;
-			}
-			const data = await res.json();
-			setUserHasVotedInSession(data.hasVotedInSession);
-			setVotedProposalId(data.votedProposalId);
-		} catch (error) {
-			console.error("Error checking user vote:", error);
-		}
-	};
-
-	const fetchProposals = async () => {
-		try {
-			const res = await fetch("/api/proposals");
-			const data = await res.json();
-			// Ensure data is always an array
-			setProposals(Array.isArray(data) ? data : []);
-		} catch (error) {
-			console.error("Error fetching proposals:", error);
-			setProposals([]); // Set empty array on error
-		} finally {
-			setLoading(false);
-		}
-	};
-
-	const handleCreateProposal = async (
-		title,
-		problem,
-		solution,
-		estimatedCost
+	const handleApplyForAdmin = async (
+		name,
+		organization,
+		requestedSessions
 	) => {
+		try {
+			const res = await fetchWithCsrf("/api/apply-admin", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					name,
+					organization,
+					requestedSessions: parseInt(requestedSessions),
+				}),
+			});
+
+			const data = await res.json();
+
+			if (res.ok) {
+				alert(t("admin.applicationSubmitted"));
+				setView("home");
+			} else {
+				alert(data.message || t("errors.generic"));
+			}
+		} catch (error) {
+			console.error("Error applying for admin:", error);
+			alert(t("errors.generic"));
+		}
+	};
+
+	const handleCreateProposal = async (title, problem, solution) => {
 		try {
 			const res = await fetchWithCsrf("/api/proposals", {
 				method: "POST",
@@ -285,7 +392,6 @@ export default function HomePage() {
 					title,
 					problem,
 					solution,
-					estimatedCost,
 				}),
 			});
 
@@ -325,69 +431,6 @@ export default function HomePage() {
 			}
 		} catch (error) {
 			console.error("Error voting:", error);
-		}
-	};
-
-	const checkPhaseTransition = async () => {
-		try {
-			const res = await fetch("/api/sessions/check-phase-transition");
-			const data = await res.json();
-
-			if (data.transitionScheduled) {
-				// Transition is scheduled, show countdown
-				setTransitionCountdown(data.secondsRemaining);
-				// Clear any existing interval before starting a new one
-				if (transitionIntervalRef.current) {
-					clearInterval(transitionIntervalRef.current);
-					transitionIntervalRef.current = null;
-				}
-
-				// Start polling for execution
-				transitionIntervalRef.current = setInterval(async () => {
-					const execRes = await fetchWithCsrf(
-						"/api/sessions/execute-scheduled-transition",
-						{
-							method: "POST",
-							headers: { "Content-Type": "application/json" },
-						}
-					);
-
-					if (execRes.ok) {
-						const execData = await execRes.json();
-
-						if (execData.transitionExecuted) {
-							// Transition complete!
-							if (transitionIntervalRef.current) {
-								clearInterval(transitionIntervalRef.current);
-								transitionIntervalRef.current = null;
-							}
-							setTransitionCountdown(null);
-							setShowPhaseTransition(true);
-							playEndSign(); // Play sound when transition happens
-
-							// Update session info after delay
-							setTimeout(() => {
-								fetchSessionInfo();
-								fetchProposals();
-								setShowPhaseTransition(false);
-							}, 3000);
-						} else if (execData.secondsRemaining !== undefined) {
-							// Update countdown
-							setTransitionCountdown(execData.secondsRemaining);
-						}
-					}
-				}, 1000); // Check every second
-
-				// Clear interval after 110 seconds (safety)
-				setTimeout(() => {
-					if (transitionIntervalRef.current) {
-						clearInterval(transitionIntervalRef.current);
-						transitionIntervalRef.current = null;
-					}
-				}, 110000);
-			}
-		} catch (error) {
-			console.error("Error checking phase transition:", error);
 		}
 	};
 
@@ -612,6 +655,18 @@ export default function HomePage() {
 		);
 	}
 
+	if (view === "apply-admin") {
+		return (
+			<ApplyAdminView
+				onSubmit={handleApplyForAdmin}
+				onBack={() => setView("home")}
+				userEmail={session.user.email}
+				userName={session.user.name}
+				t={t}
+			/>
+		);
+	}
+
 	// Home view
 	// In Phase 1: show active proposals, sorted by creation time (newest first)
 	// In Phase 2: show top proposals (40%), sorted by rating (highest first)
@@ -668,20 +723,44 @@ export default function HomePage() {
 							</div>
 						</div>
 						<div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm">
-							{session.user.isAdmin && (
-								<button
-									onClick={() => router.push("/admin")}
-									className="text-white hover:text-accent-400 font-medium whitespace-nowrap"
-								>
-									{t("nav.admin")}
-								</button>
+							{session.user.isSuperAdmin && (
+								<>
+									<button
+										onClick={() => router.push("/admin")}
+										className="text-white hover:text-accent-400 font-medium whitespace-nowrap"
+									>
+										{t("nav.admin")}
+									</button>
+									<button
+										onClick={() =>
+											router.push("/manage-sessions")
+										}
+										className="text-white hover:text-accent-400 font-medium whitespace-nowrap"
+									>
+										Manage Sessions
+									</button>
+								</>
 							)}
-							<button
-								onClick={() => router.push("/dashboard")}
-								className="text-white hover:text-accent-400 font-medium whitespace-nowrap"
-							>
-								{t("nav.myActivity")}
-							</button>
+							{session.user.isAdmin &&
+								!session.user.isSuperAdmin && (
+									<button
+										onClick={() =>
+											router.push("/manage-sessions")
+										}
+										className="text-white hover:text-accent-400 font-medium whitespace-nowrap"
+									>
+										Manage Sessions
+									</button>
+								)}
+							{!session.user.isAdmin &&
+								!session.user.isSuperAdmin && (
+									<button
+										onClick={() => setView("apply-admin")}
+										className="text-white hover:text-accent-400 font-medium whitespace-nowrap"
+									>
+										{t("nav.applyForAdmin")}
+									</button>
+								)}
 							<button
 								onClick={() => signOut()}
 								className="text-white hover:text-accent-400 whitespace-nowrap"
@@ -939,24 +1018,8 @@ function ProposalCard({
 	const isExpandedForDiscuss = expandedProposal === proposal._id;
 	const isPhase1 = currentPhase === "phase1";
 
-	useEffect(() => {
-		checkIfVoted();
-	}, [proposal._id]);
-
-	useEffect(() => {
-		if (isExpandedForDiscuss) {
-			fetchComments();
-		}
-	}, [isExpandedForDiscuss]);
-
-	// Refetch comments when commentUpdateTrigger changes (from SSE)
-	useEffect(() => {
-		if (isExpandedForDiscuss && commentUpdateTrigger > 0) {
-			fetchComments();
-		}
-	}, [commentUpdateTrigger]);
-
-	const checkIfVoted = async () => {
+	// Define callback functions before they're used in useEffect
+	const checkIfVoted = useCallback(async () => {
 		try {
 			const res = await fetch(`/api/thumbsup?proposalId=${proposal._id}`);
 			const data = await res.json();
@@ -967,9 +1030,9 @@ function ProposalCard({
 		} finally {
 			setChecking(false);
 		}
-	};
+	}, [proposal._id]);
 
-	const fetchComments = async () => {
+	const fetchComments = useCallback(async () => {
 		setLoadingComments(true);
 		try {
 			const res = await fetch(`/api/comments?proposalId=${proposal._id}`);
@@ -980,7 +1043,24 @@ function ProposalCard({
 		} finally {
 			setLoadingComments(false);
 		}
-	};
+	}, [proposal._id]);
+
+	useEffect(() => {
+		checkIfVoted();
+	}, [proposal._id, checkIfVoted]);
+
+	useEffect(() => {
+		if (isExpandedForDiscuss) {
+			fetchComments();
+		}
+	}, [isExpandedForDiscuss, fetchComments]);
+
+	// Refetch comments when commentUpdateTrigger changes (from SSE)
+	useEffect(() => {
+		if (isExpandedForDiscuss && commentUpdateTrigger > 0) {
+			fetchComments();
+		}
+	}, [commentUpdateTrigger, isExpandedForDiscuss, fetchComments]);
 
 	const handleStarClick = async (rating) => {
 		setConfirmedRating(rating);
@@ -1061,7 +1141,7 @@ function ProposalCard({
 		if (comments.length > 0) {
 			fetchAllRatings();
 		}
-	}, [comments.length]);
+	}, [comments.length, comments]);
 
 	return (
 		<div className="bg-white rounded-2xl shadow-md p-4 sm:p-6 space-y-4">
@@ -1098,15 +1178,6 @@ function ProposalCard({
 						</p>
 						<p className="text-gray-600 break-words">
 							{proposal.solution}
-						</p>
-					</div>
-
-					<div>
-						<p className="font-semibold text-gray-700">
-							{t("proposals.estimatedCost")}
-						</p>
-						<p className="text-gray-600">
-							{proposal.estimatedCost}
 						</p>
 					</div>
 				</div>
@@ -1251,7 +1322,10 @@ function ProposalCard({
 					</div>
 
 					{/* Comment input */}
-					<form onSubmit={handleSubmitComment} className="flex flex-col sm:flex-row gap-2">
+					<form
+						onSubmit={handleSubmitComment}
+						className="flex flex-col sm:flex-row gap-2"
+					>
 						<input
 							type="text"
 							value={commentText}
@@ -1484,6 +1558,144 @@ function ProposalCard({
 }
 
 // ============================================================================
+// APPLY ADMIN VIEW
+// ============================================================================
+
+function ApplyAdminView({ onSubmit, onBack, userEmail, userName, t }) {
+	const { theme } = useConfig();
+	const [name, setName] = useState(userName || "");
+	const [organization, setOrganization] = useState("");
+	const [requestedSessions, setRequestedSessions] = useState("10");
+	const [submitting, setSubmitting] = useState(false);
+
+	const primaryColor = theme.colors.primary[600];
+	const primaryDark = theme.colors.primary[900];
+	const accentColor = theme.colors.accent[400];
+
+	const handleSubmit = async (e) => {
+		e.preventDefault();
+
+		if (!name || !organization || !requestedSessions) {
+			alert(t("errors.generic"));
+			return;
+		}
+
+		const sessions = parseInt(requestedSessions);
+		if (isNaN(sessions) || sessions < 1 || sessions > 50) {
+			alert("Please enter a number between 1 and 50 for sessions");
+			return;
+		}
+
+		setSubmitting(true);
+		await onSubmit(name, organization, sessions);
+		setSubmitting(false);
+	};
+
+	return (
+		<div className="min-h-screen" style={{ backgroundColor: primaryColor }}>
+			<div
+				className="p-4 sm:p-6"
+				style={{ backgroundColor: primaryDark }}
+			>
+				<div className="max-w-2xl mx-auto">
+					<button
+						onClick={onBack}
+						className="text-white hover:text-accent-400 mb-4 flex items-center gap-2"
+					>
+						← {t("common.back")}
+					</button>
+					<h1 className="text-2xl sm:text-3xl font-bold text-white break-words">
+						{t("admin.applyForAdmin")}
+					</h1>
+				</div>
+			</div>
+
+			<div className="max-w-2xl mx-auto p-4 sm:p-6">
+				<form
+					onSubmit={handleSubmit}
+					className="bg-white rounded-2xl shadow-lg p-6 space-y-6"
+				>
+					<div>
+						<label className="block text-sm font-medium text-slate-700 mb-2">
+							{t("auth.email")}
+						</label>
+						<input
+							type="email"
+							value={userEmail}
+							disabled
+							className="w-full border border-slate-300 rounded-lg px-4 py-3 bg-slate-100 text-slate-600"
+						/>
+					</div>
+
+					<div>
+						<label className="block text-sm font-medium text-slate-700 mb-2">
+							{t("auth.name")} *
+						</label>
+						<input
+							type="text"
+							value={name}
+							onChange={(e) => setName(e.target.value)}
+							className="w-full border border-slate-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+							placeholder={t("auth.name")}
+							required
+						/>
+					</div>
+
+					<div>
+						<label className="block text-sm font-medium text-slate-700 mb-2">
+							{t("admin.organization")} *
+						</label>
+						<input
+							type="text"
+							value={organization}
+							onChange={(e) => setOrganization(e.target.value)}
+							className="w-full border border-slate-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+							placeholder={t("admin.organizationPlaceholder")}
+							required
+						/>
+					</div>
+
+					<div>
+						<label className="block text-sm font-medium text-slate-700 mb-2">
+							{t("admin.requestedSessions")} * (1-50)
+						</label>
+						<input
+							type="number"
+							min="1"
+							max="50"
+							value={requestedSessions}
+							onChange={(e) =>
+								setRequestedSessions(e.target.value)
+							}
+							className="w-full border border-slate-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+							placeholder="10"
+							required
+						/>
+						<p className="text-sm text-slate-500 mt-1">
+							{t("admin.requestedSessionsHelp")}
+						</p>
+					</div>
+
+					<button
+						type="submit"
+						disabled={submitting}
+						className="w-full font-bold py-4 rounded-xl shadow-lg transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+						style={{
+							backgroundColor: accentColor,
+							color: primaryDark,
+						}}
+					>
+						{submitting
+							? t("common.submit") + "..."
+							: t("common.submit")}
+					</button>
+				</form>
+			</div>
+		</div>
+	);
+}
+
+// ============================================================================
 // CREATE PROPOSAL VIEW
 // ============================================================================
 
@@ -1491,24 +1703,13 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 	const [title, setTitle] = useState("");
 	const [problem, setProblem] = useState("");
 	const [solution, setSolution] = useState("");
-	const [estimatedCost, setEstimatedCost] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 
 	const handleSubmit = async (e) => {
 		e.preventDefault();
-		if (
-			title.trim() &&
-			problem.trim() &&
-			solution.trim() &&
-			estimatedCost.trim()
-		) {
+		if (title.trim() && problem.trim() && solution.trim()) {
 			setSubmitting(true);
-			await onSubmit(
-				title.trim(),
-				problem.trim(),
-				solution.trim(),
-				estimatedCost.trim()
-			);
+			await onSubmit(title.trim(), problem.trim(), solution.trim());
 			setSubmitting(false);
 		}
 	};
@@ -1528,7 +1729,10 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 						{t("createProposal.title")}
 					</h2>
 
-					<form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+					<form
+						onSubmit={handleSubmit}
+						className="space-y-4 sm:space-y-6"
+					>
 						<div>
 							<label className="block text-sm font-medium text-gray-700 mb-2">
 								{t("createProposal.nameOfProposal")}
@@ -1585,32 +1789,12 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 							</p>
 						</div>
 
-						<div>
-							<label className="block text-sm font-medium text-gray-700 mb-2">
-								{t("createProposal.costLabel")}
-							</label>
-							<input
-								type="text"
-								value={estimatedCost}
-								onChange={(e) =>
-									setEstimatedCost(e.target.value)
-								}
-								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:outline-none"
-								placeholder={t(
-									"createProposal.costPlaceholder"
-								)}
-								maxLength={100}
-								required
-							/>
-						</div>
-
 						<button
 							type="submit"
 							disabled={
 								!title.trim() ||
 								!problem.trim() ||
 								!solution.trim() ||
-								!estimatedCost.trim() ||
 								submitting
 							}
 							className="w-full bg-primary-800 hover:bg-primary-900 disabled:bg-gray-300 text-white font-bold py-4 rounded-xl transition-colors shadow-lg"
@@ -1648,11 +1832,8 @@ function VoteView({
 	const [hasVotedInThisSession, setHasVotedInThisSession] =
 		useState(userHasVoted);
 
-	useEffect(() => {
-		fetchVoteData();
-	}, []);
-
-	const fetchVoteData = async () => {
+	// Define callback functions before they're used in useEffect
+	const fetchVoteData = useCallback(async () => {
 		try {
 			const resultsPromises = proposals.map(async (p) => {
 				const res = await fetch(
@@ -1681,7 +1862,11 @@ function VoteView({
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, [proposals, currentUser.id]);
+
+	useEffect(() => {
+		fetchVoteData();
+	}, [fetchVoteData]);
 
 	const handleVote = async (proposalId, choice) => {
 		setIsVoting(true);
@@ -1800,15 +1985,6 @@ function VoteView({
 								{currentProposal.solution}
 							</p>
 						</div>
-
-						<div className="border-t border-gray-200 pt-4 sm:pt-6">
-							<h3 className="text-xs sm:text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">
-								{t("proposals.estimatedCost")}
-							</h3>
-							<p className="text-lg sm:text-xl font-semibold text-primary-900 break-words">
-								{currentProposal.estimatedCost}
-							</p>
-						</div>
 					</div>
 
 					{/* Voting section */}
@@ -1857,7 +2033,9 @@ function VoteView({
 							<div className="border-t-4 border-green-400 pt-6 sm:pt-8 space-y-4">
 								<div className="text-center">
 									<div className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 sm:px-6 py-2 sm:py-3 rounded-full font-semibold text-sm sm:text-base">
-										<span className="text-xl sm:text-2xl">✓</span>
+										<span className="text-xl sm:text-2xl">
+											✓
+										</span>
 										<span>{t("voting.youHaveVoted")}</span>
 									</div>
 								</div>

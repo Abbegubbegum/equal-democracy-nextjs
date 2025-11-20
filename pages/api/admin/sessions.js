@@ -4,6 +4,11 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { csrfProtection } from "@/lib/csrf";
 import broadcaster from "@/lib/sse-broadcaster";
+import {
+	hasAdminAccess,
+	isSuperAdmin,
+	checkAdminSessionLimit,
+} from "@/lib/admin-helper";
 
 export default async function handler(req, res) {
 	await dbConnect();
@@ -13,16 +18,22 @@ export default async function handler(req, res) {
 		return;
 	}
 
-	// Check if user is admin
+	// Check if user has admin access
 	const session = await getServerSession(req, res, authOptions);
-	if (!session || !session.user?.isAdmin) {
+	if (!session || !hasAdminAccess(session.user)) {
 		return res.status(403).json({ error: "Unauthorized" });
 	}
 
 	if (req.method === "GET") {
 		try {
-			// Get all sessions
-			const sessions = await Session.find()
+			// Superadmins see all sessions, regular admins see only their own
+			const filter = isSuperAdmin(session.user)
+				? {}
+				: { createdBy: session.user.id };
+
+			// Get sessions based on filter and populate creator info
+			const sessions = await Session.find(filter)
+				.populate("createdBy", "name email")
 				.sort({ createdAt: -1 })
 				.lean();
 
@@ -87,6 +98,16 @@ export default async function handler(req, res) {
 				return res.status(400).json({ error: "Place is required" });
 			}
 
+			// Check session limits for regular admins
+			const limitCheck = await checkAdminSessionLimit(session.user.id);
+			if (!limitCheck.canCreate) {
+				return res.status(400).json({
+					error: limitCheck.message,
+					remaining: limitCheck.remaining,
+					total: limitCheck.total,
+				});
+			}
+
 			// Check if there's already an active session
 			const activeSession = await Session.findOne({ status: "active" });
 			if (activeSession) {
@@ -100,7 +121,22 @@ export default async function handler(req, res) {
 				place: place.trim(),
 				status: "active",
 				startDate: new Date(),
+				createdBy: session.user.id,
 			});
+
+			// Decrement remainingSessions for regular admins (not superadmins)
+			const user = await User.findById(session.user.id);
+			let isLastSession = false;
+			if (
+				user &&
+				user.isAdmin &&
+				!user.isSuperAdmin &&
+				user.remainingSessions > 0
+			) {
+				user.remainingSessions -= 1;
+				isLastSession = user.remainingSessions === 0;
+				await user.save();
+			}
 
 			// Broadcast new session event to all connected clients
 			await broadcaster.broadcast("new-session", {
@@ -111,7 +147,11 @@ export default async function handler(req, res) {
 				startDate: newSession.startDate,
 			});
 
-			return res.status(201).json(newSession);
+			return res.status(201).json({
+				...newSession.toObject(),
+				isLastSession,
+				remainingSessions: user?.remainingSessions || 0,
+			});
 		} catch (error) {
 			console.error("Error creating session:", error);
 			if (error.code === 11000) {

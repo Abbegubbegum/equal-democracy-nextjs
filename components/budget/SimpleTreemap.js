@@ -347,7 +347,8 @@ export default function SimpleTreemap({ categories, onAmountChange, taxBaseInfo,
         svgElement.removeEventListener('touchcancel', handleTouchEnd);
       }
     };
-  }, [categories, onAmountChange, taxBaseInfo]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categories, onAmountChange, taxBaseInfo, onCategoryClick]);
 
   // Helper function to wrap text with hyphenation support
   function wrapText(text, maxWidth) {

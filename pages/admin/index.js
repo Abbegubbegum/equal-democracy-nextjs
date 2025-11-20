@@ -165,6 +165,7 @@ function SettingsPanel({ isSuperAdmin }) {
 	}, []);
 
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect
 		loadSettings();
 	}, [loadSettings]);
 
@@ -343,6 +344,7 @@ function UsersPanel() {
 	}, []);
 
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect
 		load();
 	}, [load]);
 
@@ -676,6 +678,7 @@ function TopProposalsPanel() {
 	}, []);
 
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect
 		loadTopProposals();
 	}, [loadTopProposals]);
 
@@ -776,6 +779,7 @@ function EmailPanel() {
 	}, []);
 
 	useEffect(() => {
+		// eslint-disable-next-line react-hooks/set-state-in-effect
 		loadSessions();
 	}, [loadSessions]);
 

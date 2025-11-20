@@ -263,7 +263,12 @@ function SessionCard({ session, onStatusChange, onDelete }) {
 			<div className="flex items-start justify-between">
 				<div className="flex-1">
 					<div className="flex items-center gap-3 mb-2">
-						<h3 className="text-lg font-semibold text-gray-900">{session.name}</h3>
+						<h3
+							className="text-lg font-semibold text-gray-900 hover:text-emerald-600 cursor-pointer transition-colors"
+							onClick={() => router.push(`/budget/${displayId}`)}
+						>
+							{session.name}
+						</h3>
 						<span
 							className={`px-2 py-1 rounded-full text-xs font-medium ${
 								statusColors[session.status]

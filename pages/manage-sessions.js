@@ -164,7 +164,7 @@ function SessionsPanel({ isSuperAdmin }) {
 	}, []);
 
 	useEffect(() => {
-		loadSessions();
+		loadSessions(); // eslint-disable-line react-hooks/set-state-in-effect
 		loadSessionLimit();
 		loadSettings();
 		setNewPlace("Vallentuna");

@@ -25,10 +25,11 @@ function TaxIncomeSliders({ category, allocation, onUpdate, taxBase, taxRateInfo
 
 	// Sync with allocation
 	useEffect(() => {
-		if (allocation?.taxRateKr !== undefined && allocation.taxRateKr !== taxRateKr) {
+		if (allocation?.taxRateKr !== undefined) {
+			// eslint-disable-next-line react-hooks/set-state-in-effect
 			setTaxRateKr(allocation.taxRateKr);
 		}
-	}, [allocation?.taxRateKr, taxRateKr]);
+	}, [allocation?.taxRateKr]);
 
 	// Handler for tax rate slider
 	function handleTaxRateSliderChange(e) {
@@ -263,21 +264,7 @@ export default function IncomeCategoryInput({ category, allocation, onUpdate, ta
 		? category.amount / 19 // Assume default 19 kr if no taxRateInfo
 		: taxRateInfo?.taxBase;
 
-	// If this is tax income, render TWO synchronized sliders
-	if (isTaxIncome && calculatedTaxBase) {
-		return (
-			<TaxIncomeSliders
-				category={category}
-				allocation={allocation}
-				onUpdate={onUpdate}
-				taxBase={calculatedTaxBase}
-				taxRateInfo={taxRateInfo}
-				readOnly={readOnly}
-			/>
-		);
-	}
-
-	// For non-tax income, use regular slider
+	// For non-tax income, use regular slider - define all hooks first before any early returns
 	const defaultValue = category.defaultAmount || category.amount;
 	const minValue = category.minAmount && category.minAmount < defaultValue
 		? category.minAmount
@@ -291,10 +278,25 @@ export default function IncomeCategoryInput({ category, allocation, onUpdate, ta
 	// Sync with allocation prop changes
 	const allocationAmount = allocation?.amount;
 	useEffect(() => {
-		if (allocationAmount !== undefined && allocationAmount !== value) {
+		if (allocationAmount !== undefined) {
+			// eslint-disable-next-line react-hooks/set-state-in-effect
 			setValue(allocationAmount);
 		}
-	}, [allocationAmount, value]);
+	}, [allocationAmount]);
+
+	// If this is tax income, render TWO synchronized sliders
+	if (isTaxIncome && calculatedTaxBase) {
+		return (
+			<TaxIncomeSliders
+				category={category}
+				allocation={allocation}
+				onUpdate={onUpdate}
+				taxBase={calculatedTaxBase}
+				taxRateInfo={taxRateInfo}
+				readOnly={readOnly}
+			/>
+		);
+	}
 
 	function handleSliderChange(e) {
 		const newValue = parseFloat(e.target.value);

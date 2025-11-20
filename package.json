@@ -7,13 +7,17 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint .",
-    "lint:fix": "eslint --fix ."
+    "lint:fix": "eslint --fix .",
+    "migrate:dry-run": "node scripts/migrate-database.js --dry-run",
+    "migrate:backup": "node scripts/migrate-database.js --backup-only",
+    "migrate": "node scripts/migrate-database.js --migrate"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.69.0",
     "bcryptjs": "^3.0.2",
     "csrf": "^3.1.0",
     "d3": "^7.9.0",
+    "dotenv": "^17.2.3",
     "formidable": "^3.5.4",
     "lucide-react": "^0.546.0",
     "mongodb": "^6.20.0",

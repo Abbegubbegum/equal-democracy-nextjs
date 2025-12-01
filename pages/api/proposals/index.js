@@ -83,6 +83,22 @@ export default async function handler(req, res) {
 					.json({ message: "No active session exists" });
 			}
 
+			// Check if session has maxOneProposalPerUser enabled
+			if (activeSession.maxOneProposalPerUser) {
+				// Check if user already has a proposal in this session
+				const userProposalCount = await Proposal.countDocuments({
+					sessionId: activeSession._id,
+					authorId: session.user.id,
+					status: { $in: ["active", "top3"] },
+				});
+
+				if (userProposalCount > 0) {
+					return res.status(400).json({
+						message: "You have already submitted a proposal in this session.",
+					});
+				}
+			}
+
 			// Check for duplicate proposal title in current session
 			const existingProposal = await Proposal.findOne({
 				sessionId: activeSession._id,

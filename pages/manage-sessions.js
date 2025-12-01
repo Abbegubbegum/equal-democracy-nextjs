@@ -78,6 +78,7 @@ function SessionsPanel({ isSuperAdmin }) {
 	const [loading, setLoading] = useState(true);
 	const [creating, setCreating] = useState(false);
 	const [newPlace, setNewPlace] = useState("");
+	const [maxOneProposalPerUser, setMaxOneProposalPerUser] = useState(false);
 	const [message, setMessage] = useState("");
 	const [remainingSessions, setRemainingSessions] = useState(null);
 	const [requestedSessions, setRequestedSessions] = useState("10");
@@ -167,7 +168,7 @@ function SessionsPanel({ isSuperAdmin }) {
 		loadSessions();
 		loadSessionLimit();
 		loadSettings();
-		setNewPlace("Vallentuna");
+		setNewPlace("Write a short question max eight words here");
 	}, [loadSessions, loadSessionLimit, loadSettings]);
 
 	const saveSettings = async () => {
@@ -223,6 +224,7 @@ function SessionsPanel({ isSuperAdmin }) {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					place: newPlace,
+					maxOneProposalPerUser: maxOneProposalPerUser,
 				}),
 			});
 
@@ -244,7 +246,8 @@ function SessionsPanel({ isSuperAdmin }) {
 				} else {
 					loadSessions();
 					loadSessionLimit();
-					setNewPlace("Vallentuna");
+					setNewPlace("Write a short question max eight words here");
+					setMaxOneProposalPerUser(false);
 					setTimeout(
 						() => setMessage(""),
 						data.isLastSession ? 5000 : 3000
@@ -362,7 +365,7 @@ function SessionsPanel({ isSuperAdmin }) {
 						<div className="space-y-5">
 							<div>
 								<label className="block text-sm font-semibold text-slate-700 mb-2">
-									What to Improve
+									What do you want to ask?
 								</label>
 								<input
 									type="text"
@@ -373,6 +376,25 @@ function SessionsPanel({ isSuperAdmin }) {
 									className="w-full border-2 border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
 									placeholder="e.g. 'City Name' or 'Topic'"
 								/>
+							</div>
+
+							<div>
+								<label className="flex items-center gap-2 cursor-pointer">
+									<input
+										type="checkbox"
+										checked={maxOneProposalPerUser}
+										onChange={(e) =>
+											setMaxOneProposalPerUser(e.target.checked)
+										}
+										className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+									/>
+									<span className="text-sm font-semibold text-slate-700">
+										Max one proposal each
+									</span>
+								</label>
+								<p className="text-xs text-slate-500 mt-1 ml-6">
+									Limit all users (including admins) to one proposal per session
+								</p>
 							</div>
 
 							<div>

@@ -2,7 +2,10 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "../../../lib/mongodb";
 import { Proposal, ThumbsUp, Comment } from "../../../lib/models";
-import { getActiveSession, registerActiveUser } from "../../../lib/session-helper";
+import {
+	getActiveSession,
+	registerActiveUser,
+} from "../../../lib/session-helper";
 import { csrfProtection } from "../../../lib/csrf";
 import broadcaster from "../../../lib/sse-broadcaster";
 
@@ -97,6 +100,12 @@ export default async function handler(req, res) {
 						message: "You have already submitted a proposal in this session.",
 					});
 				}
+			// Check if transition is scheduled - block new proposals during countdown
+			if (activeSession.phase1TransitionScheduled) {
+				return res.status(400).json({
+					message:
+						"Cannot create new proposals - phase transition is scheduled",
+				});
 			}
 
 			// Check for duplicate proposal title in current session

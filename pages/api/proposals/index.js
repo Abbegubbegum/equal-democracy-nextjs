@@ -97,9 +97,12 @@ export default async function handler(req, res) {
 
 				if (userProposalCount > 0) {
 					return res.status(400).json({
-						message: "You have already submitted a proposal in this session.",
+						message:
+							"You have already submitted a proposal in this session.",
 					});
 				}
+			}
+
 			// Check if transition is scheduled - block new proposals during countdown
 			if (activeSession.phase1TransitionScheduled) {
 				return res.status(400).json({

@@ -771,7 +771,14 @@ export default function HomePage() {
 					</div>
 					<h2 className="text-lg sm:text-xl font-medium break-words">
 						{hasActiveSession && placeName
-							? `${t("proposals.howToImprove")} ${placeName}?`
+							? (() => {
+							// Limit placeName to max 8 words
+							const words = placeName.split(/\s+/);
+							const truncatedName = words.length > 8
+								? words.slice(0, 8).join(' ') + '...'
+								: placeName;
+							return truncatedName;
+						})()
 							: t("proposals.howToImproveYourSpace")}
 					</h2>
 				</div>

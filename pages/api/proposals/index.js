@@ -71,10 +71,6 @@ export default async function handler(req, res) {
 
 		const { title, problem, solution } = req.body;
 
-		if (!title || !problem || !solution) {
-			return res.status(400).json({ message: "All fields are required" });
-		}
-
 		try {
 			// Get the active session
 			const activeSession = await getActiveSession();
@@ -84,6 +80,33 @@ export default async function handler(req, res) {
 				return res
 					.status(400)
 					.json({ message: "No active session exists" });
+			}
+
+			// Validate fields based on noMotivation setting
+			if (!title) {
+				return res.status(400).json({ message: "Title is required" });
+			}
+
+			// Only require problem and solution if noMotivation is false
+			if (!activeSession.noMotivation && (!problem || !solution)) {
+				return res.status(400).json({ message: "All fields are required" });
+			}
+
+			// Check if session has maxOneProposalPerUser enabled
+			if (activeSession.maxOneProposalPerUser) {
+				// Check if user already has a proposal in this session
+				const userProposalCount = await Proposal.countDocuments({
+					sessionId: activeSession._id,
+					authorId: session.user.id,
+					status: { $in: ["active", "top3"] },
+				});
+
+				if (userProposalCount > 0) {
+					return res.status(400).json({
+						message:
+							"You have already submitted a proposal in this session.",
+					});
+				}
 			}
 
 			// Check if transition is scheduled - block new proposals during countdown

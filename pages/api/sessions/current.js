@@ -37,6 +37,8 @@ export default async function handler(req, res) {
 			status: activeSession.status,
 			phase: activeSession.phase,
 			activeUsersCount: activeSession.activeUsers?.length || 0,
+			showUserCount: activeSession.showUserCount !== undefined ? activeSession.showUserCount : false,
+			noMotivation: activeSession.noMotivation !== undefined ? activeSession.noMotivation : false,
 		});
 	} catch (error) {
 		console.error("Error fetching current session:", error);

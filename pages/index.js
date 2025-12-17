@@ -668,6 +668,7 @@ export default function HomePage() {
 				initialProposalIndex={initialIndex >= 0 ? initialIndex : 0}
 				userHasVoted={userHasVotedInSession}
 				t={t}
+				noMotivation={noMotivation}
 			/>
 		);
 	}
@@ -1868,6 +1869,7 @@ function VoteView({
 	initialProposalIndex = 0,
 	userHasVoted = false,
 	t,
+	noMotivation,
 }) {
 	const [currentProposalIndex, setCurrentProposalIndex] =
 		useState(initialProposalIndex);
@@ -2014,23 +2016,27 @@ function VoteView({
 
 					{/* Proposal content */}
 					<div className="px-4 sm:px-8 py-6 sm:py-8 space-y-4 sm:space-y-6">
-						<div>
-							<h3 className="text-xs sm:text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">
-								{t("proposals.problemColon")}
-							</h3>
-							<p className="text-base sm:text-lg leading-relaxed text-gray-800 break-words">
-								{currentProposal.problem}
-							</p>
-						</div>
+						{!noMotivation && (
+							<>
+								<div>
+									<h3 className="text-xs sm:text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">
+										{t("proposals.problemColon")}
+									</h3>
+									<p className="text-base sm:text-lg leading-relaxed text-gray-800 break-words">
+										{currentProposal.problem}
+									</p>
+								</div>
 
-						<div className="border-t border-gray-200 pt-4 sm:pt-6">
-							<h3 className="text-xs sm:text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">
-								{t("proposals.solutionColon")}
-							</h3>
-							<p className="text-base sm:text-lg leading-relaxed text-gray-800 break-words">
-								{currentProposal.solution}
-							</p>
-						</div>
+								<div className="border-t border-gray-200 pt-4 sm:pt-6">
+									<h3 className="text-xs sm:text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">
+										{t("proposals.solutionColon")}
+									</h3>
+									<p className="text-base sm:text-lg leading-relaxed text-gray-800 break-words">
+										{currentProposal.solution}
+									</p>
+								</div>
+							</>
+						)}
 					</div>
 
 					{/* Voting section */}

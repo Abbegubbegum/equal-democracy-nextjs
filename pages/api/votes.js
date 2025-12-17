@@ -295,32 +295,76 @@ async function closeSession(activeSession) {
 			status: "top3", // Note: "top3" is the database status, but refers to top 40% of proposals
 		});
 
-		// For each top proposal, calculate votes and save if yes-majority
-		for (const proposal of topProposals) {
-			const votes = await FinalVote.find({ proposalId: proposal._id });
+		if (activeSession.singleResult) {
+			// Single result mode: find all proposals with highest result (yesVotes - noVotes)
+			// If there's a tie, all tied proposals share the win
+			let bestResult = -Infinity;
+			const proposalsWithVotes = [];
 
-			const yesVotes = votes.filter((v) => v.choice === "yes").length;
-			const noVotes = votes.filter((v) => v.choice === "no").length;
+			// First pass: calculate results and find best result
+			for (const proposal of topProposals) {
+				const votes = await FinalVote.find({ proposalId: proposal._id });
+				const yesVotes = votes.filter((v) => v.choice === "yes").length;
+				const noVotes = votes.filter((v) => v.choice === "no").length;
+				const result = yesVotes - noVotes;
 
-			// Only save proposals with yes-majority
-			if (yesVotes > noVotes) {
-				await TopProposal.create({
-					sessionId: activeSession._id,
-					sessionPlace:
-						activeSession.place || activeSession.name || "Unknown",
-					sessionStartDate:
-						activeSession.startDate ||
-						activeSession.createdAt ||
-						new Date(),
-					proposalId: proposal._id,
-					title: proposal.title,
-					problem: proposal.problem,
-					solution: proposal.solution,
-					authorName: proposal.authorName,
-					yesVotes: yesVotes,
-					noVotes: noVotes,
-					archivedAt: new Date(),
-				});
+				proposalsWithVotes.push({ proposal, yesVotes, noVotes, result });
+
+				if (result > bestResult) {
+					bestResult = result;
+				}
+			}
+
+			// Second pass: save all proposals with the best result (handles ties)
+			for (const item of proposalsWithVotes) {
+				if (item.result === bestResult) {
+					await TopProposal.create({
+						sessionId: activeSession._id,
+						sessionPlace:
+							activeSession.place || activeSession.name || "Unknown",
+						sessionStartDate:
+							activeSession.startDate ||
+							activeSession.createdAt ||
+							new Date(),
+						proposalId: item.proposal._id,
+						title: item.proposal.title,
+						problem: item.proposal.problem,
+						solution: item.proposal.solution,
+						authorName: item.proposal.authorName,
+						yesVotes: item.yesVotes,
+						noVotes: item.noVotes,
+						archivedAt: new Date(),
+					});
+				}
+			}
+		} else {
+			// Normal mode: save all proposals with yes-majority
+			for (const proposal of topProposals) {
+				const votes = await FinalVote.find({ proposalId: proposal._id });
+
+				const yesVotes = votes.filter((v) => v.choice === "yes").length;
+				const noVotes = votes.filter((v) => v.choice === "no").length;
+
+				// Only save proposals with yes-majority
+				if (yesVotes > noVotes) {
+					await TopProposal.create({
+						sessionId: activeSession._id,
+						sessionPlace:
+							activeSession.place || activeSession.name || "Unknown",
+						sessionStartDate:
+							activeSession.startDate ||
+							activeSession.createdAt ||
+							new Date(),
+						proposalId: proposal._id,
+						title: proposal.title,
+						problem: proposal.problem,
+						solution: proposal.solution,
+						authorName: proposal.authorName,
+						yesVotes: yesVotes,
+						noVotes: noVotes,
+						archivedAt: new Date(),
+					});
+				}
 			}
 		}
 

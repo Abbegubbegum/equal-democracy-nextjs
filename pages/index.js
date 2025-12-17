@@ -55,6 +55,8 @@ export default function HomePage() {
 	const transitionIntervalRef = useRef(null); // Reference to transition checking interval
 	const [commentUpdateTrigger, setCommentUpdateTrigger] = useState(0); // Trigger for comment updates
 	const [userHasCreatedProposal, setUserHasCreatedProposal] = useState(false); // Track if user has created a proposal
+	const [showUserCount, setShowUserCount] = useState(false); // Track if user count should be shown
+	const [noMotivation, setNoMotivation] = useState(false); // Track if motivation fields should be hidden
 
 	// Sound effects
 	const [playEndSign] = useSound("/sounds/end_sign.mp3", { volume: 0.5 });
@@ -106,6 +108,16 @@ export default function HomePage() {
 			// Set place name from session
 			if (data.place) {
 				setPlaceName(data.place);
+			}
+
+			// Set showUserCount from session
+			if (data.showUserCount !== undefined) {
+				setShowUserCount(data.showUserCount);
+			}
+
+			// Set noMotivation from session
+			if (data.noMotivation !== undefined) {
+				setNoMotivation(data.noMotivation);
 			}
 
 			if (data.phase) {
@@ -225,7 +237,7 @@ export default function HomePage() {
 	}, [fetchSessionInfo, fetchProposals, playEndSign]);
 
 	// Setup SSE for real-time updates
-	useSSE({
+	const { activeUserCount } = useSSE({
 		onNewProposal: (proposal) => {
 			setProposals((prev) => [proposal, ...prev]);
 			playNotification(); // Play sound when new proposal arrives
@@ -554,26 +566,30 @@ export default function HomePage() {
 												{proposal.title}
 											</h3>
 											<div className="space-y-2 text-sm">
-												<div>
-													<p className="font-semibold text-gray-700">
-														{t(
-															"proposals.problemColon"
-														)}
-													</p>
-													<p className="text-gray-600">
-														{proposal.problem}
-													</p>
-												</div>
-												<div>
-													<p className="font-semibold text-gray-700">
-														{t(
-															"proposals.solutionColon"
-														)}
-													</p>
-													<p className="text-gray-600">
-														{proposal.solution}
-													</p>
-												</div>
+												{!noMotivation && (
+													<>
+														<div>
+															<p className="font-semibold text-gray-700">
+																{t(
+																	"proposals.problemColon"
+																)}
+															</p>
+															<p className="text-gray-600">
+																{proposal.problem}
+															</p>
+														</div>
+														<div>
+															<p className="font-semibold text-gray-700">
+																{t(
+																	"proposals.solutionColon"
+																)}
+															</p>
+															<p className="text-gray-600">
+																{proposal.solution}
+															</p>
+														</div>
+													</>
+												)}
 												<div className="flex gap-4 mt-3 text-sm">
 													<span className="bg-green-200 text-green-800 px-3 py-1 rounded-full font-semibold">
 														{t("voting.yes")}:{" "}
@@ -628,6 +644,7 @@ export default function HomePage() {
 				onSubmit={handleCreateProposal}
 				onBack={() => setView("home")}
 				t={t}
+				noMotivation={noMotivation}
 			/>
 		);
 	}
@@ -761,6 +778,12 @@ export default function HomePage() {
 										{t("nav.applyForAdmin")}
 									</button>
 								)}
+							{showUserCount && (
+								<div className="flex items-center gap-2 text-white font-medium whitespace-nowrap">
+									<Users className="w-4 h-4" />
+									<span>Antal inloggade: {activeUserCount}</span>
+								</div>
+							)}
 							<button
 								onClick={() => signOut()}
 								className="text-white hover:text-accent-400 whitespace-nowrap"
@@ -979,6 +1002,7 @@ export default function HomePage() {
 								votedProposalId={votedProposalId}
 								commentUpdateTrigger={commentUpdateTrigger}
 								t={t}
+								noMotivation={noMotivation}
 							/>
 						))
 					)}
@@ -1007,6 +1031,7 @@ function ProposalCard({
 	votedProposalId,
 	commentUpdateTrigger,
 	t,
+	noMotivation,
 }) {
 	const [hasVoted, setHasVoted] = useState(false);
 	const [checking, setChecking] = useState(true);
@@ -1169,25 +1194,27 @@ function ProposalCard({
 					{proposal.title}
 				</h4>
 
-				<div className="space-y-3 text-sm">
-					<div>
-						<p className="font-semibold text-gray-700">
-							{t("proposals.problemColon")}
-						</p>
-						<p className="text-gray-600 break-words">
-							{proposal.problem}
-						</p>
-					</div>
+				{!noMotivation && (
+					<div className="space-y-3 text-sm">
+						<div>
+							<p className="font-semibold text-gray-700">
+								{t("proposals.problemColon")}
+							</p>
+							<p className="text-gray-600 break-words">
+								{proposal.problem}
+							</p>
+						</div>
 
-					<div>
-						<p className="font-semibold text-gray-700">
-							{t("proposals.solutionColon")}
-						</p>
-						<p className="text-gray-600 break-words">
-							{proposal.solution}
-						</p>
+						<div>
+							<p className="font-semibold text-gray-700">
+								{t("proposals.solutionColon")}
+							</p>
+							<p className="text-gray-600 break-words">
+								{proposal.solution}
+							</p>
+						</div>
 					</div>
-				</div>
+				)}
 
 				{/* Show "Visa argument" indicator when collapsed in Phase 2 - inside clickable area */}
 				{!isPhase1 && !isExpandedForDiscuss && (
@@ -1706,7 +1733,7 @@ function ApplyAdminView({ onSubmit, onBack, userEmail, userName, t }) {
 // CREATE PROPOSAL VIEW
 // ============================================================================
 
-function CreateProposalView({ onSubmit, onBack, t }) {
+function CreateProposalView({ onSubmit, onBack, t, noMotivation }) {
 	const [title, setTitle] = useState("");
 	const [problem, setProblem] = useState("");
 	const [solution, setSolution] = useState("");
@@ -1714,10 +1741,19 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 
 	const handleSubmit = async (e) => {
 		e.preventDefault();
-		if (title.trim() && problem.trim() && solution.trim()) {
-			setSubmitting(true);
-			await onSubmit(title.trim(), problem.trim(), solution.trim());
-			setSubmitting(false);
+		// If noMotivation is true, only title is required
+		if (noMotivation) {
+			if (title.trim()) {
+				setSubmitting(true);
+				await onSubmit(title.trim(), "", "");
+				setSubmitting(false);
+			}
+		} else {
+			if (title.trim() && problem.trim() && solution.trim()) {
+				setSubmitting(true);
+				await onSubmit(title.trim(), problem.trim(), solution.trim());
+				setSubmitting(false);
+			}
 		}
 	};
 
@@ -1756,52 +1792,55 @@ function CreateProposalView({ onSubmit, onBack, t }) {
 							/>
 						</div>
 
-						<div>
-							<label className="block text-sm font-medium text-gray-700 mb-2">
-								{t("createProposal.problemLabel")}
-							</label>
-							<textarea
-								value={problem}
-								onChange={(e) => setProblem(e.target.value)}
-								rows={4}
-								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:outline-none resize-none"
-								placeholder={t(
-									"createProposal.problemPlaceholder"
-								)}
-								maxLength={1000}
-								required
-							/>
-							<p className="text-xs text-gray-500 mt-1">
-								{problem.length}/1000
-							</p>
-						</div>
+						{!noMotivation && (
+							<>
+								<div>
+									<label className="block text-sm font-medium text-gray-700 mb-2">
+										{t("createProposal.problemLabel")}
+									</label>
+									<textarea
+										value={problem}
+										onChange={(e) => setProblem(e.target.value)}
+										rows={4}
+										className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:outline-none resize-none"
+										placeholder={t(
+											"createProposal.problemPlaceholder"
+										)}
+										maxLength={1000}
+										required
+									/>
+									<p className="text-xs text-gray-500 mt-1">
+										{problem.length}/1000
+									</p>
+								</div>
 
-						<div>
-							<label className="block text-sm font-medium text-gray-700 mb-2">
-								{t("createProposal.solutionLabel")}
-							</label>
-							<textarea
-								value={solution}
-								onChange={(e) => setSolution(e.target.value)}
-								rows={4}
-								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:outline-none resize-none"
-								placeholder={t(
-									"createProposal.solutionPlaceholder"
-								)}
-								maxLength={1000}
-								required
-							/>
-							<p className="text-xs text-gray-500 mt-1">
-								{solution.length}/1000
-							</p>
-						</div>
+								<div>
+									<label className="block text-sm font-medium text-gray-700 mb-2">
+										{t("createProposal.solutionLabel")}
+									</label>
+									<textarea
+										value={solution}
+										onChange={(e) => setSolution(e.target.value)}
+										rows={4}
+										className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:outline-none resize-none"
+										placeholder={t(
+											"createProposal.solutionPlaceholder"
+										)}
+										maxLength={1000}
+										required
+									/>
+									<p className="text-xs text-gray-500 mt-1">
+										{solution.length}/1000
+									</p>
+								</div>
+							</>
+						)}
 
 						<button
 							type="submit"
 							disabled={
 								!title.trim() ||
-								!problem.trim() ||
-								!solution.trim() ||
+								(!noMotivation && (!problem.trim() || !solution.trim())) ||
 								submitting
 							}
 							className="w-full bg-primary-800 hover:bg-primary-900 disabled:bg-gray-300 text-white font-bold py-4 rounded-xl transition-colors shadow-lg"

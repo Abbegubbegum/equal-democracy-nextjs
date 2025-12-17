@@ -79,6 +79,8 @@ function SessionsPanel({ isSuperAdmin }) {
 	const [creating, setCreating] = useState(false);
 	const [newPlace, setNewPlace] = useState("");
 	const [maxOneProposalPerUser, setMaxOneProposalPerUser] = useState(false);
+	const [showUserCount, setShowUserCount] = useState(false);
+	const [noMotivation, setNoMotivation] = useState(false);
 	const [message, setMessage] = useState("");
 	const [remainingSessions, setRemainingSessions] = useState(null);
 	const [requestedSessions, setRequestedSessions] = useState("10");
@@ -225,6 +227,8 @@ function SessionsPanel({ isSuperAdmin }) {
 				body: JSON.stringify({
 					place: newPlace,
 					maxOneProposalPerUser: maxOneProposalPerUser,
+					showUserCount: showUserCount,
+					noMotivation: noMotivation,
 				}),
 			});
 
@@ -394,6 +398,44 @@ function SessionsPanel({ isSuperAdmin }) {
 								</label>
 								<p className="text-xs text-slate-500 mt-1 ml-6">
 									Limit all users (including admins) to one proposal per session
+								</p>
+							</div>
+
+							<div>
+								<label className="flex items-center gap-2 cursor-pointer">
+									<input
+										type="checkbox"
+										checked={showUserCount}
+										onChange={(e) =>
+											setShowUserCount(e.target.checked)
+										}
+										className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+									/>
+									<span className="text-sm font-semibold text-slate-700">
+										Show user count
+									</span>
+								</label>
+								<p className="text-xs text-slate-500 mt-1 ml-6">
+									Display the number of active users in the header
+								</p>
+							</div>
+
+							<div>
+								<label className="flex items-center gap-2 cursor-pointer">
+									<input
+										type="checkbox"
+										checked={noMotivation}
+										onChange={(e) =>
+											setNoMotivation(e.target.checked)
+										}
+										className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+									/>
+									<span className="text-sm font-semibold text-slate-700">
+										No motivation
+									</span>
+								</label>
+								<p className="text-xs text-slate-500 mt-1 ml-6">
+									Hide problem and solution fields, only show proposal title
 								</p>
 							</div>
 

@@ -71,10 +71,6 @@ export default async function handler(req, res) {
 
 		const { title, problem, solution } = req.body;
 
-		if (!title || !problem || !solution) {
-			return res.status(400).json({ message: "All fields are required" });
-		}
-
 		try {
 			// Get the active session
 			const activeSession = await getActiveSession();
@@ -84,6 +80,16 @@ export default async function handler(req, res) {
 				return res
 					.status(400)
 					.json({ message: "No active session exists" });
+			}
+
+			// Validate fields based on noMotivation setting
+			if (!title) {
+				return res.status(400).json({ message: "Title is required" });
+			}
+
+			// Only require problem and solution if noMotivation is false
+			if (!activeSession.noMotivation && (!problem || !solution)) {
+				return res.status(400).json({ message: "All fields are required" });
 			}
 
 			// Check if session has maxOneProposalPerUser enabled

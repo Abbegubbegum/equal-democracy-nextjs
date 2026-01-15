@@ -19,8 +19,11 @@ export default async function handler(req, res) {
 
 	if (req.method === "GET") {
 		try {
-			// Get the active session
-			const activeSession = await getActiveSession();
+			// Get sessionId from query parameter (optional for backward compatibility)
+			const { sessionId } = req.query;
+
+			// Get the active session (with optional sessionId)
+			const activeSession = await getActiveSession(sessionId);
 
 			// If no active session, return empty array
 			if (!activeSession) {
@@ -69,11 +72,11 @@ export default async function handler(req, res) {
 				.json({ message: "You have to be logged in" });
 		}
 
-		const { title, problem, solution } = req.body;
+		const { title, problem, solution, sessionId } = req.body;
 
 		try {
-			// Get the active session
-			const activeSession = await getActiveSession();
+			// Get the active session (with optional sessionId)
+			const activeSession = await getActiveSession(sessionId);
 
 			// If no active session, cannot create proposal
 			if (!activeSession) {
@@ -146,7 +149,7 @@ export default async function handler(req, res) {
 			});
 
 			// Register user as active in session
-			await registerActiveUser(session.user.id);
+			await registerActiveUser(session.user.id, activeSession._id.toString());
 
 			// Broadcast new proposal event to all connected clients
 			await broadcaster.broadcast("new-proposal", {

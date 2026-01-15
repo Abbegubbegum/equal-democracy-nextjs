@@ -340,7 +340,7 @@ function SessionsPanel({ isSuperAdmin }) {
 			<div className="p-6 bg-white rounded-2xl shadow-lg">Loading…</div>
 		);
 
-	const activeSession = sessions.find((s) => s.status === "active");
+	const activeSessions = sessions.filter((s) => s.status === "active");
 	const closedSessions = sessions.filter((s) => s.status === "closed");
 
 	return (
@@ -358,8 +358,7 @@ function SessionsPanel({ isSuperAdmin }) {
 				</div>
 			)}
 
-			{(session?.user?.isSuperAdmin || remainingSessions > 0) &&
-				!activeSession && (
+			{(session?.user?.isSuperAdmin || remainingSessions > 0) && (
 					<section className="bg-white rounded-2xl p-6 shadow-lg">
 						<h2
 							className="text-2xl font-bold mb-6"
@@ -590,157 +589,161 @@ function SessionsPanel({ isSuperAdmin }) {
 				</section>
 			)}
 
-			{activeSession && (
+			{activeSessions.length > 0 && (
 				<section className="bg-white rounded-2xl p-6 shadow-lg">
 					<h2
 						className="text-2xl font-bold mb-6"
 						style={{ color: primaryDark }}
 					>
-						Active Session
+						Active Sessions ({activeSessions.length})
 					</h2>
-					{activeSession.isOtherUserSession && (
-						<div className="mb-4 p-4 bg-orange-50 border-2 border-orange-200 rounded-xl">
-							<p className="text-sm text-orange-800">
-								<strong>Notice:</strong> This session was
-								created by another admin. You cannot manage it,
-								but you must wait for it to close before
-								creating a new session.
-							</p>
-						</div>
-					)}
-					<div
-						className={`p-5 border-2 rounded-xl space-y-4 ${
-							activeSession.isOtherUserSession
-								? "border-orange-300 bg-orange-50"
-								: "border-green-300 bg-green-50"
-						}`}
-					>
-						<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-							<div>
-								<h3
-									className="font-bold text-xl"
-									style={{ color: primaryDark }}
-								>
-									{activeSession.place}
-									{activeSession.isOtherUserSession && (
-										<span className="ml-2 text-xs font-normal text-orange-600">
-											(Created by another admin)
-										</span>
-									)}
-								</h3>
-								{activeSession.startDate && (
-									<>
-										<p className="text-sm text-slate-600 mt-1">
-											Started:{" "}
-											{new Date(
-												activeSession.startDate
-											).toLocaleString("sv-SE", {
-												year: "numeric",
-												month: "short",
-												day: "numeric",
-												hour: "2-digit",
-												minute: "2-digit",
-											})}
+					<div className="space-y-4">
+						{activeSessions.map((activeSession) => (
+							<div key={activeSession._id}>
+								{activeSession.isOtherUserSession && (
+									<div className="mb-4 p-4 bg-orange-50 border-2 border-orange-200 rounded-xl">
+										<p className="text-sm text-orange-800">
+											<strong>Notice:</strong> This session was
+											created by another admin.
 										</p>
-										<p className="text-sm text-slate-500">
-											Duration:{" "}
-											{Math.floor(
-												(new Date() -
-													new Date(
-														activeSession.startDate
-													)) /
-													(1000 * 60 * 60)
-											)}{" "}
-											hours
-										</p>
-									</>
+									</div>
 								)}
-								<p
-									className="text-sm font-bold mt-2"
-									style={{ color: primaryDark }}
+								<div
+									className={`p-5 border-2 rounded-xl space-y-4 ${
+										activeSession.isOtherUserSession
+											? "border-orange-300 bg-orange-50"
+											: "border-green-300 bg-green-50"
+									}`}
 								>
-									Current phase:{" "}
-									{activeSession.phase === "phase1"
-										? "Phase 1 (Rating)"
-										: "Phase 2 (Debate & Voting)"}
-								</p>
-								{session?.user?.isSuperAdmin &&
-									activeSession.createdBy &&
-									activeSession.createdBy !== "other" && (
-										<p className="text-xs text-slate-500 mt-1">
-											Created by:{" "}
-											{typeof activeSession.createdBy ===
-											"object"
-												? activeSession.createdBy.name
-												: activeSession.createdBy}
-										</p>
-									)}
-							</div>
-							{!activeSession.isOtherUserSession &&
-								(session?.user?.isSuperAdmin ||
-									(typeof activeSession.createdBy === "object"
-										? activeSession.createdBy._id
-										: activeSession.createdBy
-									)?.toString() === session?.user?.id) && (
-									<button
-										onClick={() =>
-											closeSession(activeSession._id)
-										}
-										className="px-6 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold shadow-md hover:shadow-lg transition-all"
-									>
-										Close session
-									</button>
-								)}
-						</div>
-
-						{!activeSession.isOtherUserSession &&
-							session?.user?.isSuperAdmin &&
-							activeSession.activeUsersWithStatus &&
-							activeSession.activeUsersWithStatus.length > 0 && (
-								<div className="mt-4 pt-4 border-t-2 border-green-200">
-									<h4 className="font-bold text-sm text-slate-700 mb-3">
-										Active Users (
-										{
-											activeSession.activeUsersWithStatus
-												.length
-										}
-										)
-									</h4>
-									<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-										{activeSession.activeUsersWithStatus.map(
-											(user) => (
-												<div
-													key={user._id}
-													className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200 shadow-sm"
+									<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+										<div>
+											<h3
+												className="font-bold text-xl"
+												style={{ color: primaryDark }}
+											>
+												{activeSession.place}
+												{activeSession.isOtherUserSession && (
+													<span className="ml-2 text-xs font-normal text-orange-600">
+														(Created by another admin)
+													</span>
+												)}
+											</h3>
+											{activeSession.startDate && (
+												<>
+													<p className="text-sm text-slate-600 mt-1">
+														Started:{" "}
+														{new Date(
+															activeSession.startDate
+														).toLocaleString("sv-SE", {
+															year: "numeric",
+															month: "short",
+															day: "numeric",
+															hour: "2-digit",
+															minute: "2-digit",
+														})}
+													</p>
+													<p className="text-sm text-slate-500">
+														Duration:{" "}
+														{Math.floor(
+															(new Date() -
+																new Date(
+																	activeSession.startDate
+																)) /
+																(1000 * 60 * 60)
+														)}{" "}
+														hours
+													</p>
+												</>
+											)}
+											<p
+												className="text-sm font-bold mt-2"
+												style={{ color: primaryDark }}
+											>
+												Current phase:{" "}
+												{activeSession.phase === "phase1"
+													? "Phase 1 (Rating)"
+													: "Phase 2 (Debate & Voting)"}
+											</p>
+											{session?.user?.isSuperAdmin &&
+												activeSession.createdBy &&
+												activeSession.createdBy !== "other" && (
+													<p className="text-xs text-slate-500 mt-1">
+														Created by:{" "}
+														{typeof activeSession.createdBy ===
+														"object"
+															? activeSession.createdBy.name
+															: activeSession.createdBy}
+													</p>
+												)}
+										</div>
+										{!activeSession.isOtherUserSession &&
+											(session?.user?.isSuperAdmin ||
+												(typeof activeSession.createdBy === "object"
+													? activeSession.createdBy._id
+													: activeSession.createdBy
+												)?.toString() === session?.user?.id) && (
+												<button
+													onClick={() =>
+														closeSession(activeSession._id)
+													}
+													className="px-6 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold shadow-md hover:shadow-lg transition-all"
 												>
-													<div className="flex-1 min-w-0">
-														<p className="text-sm font-semibold text-slate-900 truncate">
-															{user.name}
-														</p>
-														<p className="text-xs text-slate-500 truncate">
-															{user.email}
-														</p>
-													</div>
-													{activeSession.phase ===
-														"phase2" && (
-														<div className="ml-2 flex-shrink-0">
-															{user.hasVoted ? (
-																<span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-green-100 text-green-800">
-																	✓ Voted
-																</span>
-															) : (
-																<span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-yellow-100 text-yellow-800">
-																	Pending
-																</span>
-															)}
-														</div>
+													Close session
+												</button>
+											)}
+									</div>
+
+									{!activeSession.isOtherUserSession &&
+										session?.user?.isSuperAdmin &&
+										activeSession.activeUsersWithStatus &&
+										activeSession.activeUsersWithStatus.length > 0 && (
+											<div className="mt-4 pt-4 border-t-2 border-green-200">
+												<h4 className="font-bold text-sm text-slate-700 mb-3">
+													Active Users (
+													{
+														activeSession.activeUsersWithStatus
+															.length
+													}
+													)
+												</h4>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+													{activeSession.activeUsersWithStatus.map(
+														(user) => (
+															<div
+																key={user._id}
+																className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200 shadow-sm"
+															>
+																<div className="flex-1 min-w-0">
+																	<p className="text-sm font-semibold text-slate-900 truncate">
+																		{user.name}
+																	</p>
+																	<p className="text-xs text-slate-500 truncate">
+																		{user.email}
+																	</p>
+																</div>
+																{activeSession.phase ===
+																	"phase2" && (
+																	<div className="ml-2 flex-shrink-0">
+																		{user.hasVoted ? (
+																			<span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-green-100 text-green-800">
+																				✓ Voted
+																			</span>
+																		) : (
+																			<span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-yellow-100 text-yellow-800">
+																				Pending
+																			</span>
+																		)}
+																	</div>
+																)}
+															</div>
+														)
 													)}
 												</div>
-											)
+											</div>
 										)}
-									</div>
 								</div>
-							)}
+							</div>
+						))}
 					</div>
 				</section>
 			)}

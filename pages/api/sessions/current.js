@@ -17,7 +17,10 @@ export default async function handler(req, res) {
 	}
 
 	try {
-		const activeSession = await getActiveSession();
+		// Get sessionId from query parameter (optional for backward compatibility)
+		const { sessionId } = req.query;
+
+		const activeSession = await getActiveSession(sessionId);
 
 		// If no active session exists, return null
 		if (!activeSession) {

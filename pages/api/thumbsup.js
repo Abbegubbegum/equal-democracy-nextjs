@@ -23,7 +23,7 @@ export default async function handler(req, res) {
 				.json({ message: "You have to be logged in" });
 		}
 
-		const { proposalId, rating } = req.body;
+		const { proposalId, rating, sessionId } = req.body;
 
 		if (!proposalId) {
 			return res.status(400).json({ message: "Proposal ID is required" });
@@ -37,8 +37,8 @@ export default async function handler(req, res) {
 		}
 
 		try {
-			// Get the active session
-			const activeSession = await getActiveSession();
+			// Get the active session (with optional sessionId)
+			const activeSession = await getActiveSession(sessionId);
 
 			// If no active session, cannot rate
 			if (!activeSession) {
@@ -93,7 +93,7 @@ export default async function handler(req, res) {
 			});
 
 			// Register user as active in session
-			await registerActiveUser(session.user.id);
+			await registerActiveUser(session.user.id, activeSession._id.toString());
 
 			// Calculate average rating
 			const ratings = await ThumbsUp.find({ proposalId });

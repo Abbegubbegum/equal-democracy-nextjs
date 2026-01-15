@@ -24,8 +24,13 @@ export default async function handler(req, res) {
 	}
 
 	try {
-		// Get active session
-		const activeSession = await Session.findOne({ status: "active" });
+		// Get sessionId from query parameter (optional for backward compatibility)
+		const { sessionId } = req.query;
+
+		// Get active session (with optional sessionId)
+		const activeSession = sessionId
+			? await Session.findOne({ _id: sessionId, status: "active" })
+			: await Session.findOne({ status: "active" });
 
 		if (!activeSession || activeSession.phase !== "phase1") {
 			return res.status(200).json({ shouldTransition: false });

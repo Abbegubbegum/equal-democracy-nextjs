@@ -21,7 +21,7 @@ export default async function handler(req, res) {
 	}
 
 	if (req.method === "POST") {
-		const { commentId, rating } = req.body;
+		const { commentId, rating, sessionId } = req.body;
 
 		if (!commentId || !rating) {
 			return res
@@ -37,8 +37,8 @@ export default async function handler(req, res) {
 		}
 
 		try {
-			// Get the active session
-			const activeSession = await getActiveSession();
+			// Get the active session (with optional sessionId)
+			const activeSession = await getActiveSession(sessionId);
 
 			// If no active session, cannot rate
 			if (!activeSession) {
@@ -74,7 +74,7 @@ export default async function handler(req, res) {
 			}
 
 			// Register user as active in session
-			await registerActiveUser(session.user.id);
+			await registerActiveUser(session.user.id, activeSession._id.toString());
 
 			// Calculate new average rating
 			const ratings = await CommentRating.find({ commentId });

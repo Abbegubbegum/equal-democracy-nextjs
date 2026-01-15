@@ -21,14 +21,22 @@ export default async function handler(req, res) {
 	}
 
 	try {
+		// Get sessionId from request body (optional for backward compatibility)
+		const { sessionId } = req.body;
 		const now = new Date();
 
-		// First, check if there's an active session with a scheduled transition
-		const checkSession = await Session.findOne({
+		// Build query for session - add sessionId if provided
+		const sessionQuery = {
 			status: "active",
 			phase: "phase1",
 			phase1TransitionScheduled: { $exists: true },
-		});
+		};
+		if (sessionId) {
+			sessionQuery._id = sessionId;
+		}
+
+		// First, check if there's an active session with a scheduled transition
+		const checkSession = await Session.findOne(sessionQuery);
 
 		if (!checkSession) {
 			return res.status(200).json({ transitionExecuted: false });
@@ -45,17 +53,23 @@ export default async function handler(req, res) {
 			});
 		}
 
+		// Build atomic update query - add sessionId if provided
+		const atomicQuery = {
+			status: "active",
+			phase: "phase1",
+			phase1TransitionScheduled: {
+				$exists: true,
+				$lte: now, // Only if scheduled time has passed
+			},
+		};
+		if (sessionId) {
+			atomicQuery._id = sessionId;
+		}
+
 		// Time has passed! Use atomic findOneAndUpdate to claim the transition lock
 		// This prevents race conditions when multiple clients try to execute simultaneously
 		const activeSession = await Session.findOneAndUpdate(
-			{
-				status: "active",
-				phase: "phase1",
-				phase1TransitionScheduled: {
-					$exists: true,
-					$lte: now, // Only if scheduled time has passed
-				},
-			},
+			atomicQuery,
 			{
 				$set: { phase1TransitionScheduled: null }, // Clear immediately to prevent re-execution
 			},

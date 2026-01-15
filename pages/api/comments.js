@@ -53,7 +53,7 @@ export default async function handler(req, res) {
 				.json({ message: "You have to be logged in" });
 		}
 
-		const { proposalId, text, type } = req.body;
+		const { proposalId, text, type, sessionId } = req.body;
 
 		if (!proposalId || !text) {
 			return res
@@ -73,8 +73,8 @@ export default async function handler(req, res) {
 		}
 
 		try {
-			// Get the active session
-			const activeSession = await getActiveSession();
+			// Get the active session (with optional sessionId)
+			const activeSession = await getActiveSession(sessionId);
 
 			// If no active session, cannot create comment
 			if (!activeSession) {
@@ -93,7 +93,7 @@ export default async function handler(req, res) {
 			});
 
 			// Register user as active in session
-			await registerActiveUser(session.user.id);
+			await registerActiveUser(session.user.id, activeSession._id.toString());
 
 			// Broadcast new comment event
 			await broadcaster.broadcast("new-comment", {

@@ -32,7 +32,7 @@ export default async function handler(req, res) {
 				.json({ message: "You have to be logged in" });
 		}
 
-		const { proposalId, choice } = req.body;
+		const { proposalId, choice, sessionId } = req.body;
 
 		if (!proposalId || !choice) {
 			return res
@@ -53,8 +53,8 @@ export default async function handler(req, res) {
 		}
 
 		try {
-			// Get the active session
-			const activeSession = await getActiveSession();
+			// Get the active session (with optional sessionId)
+			const activeSession = await getActiveSession(sessionId);
 
 			// If no active session, cannot vote
 			if (!activeSession) {
@@ -84,7 +84,7 @@ export default async function handler(req, res) {
 			});
 
 			// Register user as active in session
-			await registerActiveUser(session.user.id);
+			await registerActiveUser(session.user.id, activeSession._id.toString());
 
 			const yesCount = await FinalVote.countDocuments({
 				proposalId: toObjectId(proposalId),
@@ -104,7 +104,7 @@ export default async function handler(req, res) {
 			});
 
 			// Re-fetch session to get latest activeUsers list
-			const freshSession = await getActiveSession();
+			const freshSession = await getActiveSession(activeSession._id.toString());
 
 			// Check if session should auto-close
 			const shouldClose = await checkAutoClose(freshSession);
@@ -137,12 +137,12 @@ export default async function handler(req, res) {
 
 	if (req.method === "GET") {
 		const session = await getServerSession(req, res, authOptions);
-		const { proposalId, userId, checkSession } = req.query;
+		const { proposalId, userId, checkSession, sessionId } = req.query;
 
 		// Check if user has voted in the current session
 		if (checkSession === "true" && session) {
 			try {
-				const activeSession = await getActiveSession();
+				const activeSession = await getActiveSession(sessionId);
 
 				// If no active session, cannot vote
 				if (!activeSession) {

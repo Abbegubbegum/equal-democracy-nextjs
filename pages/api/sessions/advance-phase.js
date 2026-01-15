@@ -23,8 +23,13 @@ export default async function handler(req, res) {
 	}
 
 	try {
-		// Get active session
-		const activeSession = await Session.findOne({ status: "active" });
+		// Get sessionId from request body (optional for backward compatibility)
+		const { sessionId } = req.body;
+
+		// Get active session (with optional sessionId)
+		const activeSession = sessionId
+			? await Session.findOne({ _id: sessionId, status: "active" })
+			: await Session.findOne({ status: "active" });
 
 		if (!activeSession) {
 			return res.status(404).json({ error: "No active session found" });

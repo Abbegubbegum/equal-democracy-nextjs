@@ -108,13 +108,7 @@ export default async function handler(req, res) {
 				});
 			}
 
-			// Check if there's already an active session
-			const activeSession = await Session.findOne({ status: "active" });
-			if (activeSession) {
-				return res.status(400).json({
-					error: "There is already an active session. Please close it before creating a new one.",
-				});
-			}
+			// Multiple active sessions are now allowed - no restriction check needed
 
 			// Create new session
 			const newSession = await Session.create({

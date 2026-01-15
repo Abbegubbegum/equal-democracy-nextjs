@@ -233,16 +233,69 @@ async function migrateProposals() {
 
 /**
  * Migrate TopProposal collection
+ * - Remove schema validation that requires problem/solution fields
+ * - Set default values for existing documents missing these fields
  */
-async function migrateTopProposals() {
-	console.log("\n🏆 Checking TopProposal collection...");
+async function migrateTopProposals(dryRun = false) {
+	console.log("\n🏆 Migrating TopProposal collection...");
 
-	const TopProposal = mongoose.connection.db.collection("topproposals");
+	const db = mongoose.connection.db;
+	const TopProposal = db.collection("topproposals");
 	const topProposals = await TopProposal.find({}).toArray();
 	console.log(`  Found ${topProposals.length} top proposals`);
 
-	// No migration needed for top proposals in current schema
-	console.log(`  ✓ No migration needed for top proposals`);
+	// Step 1: Remove or update collection validator to make problem/solution optional
+	try {
+		console.log("  Updating collection validator to make problem/solution optional...");
+
+		if (!dryRun) {
+			// Get current collection info to check if validator exists
+			const collections = await db.listCollections({ name: "topproposals" }).toArray();
+
+			if (collections.length > 0) {
+				// Remove any existing validator or set a permissive one
+				await db.command({
+					collMod: "topproposals",
+					validator: {},
+					validationLevel: "off"
+				});
+				console.log("  ✓ Disabled collection validator for topproposals");
+			}
+		} else {
+			console.log("  Would disable collection validator for topproposals");
+		}
+	} catch (error) {
+		// Collection might not have a validator, which is fine
+		if (error.codeName !== "NamespaceNotFound") {
+			console.log(`  Note: Could not modify validator (${error.message})`);
+		}
+	}
+
+	// Step 2: Update existing documents to have default values for optional fields
+	let updatedCount = 0;
+	for (const doc of topProposals) {
+		const updates = {};
+
+		// Add default empty string for problem if missing
+		if (doc.problem === undefined || doc.problem === null) {
+			updates.problem = "";
+		}
+
+		// Add default empty string for solution if missing
+		if (doc.solution === undefined || doc.solution === null) {
+			updates.solution = "";
+		}
+
+		if (Object.keys(updates).length > 0) {
+			if (!dryRun) {
+				await TopProposal.updateOne({ _id: doc._id }, { $set: updates });
+			}
+			updatedCount++;
+			console.log(`  ✓ Updated top proposal: ${doc.title} (added defaults for ${Object.keys(updates).join(", ")})`);
+		}
+	}
+
+	console.log(`  ${dryRun ? "Would update" : "Updated"} ${updatedCount} top proposals with default values`);
 }
 
 /**

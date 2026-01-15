@@ -92,7 +92,7 @@ export default async function handler(req, res) {
 
 	if (req.method === "POST") {
 		try {
-			const { place, maxOneProposalPerUser, showUserCount, noMotivation } = req.body;
+			const { place, maxOneProposalPerUser, showUserCount, noMotivation, singleResult } = req.body;
 
 			if (!place) {
 				return res.status(400).json({ error: "Place is required" });
@@ -125,6 +125,7 @@ export default async function handler(req, res) {
 				maxOneProposalPerUser: maxOneProposalPerUser || false,
 				showUserCount: showUserCount !== undefined ? showUserCount : false,
 				noMotivation: noMotivation !== undefined ? noMotivation : false,
+				singleResult: singleResult !== undefined ? singleResult : false,
 			});
 
 			// Decrement remainingSessions for regular admins (not superadmins)

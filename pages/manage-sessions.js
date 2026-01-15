@@ -81,6 +81,7 @@ function SessionsPanel({ isSuperAdmin }) {
 	const [maxOneProposalPerUser, setMaxOneProposalPerUser] = useState(false);
 	const [showUserCount, setShowUserCount] = useState(false);
 	const [noMotivation, setNoMotivation] = useState(false);
+	const [singleResult, setSingleResult] = useState(false);
 	const [message, setMessage] = useState("");
 	const [remainingSessions, setRemainingSessions] = useState(null);
 	const [requestedSessions, setRequestedSessions] = useState("10");
@@ -229,6 +230,7 @@ function SessionsPanel({ isSuperAdmin }) {
 					maxOneProposalPerUser: maxOneProposalPerUser,
 					showUserCount: showUserCount,
 					noMotivation: noMotivation,
+					singleResult: singleResult,
 				}),
 			});
 
@@ -436,6 +438,25 @@ function SessionsPanel({ isSuperAdmin }) {
 								</label>
 								<p className="text-xs text-slate-500 mt-1 ml-6">
 									Hide problem and solution fields, only show proposal title
+								</p>
+							</div>
+
+							<div>
+								<label className="flex items-center gap-2 cursor-pointer">
+									<input
+										type="checkbox"
+										checked={singleResult}
+										onChange={(e) =>
+											setSingleResult(e.target.checked)
+										}
+										className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+									/>
+									<span className="text-sm font-semibold text-slate-700">
+										Single result
+									</span>
+								</label>
+								<p className="text-xs text-slate-500 mt-1 ml-6">
+									Only one winner: proposal with highest result (yes votes - no votes)
 								</p>
 							</div>
 

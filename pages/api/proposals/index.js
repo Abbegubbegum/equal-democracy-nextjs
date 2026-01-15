@@ -93,7 +93,10 @@ export default async function handler(req, res) {
 			}
 
 			// Check if session has maxOneProposalPerUser enabled
-			if (activeSession.maxOneProposalPerUser) {
+			// Superadmin (peer.norback@gmail.com) is exempt from this rule to allow manual entry of paper proposals
+			const isSuperAdmin = session.user.email === "peer.norback@gmail.com";
+
+			if (activeSession.maxOneProposalPerUser && !isSuperAdmin) {
 				// Check if user already has a proposal in this session
 				const userProposalCount = await Proposal.countDocuments({
 					sessionId: activeSession._id,

@@ -10,6 +10,7 @@ import {
 	Mail,
 	PlusCircle,
 	Wallet,
+	BarChart3,
 } from "lucide-react";
 import { fetchWithCsrf } from "../../lib/fetch-with-csrf";
 
@@ -71,6 +72,12 @@ export default function AdminPage() {
 						icon={<Wallet className="w-4 h-4" />}
 						active={tab === "budget"}
 						onClick={() => router.push("/budget/admin")}
+					/>
+					<Tab
+						label="Survey"
+						icon={<BarChart3 className="w-4 h-4" />}
+						active={tab === "survey"}
+						onClick={() => router.push("/admin/survey")}
 					/>
 					<Tab
 						label="Top Proposals"

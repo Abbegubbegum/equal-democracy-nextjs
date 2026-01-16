@@ -26,10 +26,15 @@ export default async function handler(req, res) {
 		const now = new Date();
 
 		// Build query for session - add sessionId if provided
+		// Only standard sessions can transition to phase 2 (surveys stay in phase 1 until archived)
 		const sessionQuery = {
 			status: "active",
 			phase: "phase1",
 			phase1TransitionScheduled: { $exists: true },
+			$or: [
+				{ sessionType: { $exists: false } },
+				{ sessionType: "standard" },
+			],
 		};
 		if (sessionId) {
 			sessionQuery._id = sessionId;
@@ -54,6 +59,7 @@ export default async function handler(req, res) {
 		}
 
 		// Build atomic update query - add sessionId if provided
+		// Only standard sessions can transition (surveys stay in phase 1)
 		const atomicQuery = {
 			status: "active",
 			phase: "phase1",
@@ -61,6 +67,10 @@ export default async function handler(req, res) {
 				$exists: true,
 				$lte: now, // Only if scheduled time has passed
 			},
+			$or: [
+				{ sessionType: { $exists: false } },
+				{ sessionType: "standard" },
+			],
 		};
 		if (sessionId) {
 			atomicQuery._id = sessionId;

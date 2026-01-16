@@ -28,11 +28,19 @@ export default async function handler(req, res) {
 		const { sessionId } = req.query;
 
 		// Get active session (with optional sessionId)
-		const activeSession = sessionId
-			? await Session.findOne({ _id: sessionId, status: "active" })
-			: await Session.findOne({ status: "active" });
+		// Only standard sessions can transition to phase 2 (surveys stay in phase 1 until archived)
+		const sessionQuery = sessionId
+			? { _id: sessionId, status: "active" }
+			: { status: "active" };
+
+		const activeSession = await Session.findOne(sessionQuery);
 
 		if (!activeSession || activeSession.phase !== "phase1") {
+			return res.status(200).json({ shouldTransition: false });
+		}
+
+		// Survey sessions don't transition to phase 2 - they stay in phase 1 until archived
+		if (activeSession.sessionType === "survey") {
 			return res.status(200).json({ shouldTransition: false });
 		}
 

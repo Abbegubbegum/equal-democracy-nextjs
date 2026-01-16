@@ -18,7 +18,7 @@ export default async function handler(req, res) {
 	try {
 		// Get all active sessions
 		const activeSessions = await Session.find({ status: "active" })
-			.select("_id place phase startDate showUserCount noMotivation singleResult activeUsers")
+			.select("_id place phase startDate showUserCount noMotivation singleResult activeUsers sessionType archiveDate surveyDurationDays")
 			.sort({ startDate: -1 })
 			.lean();
 
@@ -32,6 +32,9 @@ export default async function handler(req, res) {
 			noMotivation: s.noMotivation || false,
 			singleResult: s.singleResult || false,
 			activeUsersCount: s.activeUsers?.length || 0,
+			sessionType: s.sessionType || "standard",
+			archiveDate: s.archiveDate,
+			surveyDurationDays: s.surveyDurationDays,
 		}));
 
 		return res.status(200).json(sessionsWithCount);

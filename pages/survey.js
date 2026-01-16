@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
 import { CheckCircle, RefreshCw, BarChart3, ArrowLeft } from "lucide-react";
 import { fetchWithCsrf } from "../lib/fetch-with-csrf";
+import { useTranslation } from "../lib/hooks/useTranslation";
 
 // Generate or retrieve a persistent visitor ID
 function getVisitorId() {
@@ -17,6 +18,7 @@ function getVisitorId() {
 
 export default function SurveyPage() {
 	const router = useRouter();
+	const { t } = useTranslation();
 	const [survey, setSurvey] = useState(null);
 	const [loading, setLoading] = useState(true);
 	const [selectedChoice, setSelectedChoice] = useState(null);
@@ -103,7 +105,7 @@ export default function SurveyPage() {
 	if (loading) {
 		return (
 			<div className="min-h-screen bg-gray-50 flex items-center justify-center">
-				<div className="text-gray-500">Loading...</div>
+				<div className="text-gray-500">{t("common.loading") || "Loading..."}</div>
 			</div>
 		);
 	}
@@ -117,14 +119,14 @@ export default function SurveyPage() {
 						className="mb-6 flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
 					>
 						<ArrowLeft className="w-4 h-4" />
-						Back to home
+						{t("common.backToHome") || "Back to home"}
 					</button>
 
 					<div className="bg-white rounded-2xl shadow-lg p-8 text-center">
 						<BarChart3 className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-						<h1 className="text-2xl font-bold text-gray-800 mb-2">No Active Survey</h1>
+						<h1 className="text-2xl font-bold text-gray-800 mb-2">{t("poll.noActivePoll") || "No Active Poll"}</h1>
 						<p className="text-gray-600">
-							There is no survey available at the moment. Please check back later.
+							{t("poll.checkBackLater") || "There is no poll available at the moment. Please check back later."}
 						</p>
 					</div>
 				</div>
@@ -140,7 +142,7 @@ export default function SurveyPage() {
 					className="mb-6 flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
 				>
 					<ArrowLeft className="w-4 h-4" />
-					Back to home
+					{t("common.backToHome") || "Back to home"}
 				</button>
 
 				<div className="bg-white rounded-2xl shadow-lg overflow-hidden">
@@ -148,7 +150,7 @@ export default function SurveyPage() {
 					<div className="bg-gradient-to-r from-primary-600 to-primary-700 p-6 text-white">
 						<div className="flex items-center gap-3 mb-2">
 							<BarChart3 className="w-6 h-6" />
-							<span className="text-sm font-medium opacity-90">Survey</span>
+							<span className="text-sm font-medium opacity-90">{t("poll.poll") || "Poll"}</span>
 						</div>
 						<h1 className="text-2xl font-bold">{survey.question}</h1>
 					</div>
@@ -201,7 +203,7 @@ export default function SurveyPage() {
 											</span>
 											{isUserVote && (
 												<span className="text-xs bg-primary-500 text-white px-2 py-0.5 rounded-full">
-													Your vote
+													{t("poll.yourVote") || "Your vote"}
 												</span>
 											)}
 										</div>
@@ -209,7 +211,7 @@ export default function SurveyPage() {
 										{showResults && (
 											<div className="flex items-center gap-2 text-sm">
 												<span className={isSelected ? "text-primary-600" : "text-gray-500"}>
-													{choice.voteCount || 0} votes
+													{choice.voteCount || 0} {t("poll.votes") || "votes"}
 												</span>
 												{totalVotes > 0 && (
 													<span className={`font-medium ${isSelected ? "text-primary-700" : "text-gray-600"}`}>
@@ -239,11 +241,11 @@ export default function SurveyPage() {
 						<div className="flex items-center justify-between">
 							{userVote ? (
 								<div className="text-sm text-gray-500">
-									{totalVotes} total vote{totalVotes !== 1 ? "s" : ""}
+									{totalVotes} {t("poll.totalVotes") || "total votes"}
 								</div>
 							) : (
 								<div className="text-sm text-gray-500">
-									Select an option and submit to see results
+									{t("poll.selectToSeeResults") || "Select an option and submit to see results"}
 								</div>
 							)}
 
@@ -252,7 +254,7 @@ export default function SurveyPage() {
 									<button
 										onClick={fetchSurvey}
 										className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-										title="Refresh results"
+										title={t("poll.refreshResults") || "Refresh results"}
 									>
 										<RefreshCw className="w-5 h-5" />
 									</button>
@@ -267,14 +269,18 @@ export default function SurveyPage() {
 											: "bg-primary-600 hover:bg-primary-700 text-white shadow-md hover:shadow-lg"
 									}`}
 								>
-									{submitting ? "Submitting..." : userVote ? "Update Vote" : "Submit Vote"}
+									{submitting
+										? (t("poll.submitting") || "Submitting...")
+										: userVote
+											? (t("poll.updateVote") || "Update Vote")
+											: (t("poll.submitVote") || "Submit Vote")}
 								</button>
 							</div>
 						</div>
 
 						{userVote && (
 							<p className="text-xs text-gray-500 text-center">
-								You can change your vote at any time while the survey is active.
+								{t("poll.canChangeVote") || "You can change your vote at any time while the poll is active."}
 							</p>
 						)}
 					</div>

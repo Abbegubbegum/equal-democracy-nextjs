@@ -92,7 +92,15 @@ export default async function handler(req, res) {
 
 	if (req.method === "POST") {
 		try {
-			const { place, maxOneProposalPerUser, showUserCount, noMotivation, singleResult } = req.body;
+			const {
+				place,
+				maxOneProposalPerUser,
+				showUserCount,
+				noMotivation,
+				singleResult,
+				sessionType,
+				surveyDurationDays
+			} = req.body;
 
 			if (!place) {
 				return res.status(400).json({ error: "Place is required" });
@@ -110,15 +118,30 @@ export default async function handler(req, res) {
 
 			// Multiple active sessions are now allowed - no restriction check needed
 
+			// Calculate archive date for survey sessions
+			const startDate = new Date();
+			let archiveDate = null;
+			const isSurvey = sessionType === "survey";
+			const durationDays = surveyDurationDays || 6;
+
+			if (isSurvey) {
+				archiveDate = new Date(startDate);
+				archiveDate.setDate(archiveDate.getDate() + durationDays);
+			}
+
 			// Create new session
 			const newSession = await Session.create({
 				place: place.trim(),
 				status: "active",
-				startDate: new Date(),
+				startDate: startDate,
 				createdBy: session.user.id,
+				sessionType: isSurvey ? "survey" : "standard",
+				surveyDurationDays: isSurvey ? durationDays : undefined,
+				archiveDate: archiveDate,
 				maxOneProposalPerUser: maxOneProposalPerUser || false,
 				showUserCount: showUserCount !== undefined ? showUserCount : false,
-				noMotivation: noMotivation !== undefined ? noMotivation : false,
+				// Survey sessions always have noMotivation enabled (responses are just titles)
+				noMotivation: isSurvey ? true : (noMotivation !== undefined ? noMotivation : false),
 				singleResult: singleResult !== undefined ? singleResult : false,
 			});
 
@@ -143,6 +166,8 @@ export default async function handler(req, res) {
 				status: newSession.status,
 				phase: newSession.phase,
 				startDate: newSession.startDate,
+				sessionType: newSession.sessionType,
+				archiveDate: newSession.archiveDate,
 			});
 
 			return res.status(201).json({

@@ -42,6 +42,9 @@ export default async function handler(req, res) {
 			activeUsersCount: activeSession.activeUsers?.length || 0,
 			showUserCount: activeSession.showUserCount !== undefined ? activeSession.showUserCount : false,
 			noMotivation: activeSession.noMotivation !== undefined ? activeSession.noMotivation : false,
+			sessionType: activeSession.sessionType || "standard",
+			archiveDate: activeSession.archiveDate,
+			surveyDurationDays: activeSession.surveyDurationDays,
 		});
 	} catch (error) {
 		console.error("Error fetching current session:", error);

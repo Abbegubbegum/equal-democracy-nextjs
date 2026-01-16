@@ -19,6 +19,9 @@ import { useConfig } from "../../lib/contexts/ConfigContext";
 import useSSE from "../../lib/hooks/useSSE";
 import useSound from "use-sound";
 
+// Standard session page - for 2-phase democracy sessions
+// Survey sessions are handled by /session/survey/[id].js
+
 // Helper function to format date and time consistently
 function formatDateTime(dateString) {
 	const date = new Date(dateString);
@@ -67,7 +70,9 @@ export default function SessionPage() {
 
 	const fetchWinningProposals = useCallback(async () => {
 		try {
-			const res = await fetch(`/api/top-proposals?sessionId=${sessionId}`);
+			const res = await fetch(
+				`/api/top-proposals?sessionId=${sessionId}`,
+			);
 			const data = await res.json();
 			setWinningProposals(data);
 		} catch (error) {
@@ -92,7 +97,9 @@ export default function SessionPage() {
 	const fetchSessionInfo = useCallback(async () => {
 		if (!sessionId) return;
 		try {
-			const res = await fetch(`/api/sessions/current?sessionId=${sessionId}`);
+			const res = await fetch(
+				`/api/sessions/current?sessionId=${sessionId}`,
+			);
 			const data = await res.json();
 
 			if (data.noActiveSession) {
@@ -117,6 +124,12 @@ export default function SessionPage() {
 				setNoMotivation(data.noMotivation);
 			}
 
+			// Redirect to survey page if this is a survey session
+			if (data.sessionType === "survey") {
+				router.replace(`/session/survey/${sessionId}`);
+				return;
+			}
+
 			if (data.phase) {
 				if (data.phase === "closed" && !showSessionClosed) {
 					await fetchWinningProposals();
@@ -134,12 +147,21 @@ export default function SessionPage() {
 			console.error("Error fetching session info:", error);
 			setLoading(false);
 		}
-	}, [sessionId, showSessionClosed, isInitialLoad, fetchWinningProposals, playEndSign]);
+	}, [
+		router,
+		sessionId,
+		showSessionClosed,
+		isInitialLoad,
+		fetchWinningProposals,
+		playEndSign,
+	]);
 
 	const checkUserVote = useCallback(async () => {
 		if (!sessionId) return;
 		try {
-			const res = await fetch(`/api/votes?checkSession=true&sessionId=${sessionId}`);
+			const res = await fetch(
+				`/api/votes?checkSession=true&sessionId=${sessionId}`,
+			);
 			if (!res.ok) {
 				console.error("Error checking user vote:", res.status);
 				return;
@@ -155,7 +177,9 @@ export default function SessionPage() {
 	const checkPhaseTransition = useCallback(async () => {
 		if (!sessionId) return;
 		try {
-			const res = await fetch(`/api/sessions/check-phase-transition?sessionId=${sessionId}`);
+			const res = await fetch(
+				`/api/sessions/check-phase-transition?sessionId=${sessionId}`,
+			);
 			const data = await res.json();
 
 			if (data.transitionScheduled) {
@@ -172,7 +196,7 @@ export default function SessionPage() {
 							method: "POST",
 							headers: { "Content-Type": "application/json" },
 							body: JSON.stringify({ sessionId }),
-						}
+						},
 					);
 
 					if (execRes.ok) {
@@ -230,8 +254,8 @@ export default function SessionPage() {
 				prev.map((p) =>
 					p._id === voteData.proposalId
 						? { ...p, yesVotes: voteData.yes, noVotes: voteData.no }
-						: p
-				)
+						: p,
+				),
 			);
 		},
 		onRatingUpdate: (ratingData) => {
@@ -242,9 +266,9 @@ export default function SessionPage() {
 								...p,
 								thumbsUpCount: ratingData.thumbsUpCount,
 								averageRating: ratingData.averageRating,
-						  }
-						: p
-				)
+							}
+						: p,
+				),
 			);
 		},
 		onPhaseChange: async (phaseData) => {
@@ -287,13 +311,20 @@ export default function SessionPage() {
 			checkUserVote();
 			checkPhaseTransition();
 		}
-	}, [session, sessionId, fetchProposals, fetchSessionInfo, checkUserVote, checkPhaseTransition]);
+	}, [
+		session,
+		sessionId,
+		fetchProposals,
+		fetchSessionInfo,
+		checkUserVote,
+		checkPhaseTransition,
+	]);
 
 	// Check if user has created a proposal
 	useEffect(() => {
 		if (session && proposals.length > 0) {
 			const hasCreated = proposals.some(
-				(p) => p.authorId === session.user.id
+				(p) => p.authorId === session.user.id,
 			);
 			setUserHasCreatedProposal(hasCreated);
 		}
@@ -485,28 +516,38 @@ export default function SessionPage() {
 													<>
 														<div>
 															<p className="font-semibold text-gray-700">
-																{t("proposals.problemColon")}
+																{t(
+																	"proposals.problemColon",
+																)}
 															</p>
 															<p className="text-gray-600">
-																{proposal.problem}
+																{
+																	proposal.problem
+																}
 															</p>
 														</div>
 														<div>
 															<p className="font-semibold text-gray-700">
-																{t("proposals.solutionColon")}
+																{t(
+																	"proposals.solutionColon",
+																)}
 															</p>
 															<p className="text-gray-600">
-																{proposal.solution}
+																{
+																	proposal.solution
+																}
 															</p>
 														</div>
 													</>
 												)}
 												<div className="flex gap-4 mt-3 text-sm">
 													<span className="bg-green-200 text-green-800 px-3 py-1 rounded-full font-semibold">
-														{t("voting.yes")}: {proposal.yesVotes}
+														{t("voting.yes")}:{" "}
+														{proposal.yesVotes}
 													</span>
 													<span className="bg-red-200 text-red-800 px-3 py-1 rounded-full font-semibold">
-														{t("voting.no")}: {proposal.noVotes}
+														{t("voting.no")}:{" "}
+														{proposal.noVotes}
 													</span>
 												</div>
 											</div>
@@ -517,7 +558,9 @@ export default function SessionPage() {
 						</div>
 					) : (
 						<div className="bg-gray-100 rounded-2xl p-8 text-center mb-8">
-							<p className="text-gray-600">{t("voting.noMajority")}</p>
+							<p className="text-gray-600">
+								{t("voting.noMajority")}
+							</p>
 						</div>
 					)}
 
@@ -571,7 +614,7 @@ export default function SessionPage() {
 		);
 	}
 
-	// Home view
+	// Home view - standard sessions only (surveys are handled by /session/survey/[id].js)
 	const activeProposals = proposals
 		.filter((p) => p.status === "active")
 		.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -614,10 +657,10 @@ export default function SessionPage() {
 								/>
 							</button>
 							<div className="min-w-0">
-								<h1 className="text-xl sm:text-2xl font-bold break-words">
+								<h1 className="text-xl sm:text-2xl font-bold wrap-break-word">
 									{t("appName")}
 								</h1>
-								<p className="text-primary-100 text-xs sm:text-sm break-words">
+								<p className="text-primary-100 text-xs sm:text-sm wrap-break-word">
 									{t("auth.hello")}, {session.user.name}!
 								</p>
 							</div>
@@ -632,25 +675,34 @@ export default function SessionPage() {
 										{t("nav.admin")}
 									</button>
 									<button
-										onClick={() => router.push("/manage-sessions")}
+										onClick={() =>
+											router.push("/manage-sessions")
+										}
 										className="text-white hover:text-accent-400 font-medium whitespace-nowrap"
 									>
-										Manage Sessions
+										{t("nav.manageSessions") ||
+											"Manage Sessions"}
 									</button>
 								</>
 							)}
-							{session.user.isAdmin && !session.user.isSuperAdmin && (
-								<button
-									onClick={() => router.push("/manage-sessions")}
-									className="text-white hover:text-accent-400 font-medium whitespace-nowrap"
-								>
-									Manage Sessions
-								</button>
-							)}
+							{session.user.isAdmin &&
+								!session.user.isSuperAdmin && (
+									<button
+										onClick={() =>
+											router.push("/manage-sessions")
+										}
+										className="text-white hover:text-accent-400 font-medium whitespace-nowrap"
+									>
+										{t("nav.manageSessions") ||
+											"Manage Sessions"}
+									</button>
+								)}
 							{showUserCount && (
 								<div className="flex items-center gap-2 text-white font-medium whitespace-nowrap">
 									<Users className="w-4 h-4" />
-									<span>Antal inloggade: {activeUserCount}</span>
+									<span>
+										Antal inloggade: {activeUserCount}
+									</span>
 								</div>
 							)}
 							<button
@@ -661,14 +713,14 @@ export default function SessionPage() {
 							</button>
 						</div>
 					</div>
-					<h2 className="text-lg sm:text-xl font-medium break-words">
+					<h2 className="text-lg sm:text-xl font-medium wrap-break-word">
 						{hasActiveSession && placeName
 							? (() => {
 									const words = placeName.split(/\s+/);
 									return words.length > 8
 										? words.slice(0, 8).join(" ") + "..."
 										: placeName;
-							  })()
+								})()
 							: t("proposals.howToImproveYourSpace")}
 					</h2>
 				</div>
@@ -678,7 +730,9 @@ export default function SessionPage() {
 				{/* Show message when session not found */}
 				{!hasActiveSession && (
 					<div className="bg-white rounded-2xl p-8 text-center">
-						<p className="text-gray-600 mb-4">Session not found or has been closed.</p>
+						<p className="text-gray-600 mb-4">
+							Session not found or has been closed.
+						</p>
 						<button
 							onClick={() => router.push("/")}
 							className="bg-primary-800 hover:bg-primary-900 text-white font-bold py-3 px-8 rounded-xl transition-colors"
@@ -688,7 +742,7 @@ export default function SessionPage() {
 					</div>
 				)}
 
-				{/* Only allow new proposals in Phase 1 AND when countdown hasn't started AND session exists */}
+				{/* Only allow new proposals/responses in Phase 1 AND when countdown hasn't started AND session exists */}
 				{hasActiveSession &&
 					currentPhase === "phase1" &&
 					transitionCountdown === null && (
@@ -710,7 +764,7 @@ export default function SessionPage() {
 					<div className="bg-gradient-to-r from-accent-100 to-accent-50 border-2 border-accent-400 rounded-2xl p-4 sm:p-6 shadow-md">
 						<div className="flex flex-col sm:flex-row items-center justify-center gap-3">
 							<Clock className="w-6 h-6 text-accent-600 animate-pulse shrink-0" />
-							<p className="text-center text-base sm:text-lg font-semibold text-accent-800 break-words">
+							<p className="text-center text-base sm:text-lg font-semibold text-accent-800 wrap-break-word">
 								{t("phases.transitionToDebate")}{" "}
 								<span className="text-xl sm:text-2xl font-bold text-accent-900">
 									{transitionCountdown}
@@ -718,7 +772,7 @@ export default function SessionPage() {
 								{t("common.seconds")}...
 							</p>
 						</div>
-						<p className="text-center text-xs sm:text-sm text-accent-700 mt-2 break-words">
+						<p className="text-center text-xs sm:text-sm text-accent-700 mt-2 wrap-break-word">
 							{t("phases.transitionMessage")}
 						</p>
 					</div>
@@ -749,14 +803,14 @@ export default function SessionPage() {
 										config.theme === "red"
 											? "text-blue-900"
 											: "text-primary-900"
-									} mb-2 break-words`}
+									} mb-2 wrap-break-word`}
 								>
 									{t("voting.limitedVotingRights")}
 								</h3>
-								<p className="text-gray-700 text-sm leading-relaxed mb-2 break-words">
+								<p className="text-gray-700 text-sm leading-relaxed mb-2 wrap-break-word">
 									{t("voting.oneVotePerSession")}
 								</p>
-								<p className="text-gray-700 text-sm leading-relaxed break-words">
+								<p className="text-gray-700 text-sm leading-relaxed wrap-break-word">
 									{t("voting.votingAdvantages")}
 								</p>
 							</div>
@@ -770,13 +824,15 @@ export default function SessionPage() {
 						<div className="flex flex-col items-center gap-4">
 							<div className="flex flex-col sm:flex-row items-center gap-3">
 								<div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center shrink-0">
-									<span className="text-2xl text-white">✓</span>
+									<span className="text-2xl text-white">
+										✓
+									</span>
 								</div>
 								<div className="text-center min-w-0">
-									<h3 className="text-base sm:text-lg font-bold text-green-900 break-words">
+									<h3 className="text-base sm:text-lg font-bold text-green-900 wrap-break-word">
 										{t("voting.thanksForVote")}
 									</h3>
-									<p className="text-gray-700 text-xs sm:text-sm break-words">
+									<p className="text-gray-700 text-xs sm:text-sm wrap-break-word">
 										{t("voting.sessionClosesWhen")}
 									</p>
 								</div>
@@ -804,7 +860,7 @@ export default function SessionPage() {
 							<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
 								<div className="flex items-center gap-2 min-w-0">
 									<TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-accent-600 shrink-0" />
-									<h3 className="text-lg sm:text-xl font-bold text-primary-800 break-words">
+									<h3 className="text-lg sm:text-xl font-bold text-primary-800 wrap-break-word">
 										{t("proposals.topProposals")}
 									</h3>
 								</div>
@@ -818,7 +874,7 @@ export default function SessionPage() {
 									{t("proposals.vote")}
 								</button>
 							</div>
-							<p className="text-gray-700 text-sm sm:text-base break-words">
+							<p className="text-gray-700 text-sm sm:text-base wrap-break-word">
 								{t("proposals.clickToDebateAndVote")}
 							</p>
 						</div>
@@ -831,10 +887,10 @@ export default function SessionPage() {
 							{currentPhase === "phase1"
 								? t("proposals.allProposalsCount", {
 										count: displayProposals.length,
-								  })
+									})
 								: t("proposals.topProposalsCount", {
 										count: displayProposals.length,
-								  })}
+									})}
 						</h3>
 
 						{displayProposals.length === 0 ? (
@@ -862,7 +918,9 @@ export default function SessionPage() {
 										setSelectedProposal(proposal._id);
 										setView("vote");
 									}}
-									userHasVotedInSession={userHasVotedInSession}
+									userHasVotedInSession={
+										userHasVotedInSession
+									}
 									votedProposalId={votedProposalId}
 									commentUpdateTrigger={commentUpdateTrigger}
 									t={t}
@@ -1007,7 +1065,9 @@ function ProposalCard({
 
 	const fetchCommentRating = async (commentId) => {
 		try {
-			const res = await fetch(`/api/comments/rate?commentId=${commentId}`);
+			const res = await fetch(
+				`/api/comments/rate?commentId=${commentId}`,
+			);
 			if (res.ok) {
 				const data = await res.json();
 				return data.userRating;
@@ -1044,7 +1104,7 @@ function ProposalCard({
 				onClick={!isPhase1 ? handleToggleDiscuss : undefined}
 			>
 				<h4
-					className={`text-lg font-bold text-primary-800 mb-2 break-words ${
+					className={`text-lg font-bold text-primary-800 mb-2 wrap-break-word ${
 						!isPhase1 ? "group-hover:text-primary-900" : ""
 					}`}
 				>
@@ -1057,14 +1117,18 @@ function ProposalCard({
 							<p className="font-semibold text-gray-700">
 								{t("proposals.problemColon")}
 							</p>
-							<p className="text-gray-600 break-words">{proposal.problem}</p>
+							<p className="text-gray-600 wrap-break-word">
+								{proposal.problem}
+							</p>
 						</div>
 
 						<div>
 							<p className="font-semibold text-gray-700">
 								{t("proposals.solutionColon")}
 							</p>
-							<p className="text-gray-600 break-words">{proposal.solution}</p>
+							<p className="text-gray-600 wrap-break-word">
+								{proposal.solution}
+							</p>
 						</div>
 					</div>
 				)}
@@ -1092,7 +1156,9 @@ function ProposalCard({
 					>
 						<ThumbsUp className="w-5 h-5" />
 						<span>
-							{hasVoted ? t("rating.changeRating") : t("rating.giveRating")}
+							{hasVoted
+								? t("rating.changeRating")
+								: t("rating.giveRating")}
 						</span>
 					</button>
 
@@ -1132,8 +1198,8 @@ function ProposalCard({
 												isConfirmed
 													? "fill-red-600 text-red-600 animate-pulse"
 													: star <= userRating
-													? "fill-yellow-400 text-accent-400"
-													: "text-gray-300 hover:text-accent-400"
+														? "fill-yellow-400 text-accent-400"
+														: "text-gray-300 hover:text-accent-400"
 											}`}
 										/>
 									</button>
@@ -1143,7 +1209,7 @@ function ProposalCard({
 								{showConfirmation
 									? t("rating.ratingRegistered", {
 											rating: confirmedRating,
-									  })
+										})
 									: t("rating.clickStar")}
 							</span>
 						</div>
@@ -1222,13 +1288,17 @@ function ProposalCard({
 							disabled={!commentText.trim() || submitting}
 							className="bg-primary-800 hover:bg-primary-900 disabled:bg-gray-300 disabled:text-gray-500 text-white px-4 py-2 rounded-xl font-medium transition-colors text-xs sm:text-sm whitespace-nowrap"
 						>
-							{submitting ? t("comments.sending") : t("comments.send")}
+							{submitting
+								? t("comments.sending")
+								: t("comments.send")}
 						</button>
 					</form>
 
 					{/* Comments list */}
 					{loadingComments ? (
-						<div className="text-center text-gray-500 py-4">Laddar...</div>
+						<div className="text-center text-gray-500 py-4">
+							Laddar...
+						</div>
 					) : comments.length === 0 ? (
 						<div className="text-center text-gray-500 py-4">
 							{t("comments.noArgumentsYet")}
@@ -1240,8 +1310,8 @@ function ProposalCard({
 									comment.type === "for"
 										? "bg-green-50"
 										: comment.type === "against"
-										? "bg-red-50"
-										: "bg-white";
+											? "bg-red-50"
+											: "bg-white";
 
 								const isCommentRatingExpanded =
 									expandedCommentRating === comment._id;
@@ -1262,22 +1332,26 @@ function ProposalCard({
 														setExpandedCommentRating(
 															isCommentRatingExpanded
 																? null
-																: comment._id
+																: comment._id,
 														)
 													}
 													className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
 														userCommentRating > 0
-															? comment.type === "for"
+															? comment.type ===
+																"for"
 																? "bg-green-500 hover:bg-green-600"
-																: comment.type === "against"
-																? "bg-red-500 hover:bg-red-600"
-																: "bg-primary-500 hover:bg-primary-600"
+																: comment.type ===
+																	  "against"
+																	? "bg-red-500 hover:bg-red-600"
+																	: "bg-primary-500 hover:bg-primary-600"
 															: "bg-gray-300 hover:bg-gray-400"
 													}`}
 													title={
 														userCommentRating > 0
 															? `${t("rating.yourRating")}: ${userCommentRating}/5`
-															: t("rating.giveRating")
+															: t(
+																	"rating.giveRating",
+																)
 													}
 												>
 													<ThumbsUp className="w-5 h-5 text-white" />
@@ -1286,14 +1360,19 @@ function ProposalCard({
 												{userCommentRating > 0 && (
 													<div className="flex flex-col items-center gap-0.5 bg-white px-2 py-1 rounded-md border border-gray-200">
 														<span className="text-xs text-gray-500 font-medium">
-															{t("rating.yourRating")}
+															{t(
+																"rating.yourRating",
+															)}
 														</span>
 														<div className="flex gap-0.5">
-															{[1, 2, 3, 4, 5].map((star) => (
+															{[
+																1, 2, 3, 4, 5,
+															].map((star) => (
 																<Star
 																	key={star}
 																	className={`w-3 h-3 ${
-																		star <= userCommentRating
+																		star <=
+																		userCommentRating
 																			? "fill-blue-500 text-primary-500"
 																			: "text-gray-300"
 																	}`}
@@ -1306,14 +1385,22 @@ function ProposalCard({
 												{avgRating > 0 && (
 													<div className="flex flex-col items-center gap-0.5">
 														<span className="text-xs text-gray-400">
-															Ø {avgRating.toFixed(1)}
+															Ø{" "}
+															{avgRating.toFixed(
+																1,
+															)}
 														</span>
 														<div className="flex gap-0.5">
-															{[1, 2, 3, 4, 5].map((star) => (
+															{[
+																1, 2, 3, 4, 5,
+															].map((star) => (
 																<Star
 																	key={star}
 																	className={`w-2.5 h-2.5 ${
-																		star <= Math.round(avgRating)
+																		star <=
+																		Math.round(
+																			avgRating,
+																		)
 																			? "fill-yellow-400 text-accent-400"
 																			: "text-gray-300"
 																	}`}
@@ -1326,38 +1413,51 @@ function ProposalCard({
 
 											{/* Right side: Comment content */}
 											<div className="flex-1 min-w-0">
-												<p className="text-gray-700 text-sm leading-relaxed break-words">
+												<p className="text-gray-700 text-sm leading-relaxed wrap-break-word">
 													{comment.text}
 												</p>
 												<p className="text-xs text-gray-400 mt-1">
-													{formatDateTime(comment.createdAt)}
+													{formatDateTime(
+														comment.createdAt,
+													)}
 												</p>
 
 												{isCommentRatingExpanded && (
 													<div className="mt-3 flex items-center gap-2 bg-white p-3 rounded-lg shadow-sm border border-gray-200">
 														<span className="text-sm text-gray-600">
-															{userCommentRating > 0
-																? t("rating.changeRating")
-																: t("rating.giveRating")}
+															{userCommentRating >
+															0
+																? t(
+																		"rating.changeRating",
+																	)
+																: t(
+																		"rating.giveRating",
+																	)}
 															:
 														</span>
-														{[1, 2, 3, 4, 5].map((star) => (
-															<button
-																key={star}
-																onClick={() =>
-																	handleRateComment(comment._id, star)
-																}
-																className="transition-transform hover:scale-125"
-															>
-																<Star
-																	className={`w-6 h-6 ${
-																		star <= userCommentRating
-																			? "fill-yellow-400 text-accent-400"
-																			: "text-gray-300 hover:text-accent-400"
-																	}`}
-																/>
-															</button>
-														))}
+														{[1, 2, 3, 4, 5].map(
+															(star) => (
+																<button
+																	key={star}
+																	onClick={() =>
+																		handleRateComment(
+																			comment._id,
+																			star,
+																		)
+																	}
+																	className="transition-transform hover:scale-125"
+																>
+																	<Star
+																		className={`w-6 h-6 ${
+																			star <=
+																			userCommentRating
+																				? "fill-yellow-400 text-accent-400"
+																				: "text-gray-300 hover:text-accent-400"
+																		}`}
+																	/>
+																</button>
+															),
+														)}
 													</div>
 												)}
 											</div>
@@ -1370,13 +1470,14 @@ function ProposalCard({
 
 					{/* Vote button and collapse indicator */}
 					<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-						{userHasVotedInSession && votedProposalId === proposal._id ? (
+						{userHasVotedInSession &&
+						votedProposalId === proposal._id ? (
 							<div className="flex-1 bg-green-100 border-2 border-green-500 text-green-800 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 text-sm sm:text-base">
 								<span className="text-xl">✓</span>
 								<span>{t("voting.youHaveVoted")}</span>
 							</div>
 						) : userHasVotedInSession ? (
-							<div className="flex-1 bg-gray-100 text-gray-500 font-bold py-3 px-4 rounded-xl text-center cursor-not-allowed text-sm sm:text-base break-words">
+							<div className="flex-1 bg-gray-100 text-gray-500 font-bold py-3 px-4 rounded-xl text-center cursor-not-allowed text-sm sm:text-base wrap-break-word">
 								{t("voting.alreadyUsedVote")}
 							</div>
 						) : (
@@ -1438,11 +1539,14 @@ function CreateProposalView({ onSubmit, onBack, t, noMotivation }) {
 				</button>
 
 				<div className="bg-white rounded-2xl shadow-lg p-4 sm:p-8">
-					<h2 className="text-xl sm:text-2xl font-bold text-primary-800 mb-4 sm:mb-6 break-words">
+					<h2 className="text-xl sm:text-2xl font-bold text-primary-800 mb-4 sm:mb-6 wrap-break-word">
 						{t("createProposal.title")}
 					</h2>
 
-					<form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+					<form
+						onSubmit={handleSubmit}
+						className="space-y-4 sm:space-y-6"
+					>
 						<div>
 							<label className="block text-sm font-medium text-gray-700 mb-2">
 								{t("createProposal.nameOfProposal")}
@@ -1467,10 +1571,14 @@ function CreateProposalView({ onSubmit, onBack, t, noMotivation }) {
 									</label>
 									<textarea
 										value={problem}
-										onChange={(e) => setProblem(e.target.value)}
+										onChange={(e) =>
+											setProblem(e.target.value)
+										}
 										rows={4}
 										className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:outline-none resize-none"
-										placeholder={t("createProposal.problemPlaceholder")}
+										placeholder={t(
+											"createProposal.problemPlaceholder",
+										)}
 										maxLength={1000}
 										required
 									/>
@@ -1485,10 +1593,14 @@ function CreateProposalView({ onSubmit, onBack, t, noMotivation }) {
 									</label>
 									<textarea
 										value={solution}
-										onChange={(e) => setSolution(e.target.value)}
+										onChange={(e) =>
+											setSolution(e.target.value)
+										}
 										rows={4}
 										className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-primary-500 focus:outline-none resize-none"
-										placeholder={t("createProposal.solutionPlaceholder")}
+										placeholder={t(
+											"createProposal.solutionPlaceholder",
+										)}
 										maxLength={1000}
 										required
 									/>
@@ -1503,7 +1615,8 @@ function CreateProposalView({ onSubmit, onBack, t, noMotivation }) {
 							type="submit"
 							disabled={
 								!title.trim() ||
-								(!noMotivation && (!problem.trim() || !solution.trim())) ||
+								(!noMotivation &&
+									(!problem.trim() || !solution.trim())) ||
 								submitting
 							}
 							className="w-full bg-primary-800 hover:bg-primary-900 disabled:bg-gray-300 text-white font-bold py-4 rounded-xl transition-colors shadow-lg"
@@ -1546,7 +1659,7 @@ function VoteView({
 		try {
 			const resultsPromises = proposals.map(async (p) => {
 				const res = await fetch(
-					`/api/votes?proposalId=${p._id}&userId=${currentUser.id}`
+					`/api/votes?proposalId=${p._id}&userId=${currentUser.id}`,
 				);
 				const data = await res.json();
 				return { id: p._id, data };
@@ -1629,10 +1742,10 @@ function VoteView({
 						← {t("common.back")}
 					</button>
 					<div className="text-center">
-						<h1 className="text-2xl sm:text-3xl font-bold mb-2 break-words">
+						<h1 className="text-2xl sm:text-3xl font-bold mb-2 wrap-break-word">
 							{t("voting.officialVoting")}
 						</h1>
-						<p className="text-primary-200 text-base sm:text-lg break-words">
+						<p className="text-primary-200 text-base sm:text-lg wrap-break-word">
 							{t("voting.yourVoteMatters")}
 						</p>
 					</div>
@@ -1649,8 +1762,8 @@ function VoteView({
 								index === currentProposalIndex
 									? "w-12 bg-accent-400"
 									: index < currentProposalIndex
-									? "w-8 bg-green-400"
-									: "w-8 bg-primary-700"
+										? "w-8 bg-green-400"
+										: "w-8 bg-primary-700"
 							}`}
 						/>
 					))}
@@ -1668,7 +1781,7 @@ function VoteView({
 				<div className="bg-white text-gray-900 rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden border-2 sm:border-4 border-accent-400">
 					{/* Proposal header */}
 					<div className="bg-gradient-to-r from-accent-400 to-accent-500 px-4 sm:px-8 py-4 sm:py-6 text-center">
-						<h2 className="text-xl sm:text-2xl font-bold text-primary-900 break-words">
+						<h2 className="text-xl sm:text-2xl font-bold text-primary-900 wrap-break-word">
 							{currentProposal.title}
 						</h2>
 					</div>
@@ -1681,7 +1794,7 @@ function VoteView({
 									<h3 className="text-xs sm:text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">
 										{t("proposals.problemColon")}
 									</h3>
-									<p className="text-base sm:text-lg leading-relaxed text-gray-800 break-words">
+									<p className="text-base sm:text-lg leading-relaxed text-gray-800 wrap-break-word">
 										{currentProposal.problem}
 									</p>
 								</div>
@@ -1690,7 +1803,7 @@ function VoteView({
 									<h3 className="text-xs sm:text-sm font-bold text-gray-500 uppercase tracking-wide mb-2">
 										{t("proposals.solutionColon")}
 									</h3>
-									<p className="text-base sm:text-lg leading-relaxed text-gray-800 break-words">
+									<p className="text-base sm:text-lg leading-relaxed text-gray-800 wrap-break-word">
 										{currentProposal.solution}
 									</p>
 								</div>
@@ -1702,13 +1815,16 @@ function VoteView({
 					{!voted ? (
 						<div className="px-4 sm:px-8 pb-6 sm:pb-8">
 							<div className="border-t-4 border-accent-400 pt-6 sm:pt-8">
-								<p className="text-center text-base sm:text-lg font-semibold text-gray-700 mb-4 sm:mb-6 break-words">
+								<p className="text-center text-base sm:text-lg font-semibold text-gray-700 mb-4 sm:mb-6 wrap-break-word">
 									{t("voting.castYourVote")}
 								</p>
 								<div className="grid grid-cols-2 gap-3 sm:gap-6">
 									<button
 										onClick={() =>
-											handleVote(currentProposal._id, "yes")
+											handleVote(
+												currentProposal._id,
+												"yes",
+											)
 										}
 										disabled={isVoting}
 										className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-4 sm:py-6 px-4 sm:px-8 rounded-xl sm:rounded-2xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex flex-col items-center justify-center gap-2 sm:gap-3"
@@ -1720,7 +1836,10 @@ function VoteView({
 									</button>
 									<button
 										onClick={() =>
-											handleVote(currentProposal._id, "no")
+											handleVote(
+												currentProposal._id,
+												"no",
+											)
 										}
 										disabled={isVoting}
 										className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-bold py-4 sm:py-6 px-4 sm:px-8 rounded-xl sm:rounded-2xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex flex-col items-center justify-center gap-2 sm:gap-3"
@@ -1738,7 +1857,9 @@ function VoteView({
 							<div className="border-t-4 border-green-400 pt-6 sm:pt-8 space-y-4">
 								<div className="text-center">
 									<div className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 sm:px-6 py-2 sm:py-3 rounded-full font-semibold text-sm sm:text-base">
-										<span className="text-xl sm:text-2xl">✓</span>
+										<span className="text-xl sm:text-2xl">
+											✓
+										</span>
 										<span>{t("voting.youHaveVoted")}</span>
 									</div>
 								</div>
@@ -1766,11 +1887,12 @@ function VoteView({
 									})}
 								</p>
 								{!hasVotedInThisSession &&
-									currentProposalIndex < proposals.length - 1 && (
+									currentProposalIndex <
+										proposals.length - 1 && (
 										<button
 											onClick={() =>
 												setCurrentProposalIndex(
-													currentProposalIndex + 1
+													currentProposalIndex + 1,
 												)
 											}
 											className="w-full mt-4 bg-primary-800 hover:bg-primary-900 text-white font-semibold py-3 rounded-xl transition-colors text-sm sm:text-base"
@@ -1789,7 +1911,7 @@ function VoteView({
 						<button
 							onClick={() =>
 								setCurrentProposalIndex(
-									Math.max(0, currentProposalIndex - 1)
+									Math.max(0, currentProposalIndex - 1),
 								)
 							}
 							disabled={currentProposalIndex === 0}
@@ -1802,11 +1924,13 @@ function VoteView({
 								setCurrentProposalIndex(
 									Math.min(
 										proposals.length - 1,
-										currentProposalIndex + 1
-									)
+										currentProposalIndex + 1,
+									),
 								)
 							}
-							disabled={currentProposalIndex === proposals.length - 1}
+							disabled={
+								currentProposalIndex === proposals.length - 1
+							}
 							className="px-4 sm:px-6 py-2 sm:py-3 bg-primary-700 hover:bg-primary-600 disabled:bg-primary-900 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors text-sm sm:text-base"
 						>
 							{t("voting.next")} →

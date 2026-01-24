@@ -63,16 +63,50 @@ export default async function handler(req, res) {
 					.json({ message: "No active session exists" });
 			}
 
-			// Check if user has already voted in this session (limit: 1 vote per session)
-			const existingVoteInSession = await FinalVote.findOne({
-				sessionId: activeSession._id,
-				userId: session.user.id,
-			});
+			// Get user info to check voting rights
+			const user = await User.findById(session.user.id);
 
-			if (existingVoteInSession) {
-				return res.status(400).json({
+			if (!user) {
+				return res.status(404).json({ message: "User not found" });
+			}
+
+			// Check voting rights based on user type
+			if (user.userType === "member") {
+				// Members: 1 vote per session
+				const existingVoteInSession = await FinalVote.findOne({
+					sessionId: activeSession._id,
+					userId: session.user.id,
+				});
+
+				if (existingVoteInSession) {
+					return res.status(400).json({
+						message:
+							"You have already used your vote this session. Members may vote on one (1) proposal per session.",
+					});
+				}
+			} else if (user.userType === "citizen") {
+				// Citizens: 1 vote per year
+				const currentYear = new Date().getFullYear();
+				const yearStart = new Date(currentYear, 0, 1);
+
+				const votesThisYear = await FinalVote.countDocuments({
+					userId: session.user.id,
+					createdAt: { $gte: yearStart },
+				});
+
+				if (votesThisYear >= 1) {
+					return res.status(400).json({
+						message:
+							"You have already used your annual vote. Citizens may vote on one (1) proposal per year.",
+						votesUsed: votesThisYear,
+						nextVoteDate: new Date(currentYear + 1, 0, 1).toISOString(),
+					});
+				}
+			} else {
+				// User must be registered as member or citizen to vote
+				return res.status(403).json({
 					message:
-						"You have already used your vote this session. Each user may only vote on one (1) proposal.",
+						"You must be registered as a member or citizen to vote. Please complete your profile.",
 				});
 			}
 

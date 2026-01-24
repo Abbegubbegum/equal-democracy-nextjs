@@ -47,7 +47,7 @@ export default function SessionPage() {
 	const [currentPhase, setCurrentPhase] = useState("phase1"); // 'phase1', 'phase2', 'closed'
 	const [expandedRating, setExpandedRating] = useState(null);
 	const [expandedProposal, setExpandedProposal] = useState(null);
-	const [userHasRated, setUserHasRated] = useState(false);
+	const [, setUserHasRated] = useState(false);
 	const [showPhaseTransition, setShowPhaseTransition] = useState(false);
 	const [showSessionClosed, setShowSessionClosed] = useState(false);
 	const [winningProposals, setWinningProposals] = useState([]);
@@ -58,7 +58,7 @@ export default function SessionPage() {
 	const [hasActiveSession, setHasActiveSession] = useState(true);
 	const transitionIntervalRef = useRef(null);
 	const [commentUpdateTrigger, setCommentUpdateTrigger] = useState(0);
-	const [userHasCreatedProposal, setUserHasCreatedProposal] = useState(false);
+	const [, setUserHasCreatedProposal] = useState(false);
 	const [showUserCount, setShowUserCount] = useState(false);
 	const [noMotivation, setNoMotivation] = useState(false);
 	const [sessionTypeVerified, setSessionTypeVerified] = useState(false);
@@ -248,7 +248,7 @@ export default function SessionPage() {
 				playNotification();
 			}
 		},
-		onNewComment: (comment) => {
+		onNewComment: () => {
 			setCommentUpdateTrigger((prev) => prev + 1);
 			playNotification();
 		},
@@ -294,7 +294,7 @@ export default function SessionPage() {
 				checkPhaseTransition();
 			}
 		},
-		onNewSession: async (sessionData) => {
+		onNewSession: async () => {
 			// Handled at home page level
 		},
 		onConnected: () => {},
@@ -331,7 +331,8 @@ export default function SessionPage() {
 	useEffect(() => {
 		if (session && proposals.length > 0) {
 			const hasCreated = proposals.some(
-				(p) => p.authorId !== undefined && p.authorId === session.user.id,
+				(p) =>
+					p.authorId !== undefined && p.authorId === session.user.id,
 			);
 			setUserHasCreatedProposal(hasCreated);
 		}
@@ -447,7 +448,7 @@ export default function SessionPage() {
 				try {
 					const data = await res.json();
 					alert(data.message || "Ett fel uppstod vid röstning");
-				} catch (jsonError) {
+				} catch {
 					alert("Ett fel uppstod vid röstning");
 				}
 			}
@@ -913,7 +914,6 @@ export default function SessionPage() {
 								<ProposalCard
 									key={proposal._id}
 									proposal={proposal}
-									currentUser={session.user}
 									currentPhase={currentPhase}
 									expandedRating={expandedRating}
 									setExpandedRating={setExpandedRating}
@@ -949,7 +949,6 @@ export default function SessionPage() {
 
 function ProposalCard({
 	proposal,
-	currentUser,
 	currentPhase,
 	expandedRating,
 	setExpandedRating,
@@ -1429,7 +1428,9 @@ function ProposalCard({
 											<div className="flex-1 min-w-0">
 												{comment.isOwn && (
 													<span className="inline-block px-2 py-0.5 mb-1 text-xs font-medium text-blue-700 bg-blue-100 rounded">
-														{t("comment.yourComment") || "Ditt argument"}
+														{t(
+															"comment.yourComment",
+														) || "Ditt argument"}
 													</span>
 												)}
 												<p className="text-gray-700 text-sm leading-relaxed wrap-break-word">

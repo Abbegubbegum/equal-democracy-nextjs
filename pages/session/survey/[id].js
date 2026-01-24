@@ -393,7 +393,6 @@ export default function SurveySessionPage() {
 										key={proposal._id}
 										proposal={proposal}
 										rank={index + 1}
-										currentUser={session.user}
 										expandedRating={expandedRating}
 										setExpandedRating={setExpandedRating}
 										onThumbsUp={handleThumbsUp}
@@ -507,7 +506,6 @@ function SurveyCountdownBanner({ archiveDate, t, primaryColor }) {
 function SurveyResponseCard({
 	proposal,
 	rank,
-	currentUser,
 	expandedRating,
 	setExpandedRating,
 	onThumbsUp,

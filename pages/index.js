@@ -8,7 +8,6 @@ import {
 	Archive,
 	Clock,
 	Star,
-	TrendingUp,
 } from "lucide-react";
 import { useTranslation } from "../lib/hooks/useTranslation";
 import { useConfig } from "../lib/contexts/ConfigContext";
@@ -53,11 +52,11 @@ export default function HomePage() {
 
 	// Setup SSE for real-time updates - listen for new sessions
 	useSSE({
-		onNewSession: async (sessionData) => {
+		onNewSession: async () => {
 			// Refresh sessions list when a new session is created
 			await fetchActiveSessions();
 		},
-		onPhaseChange: async (phaseData) => {
+		onPhaseChange: async () => {
 			// Refresh sessions list when a session phase changes
 			await fetchActiveSessions();
 		},
@@ -285,7 +284,6 @@ export default function HomePage() {
 									router.push(`/session/${sessionItem._id}`)
 								}
 								t={t}
-								primaryColor={primaryColor}
 								primaryDark={primaryDark}
 								accentColor={accentColor}
 							/>
@@ -346,7 +344,6 @@ function SessionCard({
 	session,
 	onClick,
 	t,
-	primaryColor,
 	primaryDark,
 	accentColor,
 }) {

@@ -28,10 +28,10 @@ export default function BudgetVotingPage() {
 	const infoBoxRef = useRef(null);
 	const touchStartY = useRef(0);
 
-	const initializeAllocations = useCallback((session) => {
+	const initializeAllocations = useCallback((budgetSessionData) => {
 		// Initialize allocations with default values
 		if (allocations.length === 0) {
-			const defaultAllocations = session.categories.map((cat) => ({
+			const defaultAllocations = budgetSessionData.categories.map((cat) => ({
 				categoryId: cat.id,
 				amount: cat.defaultAmount,
 				subcategories: [],
@@ -40,14 +40,14 @@ export default function BudgetVotingPage() {
 		}
 
 		if (incomeAllocations.length === 0) {
-			const defaultIncomeAllocations = session.incomeCategories.map((cat) => {
+			const defaultIncomeAllocations = budgetSessionData.incomeCategories.map((cat) => {
 				// For tax income, calculate default tax rate if not provided
 				const isTaxIncome = cat.isTaxRate || cat.name.toLowerCase().includes("skatt");
 				let taxRateKr = cat.taxRateKr || 19; // Default 19 kr
 
 				// If we have amount and taxBase, calculate the rate
-				if (isTaxIncome && session.taxBase && cat.amount) {
-					taxRateKr = cat.amount / session.taxBase;
+				if (isTaxIncome && budgetSessionData.taxBase && cat.amount) {
+					taxRateKr = cat.amount / budgetSessionData.taxBase;
 				}
 
 				return {
@@ -77,7 +77,7 @@ export default function BudgetVotingPage() {
 			} else {
 				setError(data.message);
 			}
-		} catch (err) {
+		} catch {
 			setError("Failed to fetch budget session");
 		} finally {
 			setLoading(false);
@@ -93,7 +93,7 @@ export default function BudgetVotingPage() {
 				setAllocations(data.vote.allocations);
 				setIncomeAllocations(data.vote.incomeAllocations);
 			}
-		} catch (err) {
+		} catch {
 			// No existing vote, that's okay
 		}
 	}, [sessionId]);
@@ -119,8 +119,8 @@ export default function BudgetVotingPage() {
 				if (response.ok && data.theme) {
 					setTheme(data.theme);
 				}
-			} catch (error) {
-				console.error("Failed to fetch theme:", error);
+			} catch (fetchError) {
+				console.error("Failed to fetch theme:", fetchError);
 			}
 		}
 		fetchTheme();
@@ -201,28 +201,23 @@ export default function BudgetVotingPage() {
 			} else {
 				// Handle validation errors with translations
 				if (data.errors && Array.isArray(data.errors)) {
-					const translatedErrors = data.errors.map(error => {
-						if (error.key && error.params) {
-							return t(error.key, error.params);
+					const translatedErrors = data.errors.map(errorItem => {
+						if (errorItem.key && errorItem.params) {
+							return t(errorItem.key, errorItem.params);
 						}
-						return error;
+						return errorItem;
 					});
 					setError(translatedErrors.join(", "));
 				} else {
 					setError(data.message || t("budget.failedToSave"));
 				}
 			}
-		} catch (err) {
+		} catch {
 			setError(t("budget.failedToSave"));
 		} finally {
 			setSaving(false);
 		}
 	}, [sessionId, allocations, incomeAllocations, t]);
-
-	const totalExpenses = allocations.reduce((sum, a) => sum + a.amount, 0);
-	const totalIncome = incomeAllocations.reduce((sum, a) => sum + a.amount, 0);
-	const balance = totalIncome - totalExpenses;
-	const isBalanced = Math.abs(balance) < 1000000; // Within 1 mnkr
 
 	// Create updated categories with current allocation amounts for the treemap
 	const updatedExpenseCategories = budgetSession?.categories.map(category => {

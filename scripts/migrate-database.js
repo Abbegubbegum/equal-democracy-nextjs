@@ -52,7 +52,7 @@ if (!BACKUP_ONLY && !DRY_RUN && !MIGRATE) {
 
 // MongoDB connection string from environment
 // Prioritize MONGODB_URI_PRODUCTION for migrations, fall back to MONGODB_URI
-let MONGODB_URI = process.env.MONGODB_URI_PRODUCTION || process.env.MONGODB_URI;
+const MONGODB_URI = process.env.MONGODB_URI_PRODUCTION || process.env.MONGODB_URI;
 
 if (!MONGODB_URI) {
 	console.error("\n❌ Error: MONGODB_URI not found");
@@ -473,7 +473,7 @@ async function validateMigration() {
 
 	// Print validation results
 	let allPassed = true;
-	for (const [key, validation] of Object.entries(validations)) {
+	for (const [, validation] of Object.entries(validations)) {
 		console.log(`\n  ${validation.name}:`);
 		for (const check of validation.checks) {
 			const icon = check.passed ? "✅" : "❌";

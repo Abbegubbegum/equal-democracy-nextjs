@@ -1,5 +1,5 @@
 import dbConnect from "@/lib/mongodb";
-import { Session, Settings, User, FinalVote } from "@/lib/models";
+import { Session, User, FinalVote } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { csrfProtection } from "@/lib/csrf";

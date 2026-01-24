@@ -3,7 +3,6 @@ import { authOptions } from "./auth/[...nextauth]";
 import connectDB from "../../lib/mongodb";
 import {
 	FinalVote,
-	Session,
 	Proposal,
 	TopProposal,
 	Settings,
@@ -438,9 +437,6 @@ async function closeSession(activeSession) {
 			});
 
 			// Send email to each participant
-			let successCount = 0;
-			let errorCount = 0;
-
 			for (const user of participants) {
 				try {
 					await sendSessionResultsEmail(
@@ -453,13 +449,11 @@ async function closeSession(activeSession) {
 						})),
 						language
 					);
-					successCount++;
 				} catch (emailError) {
 					console.error(
 						`[CLOSE-SESSION] ✗ Failed to send email to ${user.email}:`,
 						emailError
 					);
-					errorCount++;
 				}
 			}
 		} catch (emailError) {

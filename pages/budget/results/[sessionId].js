@@ -26,7 +26,7 @@ export default function BudgetResultsPage() {
 			} else {
 				setError(data.message);
 			}
-		} catch (err) {
+		} catch {
 			setError("Failed to fetch results");
 		} finally {
 			setLoading(false);

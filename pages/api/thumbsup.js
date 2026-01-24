@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
 import connectDB from "../../lib/mongodb";
-import { ThumbsUp, Proposal, Session } from "../../lib/models";
+import { ThumbsUp, Proposal } from "../../lib/models";
 import { getActiveSession, registerActiveUser } from "../../lib/session-helper";
 import { csrfProtection } from "../../lib/csrf";
 import broadcaster from "../../lib/sse-broadcaster";

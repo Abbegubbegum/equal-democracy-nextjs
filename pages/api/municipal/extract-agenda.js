@@ -49,7 +49,7 @@ export default async function handler(req, res) {
 		// Validate URL format
 		try {
 			new URL(url);
-		} catch (e) {
+		} catch {
 			return res.status(400).json({ message: "Invalid URL format" });
 		}
 
@@ -63,7 +63,7 @@ export default async function handler(req, res) {
 		if (extractedData.meetingDate) {
 			try {
 				meetingDate = new Date(extractedData.meetingDate);
-			} catch (e) {
+			} catch {
 				console.warn("[ExtractAgenda] Failed to parse meeting date, using current date");
 			}
 		}

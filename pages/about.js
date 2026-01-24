@@ -6,7 +6,7 @@ export default function AboutPage() {
 	const { data: session } = useSession();
 	const router = useRouter();
 	const { t } = useTranslation();
-	const { config } = useConfig();
+	useConfig();
 
 	return (
 		<div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">

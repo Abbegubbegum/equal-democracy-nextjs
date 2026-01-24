@@ -1,5 +1,4 @@
 import dbConnect from "@/lib/mongodb";
-import { Session } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { getActiveSession } from "@/lib/session-helper";

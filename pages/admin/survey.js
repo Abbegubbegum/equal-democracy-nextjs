@@ -2,13 +2,9 @@ import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
 import {
-	Shield,
 	BarChart3,
 	Plus,
 	Trash2,
-	Edit2,
-	Check,
-	X,
 	ArrowLeft,
 	Play,
 	Pause,
@@ -25,7 +21,7 @@ export default function SurveyAdminPage() {
 
 	// Form state for creating/editing
 	const [formMode, setFormMode] = useState(null); // 'create' or 'edit'
-	const [editingId, setEditingId] = useState(null);
+	const [, setEditingId] = useState(null);
 	const [question, setQuestion] = useState("");
 	const [choices, setChoices] = useState(["", ""]);
 

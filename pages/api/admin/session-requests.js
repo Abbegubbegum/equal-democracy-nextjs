@@ -1,7 +1,7 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "../../../lib/mongodb";
-import { User, SessionRequest } from "../../../lib/models";
+import { SessionRequest } from "../../../lib/models";
 import { csrfProtection } from "../../../lib/csrf";
 import { isSuperAdmin } from "../../../lib/admin-helper";
 import {

@@ -133,7 +133,6 @@ function SessionsPanel() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [showCreateForm, setShowCreateForm] = useState(false);
-	const router = useRouter();
 
 	useEffect(() => {
 		fetchSessions();
@@ -150,7 +149,7 @@ function SessionsPanel() {
 			} else {
 				setError(data.message);
 			}
-		} catch (err) {
+		} catch {
 			setError("Failed to fetch sessions");
 		} finally {
 			setLoading(false);
@@ -172,7 +171,7 @@ function SessionsPanel() {
 			} else {
 				alert(data.message);
 			}
-		} catch (err) {
+		} catch {
 			alert("Failed to update session status");
 		}
 	}
@@ -193,7 +192,7 @@ function SessionsPanel() {
 			} else {
 				alert(data.message);
 			}
-		} catch (err) {
+		} catch {
 			alert("Failed to delete session");
 		}
 	}

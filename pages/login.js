@@ -9,7 +9,7 @@ import { useConfig } from "../lib/contexts/ConfigContext";
 export default function LoginPage() {
 	const router = useRouter();
 	const { t } = useTranslation();
-	const { config } = useConfig();
+	useConfig();
 	const [step, setStep] = useState("email"); // 'email' | 'code'
 	const [email, setEmail] = useState("");
 	const [code, setCode] = useState("");

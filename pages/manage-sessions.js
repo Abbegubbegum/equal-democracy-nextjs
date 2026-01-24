@@ -69,13 +69,13 @@ export default function ManageSessionsPage() {
 			</header>
 
 			<main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
-				<SessionsPanel isSuperAdmin={session.user?.isSuperAdmin} />
+				<SessionsPanel />
 			</main>
 		</div>
 	);
 }
 
-function SessionsPanel({ isSuperAdmin }) {
+function SessionsPanel() {
 	const { data: session } = useSession();
 	const { theme } = useConfig();
 	const [sessions, setSessions] = useState([]);
@@ -93,7 +93,7 @@ function SessionsPanel({ isSuperAdmin }) {
 	const [requestedSessions, setRequestedSessions] = useState("10");
 	const [language, setLanguage] = useState("sv");
 	const [themeValue, setThemeValue] = useState("default");
-	const [settingsLoaded, setSettingsLoaded] = useState(false);
+	const [, setSettingsLoaded] = useState(false);
 
 	const accentColor = theme?.accentColor || "#fbbf24";
 	const primaryDark = theme?.primaryDark || "#1e3a8a";
@@ -285,8 +285,8 @@ function SessionsPanel({ isSuperAdmin }) {
 	};
 
 	const requestMoreSessions = async () => {
-		const sessions = parseInt(requestedSessions);
-		if (isNaN(sessions) || sessions < 1 || sessions > 50) {
+		const numSessions = parseInt(requestedSessions);
+		if (isNaN(numSessions) || numSessions < 1 || numSessions > 50) {
 			alert("Please enter a number between 1 and 50");
 			return;
 		}
@@ -948,9 +948,9 @@ function SessionsPanel({ isSuperAdmin }) {
 				</div>
 				{closedSessions.length > 0 ? (
 					<div className="space-y-3">
-						{closedSessions.map((session) => {
-							const startDate = new Date(session.startDate);
-							const endDate = new Date(session.endDate);
+						{closedSessions.map((sessionItem) => {
+							const startDate = new Date(sessionItem.startDate);
+							const endDate = new Date(sessionItem.endDate);
 							const durationHours = Math.floor(
 								(endDate - startDate) / (1000 * 60 * 60)
 							);
@@ -959,14 +959,14 @@ function SessionsPanel({ isSuperAdmin }) {
 
 							return (
 								<div
-									key={session._id}
+									key={sessionItem._id}
 									className="p-4 border-2 border-slate-200 rounded-xl hover:border-slate-300 transition-colors"
 								>
 									<h3
 										className="font-bold text-lg"
 										style={{ color: primaryDark }}
 									>
-										{session.place}
+										{sessionItem.place}
 									</h3>
 									<p className="text-sm text-slate-600 mt-1">
 										Started:{" "}

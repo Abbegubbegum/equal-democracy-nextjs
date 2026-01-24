@@ -61,6 +61,7 @@ export default function SessionPage() {
 	const [userHasCreatedProposal, setUserHasCreatedProposal] = useState(false);
 	const [showUserCount, setShowUserCount] = useState(false);
 	const [noMotivation, setNoMotivation] = useState(false);
+	const [sessionTypeVerified, setSessionTypeVerified] = useState(false);
 
 	// Sound effects
 	const [playEndSign] = useSound("/sounds/end_sign.mp3", { volume: 0.5 });
@@ -107,6 +108,7 @@ export default function SessionPage() {
 				setCurrentPhase(null);
 				setPlaceName("");
 				setLoading(false);
+				setSessionTypeVerified(true);
 				return;
 			}
 
@@ -130,6 +132,9 @@ export default function SessionPage() {
 				return;
 			}
 
+			// Session is not a survey, safe to render this page
+			setSessionTypeVerified(true);
+
 			if (data.phase) {
 				if (data.phase === "closed" && !showSessionClosed) {
 					await fetchWinningProposals();
@@ -146,6 +151,7 @@ export default function SessionPage() {
 		} catch (error) {
 			console.error("Error fetching session info:", error);
 			setLoading(false);
+			setSessionTypeVerified(true);
 		}
 	}, [
 		router,
@@ -451,7 +457,7 @@ export default function SessionPage() {
 		}
 	};
 
-	if (status === "loading" || loading) {
+	if (status === "loading" || loading || !sessionTypeVerified) {
 		return (
 			<div className="min-h-screen bg-gray-100 flex items-center justify-center">
 				<div className="text-xl text-gray-600">Laddar...</div>

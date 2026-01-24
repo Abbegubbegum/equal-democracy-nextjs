@@ -36,11 +36,11 @@ export default async function handler(req, res) {
 	}
 
 	// Define the user data that will be visible in the presence channel
+	// Only expose anonymous user_id for privacy - no names or other PII
 	const presenceData = {
 		user_id: session.user.id,
 		user_info: {
-			name: session.user.name,
-			// Add more user info if needed
+			// Removed name for anonymity
 		},
 	};
 

@@ -19,6 +19,10 @@ export default async function handler(req, res) {
 
 	if (req.method === "GET") {
 		try {
+			// Get authentication session
+			const session = await getServerSession(req, res, authOptions);
+			const currentUserId = session?.user?.id;
+
 			// Get sessionId from query parameter (optional for backward compatibility)
 			const { sessionId } = req.query;
 
@@ -46,10 +50,14 @@ export default async function handler(req, res) {
 						proposalId: proposal._id,
 					});
 
+					// Only include authorId and authorName if this is the user's own proposal
+					const isOwnProposal = currentUserId && proposal.authorId.toString() === currentUserId;
+
 					return {
 						...proposal,
 						_id: proposal._id.toString(),
-						authorId: proposal.authorId.toString(),
+						authorId: isOwnProposal ? proposal.authorId.toString() : undefined,
+						authorName: isOwnProposal ? proposal.authorName : undefined,
 						thumbsUpCount,
 						commentsCount,
 					};
@@ -152,6 +160,7 @@ export default async function handler(req, res) {
 			await registerActiveUser(session.user.id, activeSession._id.toString());
 
 			// Broadcast new proposal event to all connected clients
+			// Note: authorId and authorName removed for anonymity
 			await broadcaster.broadcast("new-proposal", {
 				_id: proposal._id.toString(),
 				sessionId: proposal.sessionId.toString(),
@@ -163,8 +172,6 @@ export default async function handler(req, res) {
 				averageRating: 0,
 				yesVotes: 0,
 				noVotes: 0,
-				authorId: proposal.authorId.toString(),
-				authorName: proposal.authorName,
 				createdAt: proposal.createdAt,
 				commentsCount: 0,
 			});

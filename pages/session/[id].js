@@ -321,10 +321,11 @@ export default function SessionPage() {
 	]);
 
 	// Check if user has created a proposal
+	// Note: authorId is only present on proposals the user owns (for anonymity)
 	useEffect(() => {
 		if (session && proposals.length > 0) {
 			const hasCreated = proposals.some(
-				(p) => p.authorId === session.user.id,
+				(p) => p.authorId !== undefined && p.authorId === session.user.id,
 			);
 			setUserHasCreatedProposal(hasCreated);
 		}
@@ -1103,13 +1104,20 @@ function ProposalCard({
 				}
 				onClick={!isPhase1 ? handleToggleDiscuss : undefined}
 			>
-				<h4
-					className={`text-lg font-bold text-primary-800 mb-2 wrap-break-word ${
-						!isPhase1 ? "group-hover:text-primary-900" : ""
-					}`}
-				>
-					{proposal.title}
-				</h4>
+				<div className="flex items-start gap-2 mb-2">
+					<h4
+						className={`text-lg font-bold text-primary-800 wrap-break-word flex-1 ${
+							!isPhase1 ? "group-hover:text-primary-900" : ""
+						}`}
+					>
+						{proposal.title}
+					</h4>
+					{proposal.authorId && (
+						<span className="inline-block px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded whitespace-nowrap">
+							{t("proposal.yourProposal") || "Ditt förslag"}
+						</span>
+					)}
+				</div>
 
 				{!noMotivation && (
 					<div className="space-y-3 text-sm">
@@ -1413,6 +1421,11 @@ function ProposalCard({
 
 											{/* Right side: Comment content */}
 											<div className="flex-1 min-w-0">
+												{comment.isOwn && (
+													<span className="inline-block px-2 py-0.5 mb-1 text-xs font-medium text-blue-700 bg-blue-100 rounded">
+														{t("comment.yourComment") || "Ditt argument"}
+													</span>
+												)}
 												<p className="text-gray-700 text-sm leading-relaxed wrap-break-word">
 													{comment.text}
 												</p>

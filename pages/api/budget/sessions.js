@@ -33,8 +33,9 @@ export default async function handler(req, res) {
 				query.createdBy = createdBy;
 			}
 
+			// Don't populate creator info for regular users (anonymity)
+			// Superadmins can still see creator in admin endpoints if needed
 			const sessions = await BudgetSession.find(query)
-				.populate("createdBy", "name email")
 				.sort({ createdAt: -1 });
 
 			return res.status(200).json({ sessions });

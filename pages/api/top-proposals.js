@@ -31,7 +31,7 @@ export default async function handler(req, res) {
 				sessionId: latestClosedSession._id,
 			}).sort({ yesVotes: -1 }); // Sort by yes votes descending
 
-			// Format the response
+			// Format the response (authorName removed for anonymity)
 			const formatted = winningProposals.map((tp) => ({
 				_id: tp._id.toString(),
 				sessionName: tp.sessionName,
@@ -39,7 +39,6 @@ export default async function handler(req, res) {
 				problem: tp.problem,
 				solution: tp.solution,
 				estimatedCost: tp.estimatedCost,
-				authorName: tp.authorName,
 				yesVotes: tp.yesVotes,
 				noVotes: tp.noVotes,
 				archivedAt: tp.archivedAt,

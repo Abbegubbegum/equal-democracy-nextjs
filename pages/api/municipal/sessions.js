@@ -3,6 +3,7 @@ import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "../../../lib/mongodb";
 import { User, MunicipalSession, Proposal, Session, Comment } from "../../../lib/models";
 import { csrfProtection } from "../../../lib/csrf";
+import { sendMunicipalSessionNotifications } from "../../../lib/municipal/notifications";
 
 /**
  * GET/PATCH/DELETE /api/municipal/sessions
@@ -127,7 +128,16 @@ export default async function handler(req, res) {
 
 				console.log(`[MunicipalSessions] Published session ${sessionId} with ${municipalSession.items.length} items`);
 
-				// TODO: Send notifications to users based on categories
+				// Send notifications to users based on categories
+				try {
+					const notificationResults = await sendMunicipalSessionNotifications(municipalSession);
+					console.log(`[MunicipalSessions] Notifications sent: ${notificationResults.emailsSent} emails, ${notificationResults.smsSent} SMS`);
+					municipalSession.notificationsSent = true;
+					await municipalSession.save();
+				} catch (error) {
+					console.error("[MunicipalSessions] Failed to send notifications:", error);
+					// Don't fail the entire publish if notifications fail
+				}
 
 				return res.status(200).json({
 					message: "Session published successfully",

@@ -11,6 +11,7 @@ import {
 	PlusCircle,
 	Wallet,
 	BarChart3,
+	FileText,
 } from "lucide-react";
 import { fetchWithCsrf } from "../../lib/fetch-with-csrf";
 import { useTranslation } from "../../lib/hooks/useTranslation";
@@ -68,6 +69,12 @@ export default function AdminPage() {
 						icon={<Calendar className="w-4 h-4" />}
 						active={tab === "sessions"}
 						onClick={() => setTab("sessions")}
+					/>
+					<Tab
+						label="Kallelser"
+						icon={<FileText className="w-4 h-4" />}
+						active={tab === "municipal"}
+						onClick={() => router.push("/admin/municipal")}
 					/>
 					<Tab
 						label="Budget Admin"

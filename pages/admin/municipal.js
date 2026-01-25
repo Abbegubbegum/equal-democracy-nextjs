@@ -36,6 +36,7 @@ export default function MunicipalAdminPage() {
 
 	// Extract form
 	const [agendaUrl, setAgendaUrl] = useState("");
+	const [municipality, setMunicipality] = useState("Vallentuna");
 	const [meetingType, setMeetingType] = useState("Kommunfullmäktige");
 	const [extracting, setExtracting] = useState(false);
 
@@ -77,6 +78,7 @@ export default function MunicipalAdminPage() {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					url: agendaUrl,
+					municipality,
 					meetingType,
 				}),
 			});
@@ -367,6 +369,20 @@ export default function MunicipalAdminPage() {
 								<p className="text-xs text-gray-500 mt-1">
 									T.ex: https://dok.vallentuna.se/file/demokrati/sammanträdeshandlingar/...
 								</p>
+							</div>
+
+							<div>
+								<label className="block text-sm font-medium mb-2">
+									Kommun
+								</label>
+								<input
+									type="text"
+									value={municipality}
+									onChange={(e) => setMunicipality(e.target.value)}
+									placeholder="T.ex. Vallentuna"
+									className="w-full px-4 py-2 border rounded-lg"
+									required
+								/>
 							</div>
 
 							<div>

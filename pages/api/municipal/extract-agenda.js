@@ -40,7 +40,7 @@ export default async function handler(req, res) {
 	}
 
 	try {
-		const { url, meetingType } = req.body;
+		const { url, meetingType, municipality } = req.body;
 
 		if (!url) {
 			return res.status(400).json({ message: "URL is required" });
@@ -71,7 +71,9 @@ export default async function handler(req, res) {
 		// Create draft municipal session
 		const municipalSession = new MunicipalSession({
 			name: extractedData.meetingName || `${meetingType}_${meetingDate.toISOString().slice(0, 10).replace(/-/g, "")}`,
+			municipality: municipality || "Vallentuna",
 			meetingDate: meetingDate,
+			meetingTime: extractedData.meetingTime || "18:00",
 			meetingType: meetingType || "Kommunfullmäktige",
 			sourceUrl: url,
 			status: "draft",

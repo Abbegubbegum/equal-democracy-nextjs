@@ -30,7 +30,9 @@ export default function HomePage() {
 			const res = await fetch("/api/sessions/active");
 			const data = await res.json();
 			const sessions = Array.isArray(data) ? data : [];
-			setActiveSessions(sessions);
+			// Filter out municipal sessions - they should only appear on board pages
+			const nonMunicipalSessions = sessions.filter(s => s.sessionType !== "municipal");
+			setActiveSessions(nonMunicipalSessions);
 		} catch (error) {
 			console.error("Error fetching active sessions:", error);
 		} finally {
@@ -44,7 +46,9 @@ export default function HomePage() {
 			const res = await fetch("/api/sessions/archived");
 			const data = await res.json();
 			const sessions = Array.isArray(data) ? data : [];
-			setArchivedSessions(sessions);
+			// Filter out municipal sessions - they should only appear on board pages
+			const nonMunicipalSessions = sessions.filter(s => s.sessionType !== "municipal");
+			setArchivedSessions(nonMunicipalSessions);
 		} catch (error) {
 			console.error("Error fetching archived sessions:", error);
 		}
@@ -260,6 +264,48 @@ export default function HomePage() {
 				</div>
 			</div>
 
+			{/* Quick Navigation */}
+			<div className="max-w-4xl mx-auto p-4 sm:p-6">
+				<div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+					<button
+						onClick={() => router.push("/vallentuna/kommunfullmaktige")}
+						className="bg-white hover:bg-gray-50 p-4 rounded-lg shadow text-center transition-colors"
+					>
+						<div className="text-2xl mb-2">🏛️</div>
+						<div className="font-semibold text-sm text-gray-800">
+							Kommunfullmäktige
+						</div>
+					</button>
+					<button
+						onClick={() => router.push("/medborgarforslag")}
+						className="bg-white hover:bg-gray-50 p-4 rounded-lg shadow text-center transition-colors"
+					>
+						<div className="text-2xl mb-2">💡</div>
+						<div className="font-semibold text-sm text-gray-800">
+							Medborgarförslag
+						</div>
+					</button>
+					<button
+						onClick={() => router.push("/vallentuna")}
+						className="bg-white hover:bg-gray-50 p-4 rounded-lg shadow text-center transition-colors"
+					>
+						<div className="text-2xl mb-2">📋</div>
+						<div className="font-semibold text-sm text-gray-800">
+							Alla Nämnder
+						</div>
+					</button>
+					<button
+						onClick={() => router.push("/archive")}
+						className="bg-white hover:bg-gray-50 p-4 rounded-lg shadow text-center transition-colors"
+					>
+						<div className="text-2xl mb-2">📚</div>
+						<div className="font-semibold text-sm text-gray-800">
+							Arkivet
+						</div>
+					</button>
+				</div>
+			</div>
+
 			{/* Session cards */}
 			<div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
 				{activeSessions.length === 0 ? (
@@ -291,46 +337,6 @@ export default function HomePage() {
 					</div>
 				)}
 
-				{/* Archived Sessions Section */}
-				{archivedSessions.length > 0 && (
-					<div className="mt-8">
-						<button
-							onClick={() => setShowArchive(!showArchive)}
-							className="w-full flex items-center justify-between p-4 bg-gray-100 hover:bg-gray-200 rounded-xl transition-colors"
-						>
-							<div className="flex items-center gap-3">
-								<Archive className="w-5 h-5 text-gray-600" />
-								<span className="font-semibold text-gray-700">
-									{t("archive.archivedRankings") ||
-										"Archived Rankings"}{" "}
-									({archivedSessions.length})
-								</span>
-							</div>
-							<ChevronRight
-								className={`w-5 h-5 text-gray-500 transition-transform ${
-									showArchive ? "rotate-90" : ""
-								}`}
-							/>
-						</button>
-
-						{showArchive && (
-							<div className="mt-4 space-y-4">
-								{archivedSessions.map((archivedSession) => (
-									<ArchivedSessionCard
-										key={archivedSession._id}
-										session={archivedSession}
-										onClick={() =>
-											router.push(
-												`/archive/${archivedSession._id}`
-											)
-										}
-										t={t}
-									/>
-								))}
-							</div>
-						)}
-					</div>
-				)}
 			</div>
 		</div>
 	);

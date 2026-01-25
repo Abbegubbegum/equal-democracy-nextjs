@@ -28,11 +28,14 @@ export default async function handler(req, res) {
 	// GET - List all municipal sessions
 	if (req.method === "GET") {
 		try {
-			const { status, limit } = req.query;
+			const { status, limit, municipality } = req.query;
 
 			const query = {};
 			if (status) {
 				query.status = status;
+			}
+			if (municipality) {
+				query.municipality = municipality.charAt(0).toUpperCase() + municipality.slice(1);
 			}
 
 			const sessions = await MunicipalSession.find(query)
@@ -72,14 +75,25 @@ export default async function handler(req, res) {
 					return res.status(400).json({ message: "Only draft sessions can be published" });
 				}
 
+				// Format date for Session place field
+				const meetingDateObj = new Date(municipalSession.meetingDate);
+				const formattedDate = meetingDateObj.toISOString().slice(0, 10); // YYYY-MM-DD
+
 				// Create a standard Session and Proposals for each item
 				for (let i = 0; i < municipalSession.items.length; i++) {
 					const item = municipalSession.items[i];
 
+					// Create Session place: "2026-01-19 - Item Title" (max 100 chars)
+					const maxTitleLength = 100 - formattedDate.length - 3; // "YYYY-MM-DD - " = 13 chars
+					const truncatedTitle = item.title.length > maxTitleLength
+						? item.title.substring(0, maxTitleLength - 3) + "..."
+						: item.title;
+					const sessionPlace = `${formattedDate} - ${truncatedTitle}`;
+
 					// Create a Session for this item (phase2 + voting)
 					const itemSession = new Session({
-						place: `${municipalSession.name} - ${item.title}`,
-						sessionType: "standard",
+						place: sessionPlace,
+						sessionType: "municipal",
 						status: "active",
 						phase: "phase2", // Skip phase1, go straight to debate
 						createdBy: user._id,

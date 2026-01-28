@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { useSession } from "next-auth/react";
 import { Calendar, Archive, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
@@ -17,7 +16,6 @@ const CATEGORY_NAMES = {
 export default function BoardPage() {
 	const router = useRouter();
 	const { municipality, board } = router.query;
-	const { data: session } = useSession();
 	const [sessions, setSessions] = useState([]);
 	const [loading, setLoading] = useState(true);
 
@@ -25,6 +23,7 @@ export default function BoardPage() {
 		if (municipality && board) {
 			fetchActiveSessions();
 		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [municipality, board]);
 
 	const fetchActiveSessions = async () => {
@@ -49,37 +48,38 @@ export default function BoardPage() {
 		<div className="min-h-screen bg-gray-50">
 			<header className="bg-primary-600 text-white p-6 shadow">
 				<div className="max-w-6xl mx-auto">
-					<h1 className="text-3xl font-bold mb-2 capitalize">
-						{board.replace(/-/g, " ")}
-					</h1>
-					<p className="text-primary-100 capitalize">
-						{municipality} kommun
-					</p>
+					<div className="flex items-center justify-between">
+						<div>
+							<h1 className="text-3xl font-bold mb-2 capitalize">
+								{board.replace(/-/g, " ")}
+							</h1>
+							<p className="text-primary-100 capitalize">
+								{municipality} kommun
+							</p>
+						</div>
+						<Link
+							href="/"
+							className="px-4 py-2 bg-yellow-400 text-gray-900 hover:bg-yellow-500 rounded-lg font-medium"
+						>
+							Tillbaka till start
+						</Link>
+					</div>
 				</div>
 			</header>
 
 			<main className="max-w-6xl mx-auto p-6">
 				{/* Navigation */}
-				<div className="mb-6 flex items-center justify-between">
-					<div className="flex gap-2">
-						<button className="px-4 py-2 bg-white text-primary-600 shadow rounded-lg font-medium">
-							<TrendingUp className="w-4 h-4 inline mr-2" />
-							Aktiva Frågor
-						</button>
-						<Link
-							href={`/${municipality}/${board}/archive`}
-							className="px-4 py-2 bg-white text-gray-700 hover:bg-gray-100 rounded-lg font-medium"
-						>
-							<Archive className="w-4 h-4 inline mr-2" />
-							Arkiv
-						</Link>
-					</div>
-
+				<div className="mb-6 flex gap-2">
+					<button className="px-4 py-2 bg-white text-primary-600 shadow rounded-lg font-medium">
+						<TrendingUp className="w-4 h-4 inline mr-2" />
+						Aktiva Frågor
+					</button>
 					<Link
-						href="/"
-						className="px-4 py-2 bg-white text-gray-700 hover:bg-gray-100 rounded-lg"
+						href={`/${municipality}/${board}/archive`}
+						className="px-4 py-2 bg-white text-gray-700 hover:bg-gray-100 rounded-lg font-medium"
 					>
-						Tillbaka till startsidan
+						<Archive className="w-4 h-4 inline mr-2" />
+						Arkiv
 					</Link>
 				</div>
 

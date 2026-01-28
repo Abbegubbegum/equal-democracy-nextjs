@@ -89,7 +89,7 @@ export default function ArchivePage() {
 						</div>
 						<Link
 							href="/"
-							className="px-4 py-2 bg-white text-slate-700 hover:bg-gray-100 rounded-lg"
+							className="px-4 py-2 bg-yellow-400 text-gray-900 hover:bg-yellow-500 rounded-lg font-medium"
 						>
 							Tillbaka till start
 						</Link>
@@ -132,23 +132,23 @@ export default function ArchivePage() {
 								</div>
 							) : (
 								<div className="grid gap-4">
-									{budgetSessions.map((session) => (
+									{budgetSessions.map((budgetSession) => (
 										<Link
-											key={session._id}
-											href={`/budget/${session.sessionId}`}
+											key={budgetSession._id}
+											href={`/budget/${budgetSession.sessionId}`}
 											className="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow"
 										>
 											<h3 className="font-semibold text-lg mb-1">
-												{session.name}
+												{budgetSession.name}
 											</h3>
 											<p className="text-sm text-gray-600">
-												{session.municipality}
+												{budgetSession.municipality}
 											</p>
 											<div className="mt-2 flex items-center gap-2 text-xs text-gray-500">
 												<Calendar className="w-4 h-4" />
-												{session.endDate
+												{budgetSession.endDate
 													? new Date(
-															session.endDate
+															budgetSession.endDate
 													  ).toLocaleDateString("sv-SE")
 													: "Avslutad"}
 											</div>
@@ -194,19 +194,19 @@ export default function ArchivePage() {
 								</div>
 							) : (
 								<div className="grid gap-4">
-									{municipalSessions.map((session) => (
+									{municipalSessions.map((municipalSession) => (
 										<div
-											key={session._id}
+											key={municipalSession._id}
 											className="bg-white rounded-lg shadow p-4"
 										>
 											<div className="flex items-start justify-between mb-2">
 												<div>
 													<h3 className="font-semibold text-lg">
-														{session.name}
+														{municipalSession.name}
 													</h3>
 													<p className="text-sm text-gray-600">
-														{session.meetingType} •{" "}
-														{session.municipality}
+														{municipalSession.meetingType} •{" "}
+														{municipalSession.municipality}
 													</p>
 												</div>
 												<span className="px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded-full">
@@ -216,17 +216,17 @@ export default function ArchivePage() {
 											<div className="text-xs text-gray-500">
 												<Calendar className="w-4 h-4 inline mr-1" />
 												{new Date(
-													session.meetingDate
+													municipalSession.meetingDate
 												).toLocaleDateString("sv-SE")}
 											</div>
 											<div className="mt-2 text-sm text-gray-600">
-												{session.items.filter(
+												{municipalSession.items.filter(
 													(item) => item.status === "closed"
 												).length}{" "}
 												avslutade ärenden
 											</div>
 											<Link
-												href={`/${session.municipality.toLowerCase()}/${session.meetingType
+												href={`/${municipalSession.municipality.toLowerCase()}/${municipalSession.meetingType
 													.toLowerCase()
 													.replace(/ /g, "-")}/archive`}
 												className="mt-2 inline-block px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm"
@@ -332,28 +332,28 @@ export default function ArchivePage() {
 								</div>
 							) : (
 								<div className="grid gap-4">
-									{archivedSessions.map((session) => (
+									{archivedSessions.map((archivedSession) => (
 										<Link
-											key={session._id}
-											href={`/archive/${session._id}`}
+											key={archivedSession._id}
+											href={`/archive/${archivedSession._id}`}
 											className="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow"
 										>
 											<h3 className="font-semibold text-lg mb-2">
-												{session.place}
+												{archivedSession.place}
 											</h3>
 											<div className="flex items-center gap-4 text-sm text-gray-600">
-												{session.participantCount > 0 && (
+												{archivedSession.participantCount > 0 && (
 													<div className="flex items-center gap-1">
 														<Users className="w-4 h-4" />
-														{session.participantCount}{" "}
+														{archivedSession.participantCount}{" "}
 														deltagare
 													</div>
 												)}
-												{session.endDate && (
+												{archivedSession.endDate && (
 													<div className="flex items-center gap-1">
 														<Calendar className="w-4 h-4" />
 														{new Date(
-															session.endDate
+															archivedSession.endDate
 														).toLocaleDateString("sv-SE")}
 													</div>
 												)}

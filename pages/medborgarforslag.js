@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
-import { Star, Plus, Filter, TrendingUp, Clock, Award } from "lucide-react";
+import Link from "next/link";
+import { Star, Plus, TrendingUp, Clock, Award } from "lucide-react";
 import { fetchWithCsrf } from "../lib/fetch-with-csrf";
 
 const CATEGORY_NAMES = {
@@ -15,7 +16,7 @@ const CATEGORY_NAMES = {
 };
 
 export default function MedborgarforslagPage() {
-	const { data: session, status } = useSession();
+	const { data: session } = useSession();
 	const router = useRouter();
 	const [proposals, setProposals] = useState([]);
 	const [loading, setLoading] = useState(true);
@@ -32,6 +33,7 @@ export default function MedborgarforslagPage() {
 
 	useEffect(() => {
 		fetchProposals();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [sortBy, filterCategory]);
 
 	const fetchProposals = async () => {
@@ -43,8 +45,8 @@ export default function MedborgarforslagPage() {
 			const res = await fetch(`/api/citizen-proposals?${params.toString()}`);
 			const data = await res.json();
 			setProposals(data.proposals || []);
-		} catch (error) {
-			console.error("Error fetching proposals:", error);
+		} catch (err) {
+			console.error("Error fetching proposals:", err);
 		} finally {
 			setLoading(false);
 		}
@@ -80,8 +82,8 @@ export default function MedborgarforslagPage() {
 					)
 				);
 			}
-		} catch (error) {
-			console.error("Error rating proposal:", error);
+		} catch (err) {
+			console.error("Error rating proposal:", err);
 		}
 	};
 
@@ -117,8 +119,8 @@ export default function MedborgarforslagPage() {
 			} else {
 				setError(data.message || "Failed to create proposal");
 			}
-		} catch (error) {
-			console.error("Error creating proposal:", error);
+		} catch (err) {
+			console.error("Error creating proposal:", err);
 			setError("Ett fel uppstod");
 		} finally {
 			setSubmitting(false);
@@ -139,10 +141,20 @@ export default function MedborgarforslagPage() {
 		<div className="min-h-screen bg-gray-50">
 			<header className="bg-primary-600 text-white p-6 shadow">
 				<div className="max-w-6xl mx-auto">
-					<h1 className="text-3xl font-bold mb-2">Medborgarförslag</h1>
-					<p className="text-primary-100">
-						Föreslå idéer som kan bli motioner i kommunfullmäktige
-					</p>
+					<div className="flex items-center justify-between">
+						<div>
+							<h1 className="text-3xl font-bold mb-2">Medborgarförslag</h1>
+							<p className="text-primary-100">
+								Föreslå idéer som kan bli motioner i kommunfullmäktige
+							</p>
+						</div>
+						<Link
+							href="/"
+							className="px-4 py-2 bg-yellow-400 text-gray-900 hover:bg-yellow-500 rounded-lg font-medium"
+						>
+							Tillbaka till start
+						</Link>
+					</div>
 				</div>
 			</header>
 

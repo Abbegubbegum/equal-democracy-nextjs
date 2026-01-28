@@ -4,7 +4,6 @@ import { useRouter } from "next/router";
 import {
 	Shield,
 	FileText,
-	Calendar,
 	Download,
 	Edit,
 	Trash2,
@@ -61,8 +60,8 @@ export default function MunicipalAdminPage() {
 			const res = await fetch("/api/municipal/sessions");
 			const data = await res.json();
 			setSessions(data.sessions || []);
-		} catch (error) {
-			console.error("Error fetching sessions:", error);
+		} catch (err) {
+			console.error("Error fetching sessions:", err);
 		}
 	};
 
@@ -98,8 +97,8 @@ export default function MunicipalAdminPage() {
 			} else {
 				setError(data.message || "Misslyckades att extrahera kallelse");
 			}
-		} catch (error) {
-			console.error("Error extracting agenda:", error);
+		} catch (err) {
+			console.error("Error extracting agenda:", err);
 			setError("Ett fel uppstod vid extrahering");
 		} finally {
 			setExtracting(false);
@@ -149,8 +148,8 @@ export default function MunicipalAdminPage() {
 			} else {
 				setError(data.message || "Misslyckades att publicera");
 			}
-		} catch (error) {
-			console.error("Error publishing:", error);
+		} catch (err) {
+			console.error("Error publishing:", err);
 			setError("Ett fel uppstod vid publicering");
 		} finally {
 			setLoading(false);
@@ -174,8 +173,8 @@ export default function MunicipalAdminPage() {
 			} else {
 				setError("Misslyckades att ta bort session");
 			}
-		} catch (error) {
-			console.error("Error deleting:", error);
+		} catch (err) {
+			console.error("Error deleting:", err);
 			setError("Ett fel uppstod");
 		}
 	};

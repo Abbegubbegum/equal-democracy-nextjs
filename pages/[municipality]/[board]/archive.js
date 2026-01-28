@@ -23,6 +23,7 @@ export default function BoardArchivePage() {
 		if (municipality && board) {
 			fetchArchivedSessions();
 		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [municipality, board]);
 
 	const fetchArchivedSessions = async () => {
@@ -47,38 +48,39 @@ export default function BoardArchivePage() {
 		<div className="min-h-screen bg-gray-50">
 			<header className="bg-slate-700 text-white p-6 shadow">
 				<div className="max-w-6xl mx-auto">
-					<h1 className="text-3xl font-bold mb-2 capitalize">
-						{board.replace(/-/g, " ")} - Arkiv
-					</h1>
-					<p className="text-slate-300 capitalize">
-						{municipality} kommun
-					</p>
+					<div className="flex items-center justify-between">
+						<div>
+							<h1 className="text-3xl font-bold mb-2 capitalize">
+								{board.replace(/-/g, " ")} - Arkiv
+							</h1>
+							<p className="text-slate-300 capitalize">
+								{municipality} kommun
+							</p>
+						</div>
+						<Link
+							href="/"
+							className="px-4 py-2 bg-yellow-400 text-gray-900 hover:bg-yellow-500 rounded-lg font-medium"
+						>
+							Tillbaka till start
+						</Link>
+					</div>
 				</div>
 			</header>
 
 			<main className="max-w-6xl mx-auto p-6">
 				{/* Navigation */}
-				<div className="mb-6 flex items-center justify-between">
-					<div className="flex gap-2">
-						<Link
-							href={`/${municipality}/${board}`}
-							className="px-4 py-2 bg-white text-gray-700 hover:bg-gray-100 rounded-lg font-medium"
-						>
-							<TrendingUp className="w-4 h-4 inline mr-2" />
-							Aktiva Frågor
-						</Link>
-						<button className="px-4 py-2 bg-white text-slate-700 shadow rounded-lg font-medium">
-							<CheckCircle className="w-4 h-4 inline mr-2" />
-							Arkiv
-						</button>
-					</div>
-
+				<div className="mb-6 flex gap-2">
 					<Link
-						href="/"
-						className="px-4 py-2 bg-white text-gray-700 hover:bg-gray-100 rounded-lg"
+						href={`/${municipality}/${board}`}
+						className="px-4 py-2 bg-white text-gray-700 hover:bg-gray-100 rounded-lg font-medium"
 					>
-						Tillbaka till startsidan
+						<TrendingUp className="w-4 h-4 inline mr-2" />
+						Aktiva Frågor
 					</Link>
+					<button className="px-4 py-2 bg-white text-slate-700 shadow rounded-lg font-medium">
+						<CheckCircle className="w-4 h-4 inline mr-2" />
+						Arkiv
+					</button>
 				</div>
 
 				{/* Archived Sessions */}

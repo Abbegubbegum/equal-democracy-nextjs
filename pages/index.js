@@ -5,7 +5,6 @@ import {
 	Users,
 	Calendar,
 	ChevronRight,
-	Archive,
 	Clock,
 	Star,
 } from "lucide-react";
@@ -20,8 +19,7 @@ export default function HomePage() {
 	const { theme } = useConfig();
 	const [loading, setLoading] = useState(true);
 	const [activeSessions, setActiveSessions] = useState([]);
-	const [archivedSessions, setArchivedSessions] = useState([]);
-	const [showArchive, setShowArchive] = useState(false);
+	const [_archivedSessions, setArchivedSessions] = useState([]);
 	const [view, setView] = useState("home"); // 'home', 'apply-admin'
 
 	// Fetch all active sessions
@@ -464,10 +462,10 @@ function SessionCard({
 }
 
 // ============================================================================
-// ARCHIVED SESSION CARD COMPONENT
+// ARCHIVED SESSION CARD COMPONENT (currently unused but kept for future use)
 // ============================================================================
 
-function ArchivedSessionCard({ session, onClick, t }) {
+function _ArchivedSessionCard({ session, onClick, t }) {
 	const formatDate = (dateString) => {
 		if (!dateString) return "";
 		const date = new Date(dateString);

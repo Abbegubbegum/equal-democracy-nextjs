@@ -48,6 +48,7 @@ export default function MunicipalityPage() {
 		if (municipality) {
 			fetchAvailableBoards();
 		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [status, session, municipality, router]);
 
 	const fetchAvailableBoards = async () => {
@@ -61,8 +62,8 @@ export default function MunicipalityPage() {
 
 			// Extract unique board types
 			const boards = new Set();
-			sessions.forEach((session) => {
-				const boardSlug = session.meetingType
+			sessions.forEach((municipalSession) => {
+				const boardSlug = municipalSession.meetingType
 					.toLowerCase()
 					.replace(/å/g, "a")
 					.replace(/ä/g, "a")
@@ -111,7 +112,7 @@ export default function MunicipalityPage() {
 						</div>
 						<Link
 							href="/"
-							className="px-4 py-2 bg-white text-primary-600 hover:bg-gray-100 rounded-lg"
+							className="px-4 py-2 bg-yellow-400 text-gray-900 hover:bg-yellow-500 rounded-lg font-medium"
 						>
 							Tillbaka till start
 						</Link>

@@ -3,10 +3,12 @@ import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import { Archive, Users, Calendar, Award, Lightbulb, Wallet, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { useTranslation } from "../../lib/hooks/useTranslation";
 
 export default function ArchivePage() {
 	const router = useRouter();
 	const { data: session, status } = useSession();
+	const { t } = useTranslation();
 	const [archivedSessions, setArchivedSessions] = useState([]);
 	const [municipalSessions, setMunicipalSessions] = useState([]);
 	const [citizenProposals, setCitizenProposals] = useState([]);
@@ -91,7 +93,7 @@ export default function ArchivePage() {
 							href="/"
 							className="px-4 py-2 bg-yellow-400 text-gray-900 hover:bg-yellow-500 rounded-lg font-medium"
 						>
-							Tillbaka till start
+							{t("common.backToStart")}
 						</Link>
 					</div>
 				</div>

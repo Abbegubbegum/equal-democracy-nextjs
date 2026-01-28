@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { Calendar, TrendingUp, CheckCircle } from "lucide-react";
 import Link from "next/link";
+import { useTranslation } from "../../../lib/hooks/useTranslation";
 
 const CATEGORY_NAMES = {
 	1: "Bygga, bo och miljö",
@@ -16,6 +17,7 @@ const CATEGORY_NAMES = {
 export default function BoardArchivePage() {
 	const router = useRouter();
 	const { municipality, board } = router.query;
+	const { t } = useTranslation();
 	const [sessions, setSessions] = useState([]);
 	const [loading, setLoading] = useState(true);
 
@@ -61,7 +63,7 @@ export default function BoardArchivePage() {
 							href="/"
 							className="px-4 py-2 bg-yellow-400 text-gray-900 hover:bg-yellow-500 rounded-lg font-medium"
 						>
-							Tillbaka till start
+							{t("common.backToStart")}
 						</Link>
 					</div>
 				</div>

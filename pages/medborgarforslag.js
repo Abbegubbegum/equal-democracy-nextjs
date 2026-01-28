@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { Star, Plus, TrendingUp, Clock, Award } from "lucide-react";
 import { fetchWithCsrf } from "../lib/fetch-with-csrf";
+import { useTranslation } from "../lib/hooks/useTranslation";
 
 const CATEGORY_NAMES = {
 	1: "Bygga, bo och miljö",
@@ -18,6 +19,7 @@ const CATEGORY_NAMES = {
 export default function MedborgarforslagPage() {
 	const { data: session } = useSession();
 	const router = useRouter();
+	const { t } = useTranslation();
 	const [proposals, setProposals] = useState([]);
 	const [loading, setLoading] = useState(true);
 	const [view, setView] = useState("list"); // 'list' or 'create'
@@ -152,7 +154,7 @@ export default function MedborgarforslagPage() {
 							href="/"
 							className="px-4 py-2 bg-yellow-400 text-gray-900 hover:bg-yellow-500 rounded-lg font-medium"
 						>
-							Tillbaka till start
+							{t("common.backToStart")}
 						</Link>
 					</div>
 				</div>

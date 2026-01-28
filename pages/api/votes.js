@@ -83,8 +83,9 @@ export default async function handler(req, res) {
 							"You have already used your vote this session. Members may vote on one (1) proposal per session.",
 					});
 				}
-			} else if (user.userType === "citizen") {
-				// Citizens: 1 vote per year
+			} else {
+				// Citizens (and users with no specific type): 1 vote per year
+				// This allows simple email-verified logins to vote
 				const currentYear = new Date().getFullYear();
 				const yearStart = new Date(currentYear, 0, 1);
 
@@ -101,12 +102,6 @@ export default async function handler(req, res) {
 						nextVoteDate: new Date(currentYear + 1, 0, 1).toISOString(),
 					});
 				}
-			} else {
-				// User must be registered as member or citizen to vote
-				return res.status(403).json({
-					message:
-						"You must be registered as a member or citizen to vote. Please complete your profile.",
-				});
 			}
 
 			await FinalVote.create({

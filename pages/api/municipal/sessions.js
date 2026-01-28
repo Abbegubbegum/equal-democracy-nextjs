@@ -8,7 +8,8 @@ import { sendMunicipalSessionNotifications } from "../../../lib/municipal/notifi
 /**
  * GET/PATCH/DELETE /api/municipal/sessions
  * Manage municipal sessions
- * Superadmin only
+ * GET: Requires login
+ * PATCH/DELETE: Superadmin only
  */
 export default async function handler(req, res) {
 	await connectDB();
@@ -21,11 +22,7 @@ export default async function handler(req, res) {
 
 	const user = await User.findById(session.user.id);
 
-	if (!user || !user.isSuperAdmin) {
-		return res.status(403).json({ message: "Superadmin access required" });
-	}
-
-	// GET - List all municipal sessions
+	// GET - List all municipal sessions (any logged-in user)
 	if (req.method === "GET") {
 		try {
 			const { status, limit, municipality } = req.query;
@@ -50,8 +47,12 @@ export default async function handler(req, res) {
 		}
 	}
 
-	// PATCH - Update municipal session (or publish it)
+	// PATCH - Update municipal session (or publish it) - Superadmin only
 	if (req.method === "PATCH") {
+		if (!user || !user.isSuperAdmin) {
+			return res.status(403).json({ message: "Superadmin access required" });
+		}
+
 		if (!csrfProtection(req, res)) {
 			return;
 		}
@@ -184,8 +185,12 @@ export default async function handler(req, res) {
 		}
 	}
 
-	// DELETE - Delete municipal session
+	// DELETE - Delete municipal session - Superadmin only
 	if (req.method === "DELETE") {
+		if (!user || !user.isSuperAdmin) {
+			return res.status(403).json({ message: "Superadmin access required" });
+		}
+
 		if (!csrfProtection(req, res)) {
 			return;
 		}

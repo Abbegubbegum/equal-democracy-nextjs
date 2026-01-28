@@ -188,19 +188,25 @@ export default function HomePage() {
 				<div className="max-w-4xl mx-auto">
 					<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
 						<div className="flex items-center gap-3">
-							<div
-								className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
+							<button
+								onClick={() => router.push("/about")}
+								className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity cursor-pointer"
 								style={{ backgroundColor: accentColor }}
+								title="Om Jämlik Demokrati"
 							>
 								<Users
 									className="w-6 h-6"
 									style={{ color: primaryDark }}
 								/>
-							</div>
+							</button>
 							<div className="min-w-0">
-								<h1 className="text-xl sm:text-2xl font-bold wrap-break-word">
+								<button
+									onClick={() => router.push("/about")}
+									className="text-xl sm:text-2xl font-bold wrap-break-word hover:text-accent-400 transition-colors text-left"
+									title="Om Jämlik Demokrati"
+								>
 									{t("appName")}
-								</h1>
+								</button>
 								<p className="text-primary-100 text-xs sm:text-sm wrap-break-word">
 									{t("auth.hello")}, {session.user.name}!
 								</p>

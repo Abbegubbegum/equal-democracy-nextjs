@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import { Building2, Users, Calendar } from "lucide-react";
 import Link from "next/link";
+import { useTranslation } from "../../lib/hooks/useTranslation";
 
 const BOARD_INFO = {
 	kommunfullmaktige: {
@@ -36,6 +37,7 @@ export default function MunicipalityPage() {
 	const router = useRouter();
 	const { municipality } = router.query;
 	const { data: session, status } = useSession();
+	const { t } = useTranslation();
 	const [availableBoards, setAvailableBoards] = useState([]);
 	const [loading, setLoading] = useState(true);
 
@@ -114,7 +116,7 @@ export default function MunicipalityPage() {
 							href="/"
 							className="px-4 py-2 bg-yellow-400 text-gray-900 hover:bg-yellow-500 rounded-lg font-medium"
 						>
-							Tillbaka till start
+							{t("common.backToStart")}
 						</Link>
 					</div>
 				</div>

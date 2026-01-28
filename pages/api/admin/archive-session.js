@@ -3,6 +3,9 @@ import { Session } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import broadcaster from "@/lib/sse-broadcaster";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("ArchiveSession");
 
 /**
  * Archives a ranking session manually
@@ -74,7 +77,7 @@ export default async function handler(req, res) {
 			sessionId: surveySession._id,
 		});
 	} catch (error) {
-		console.error("Error archiving session:", error);
+		log.error("Failed to archive session", { sessionId: req.body?.sessionId, error: error.message });
 		return res.status(500).json({ error: "Failed to archive session" });
 	}
 }

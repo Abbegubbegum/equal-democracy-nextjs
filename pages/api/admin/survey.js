@@ -4,6 +4,9 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { csrfProtection } from "@/lib/csrf";
 import { hasAdminAccess } from "@/lib/admin-helper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("AdminSurvey");
 
 export default async function handler(req, res) {
 	await dbConnect();
@@ -50,7 +53,7 @@ export default async function handler(req, res) {
 
 			return res.status(200).json(surveys);
 		} catch (error) {
-			console.error("Error fetching surveys:", error);
+			log.error("Failed to fetch surveys", { error: error.message });
 			return res.status(500).json({ error: "Failed to fetch surveys" });
 		}
 	}
@@ -99,7 +102,7 @@ export default async function handler(req, res) {
 
 			return res.status(201).json(newSurvey);
 		} catch (error) {
-			console.error("Error creating survey:", error);
+			log.error("Failed to create survey", { error: error.message });
 			return res.status(500).json({ error: "Failed to create survey" });
 		}
 	}
@@ -135,7 +138,7 @@ export default async function handler(req, res) {
 
 			return res.status(200).json(updatedSurvey);
 		} catch (error) {
-			console.error("Error updating survey:", error);
+			log.error("Failed to update survey", { error: error.message });
 			return res.status(500).json({ error: "Failed to update survey" });
 		}
 	}
@@ -162,7 +165,7 @@ export default async function handler(req, res) {
 
 			return res.status(200).json({ success: true });
 		} catch (error) {
-			console.error("Error deleting survey:", error);
+			log.error("Failed to delete survey", { error: error.message });
 			return res.status(500).json({ error: "Failed to delete survey" });
 		}
 	}

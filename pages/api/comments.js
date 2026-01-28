@@ -5,6 +5,9 @@ import { Comment } from "../../lib/models";
 import { getActiveSession, registerActiveUser } from "../../lib/session-helper";
 import { csrfProtection } from "../../lib/csrf";
 import broadcaster from "../../lib/sse-broadcaster";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("Comments");
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -47,7 +50,7 @@ export default async function handler(req, res) {
 
 			return res.status(200).json(anonymizedComments);
 		} catch (error) {
-			console.error("Error fetching comments:", error);
+			log.error("Failed to fetch comments", { error: error.message });
 			return res.status(500).json({ message: "An error has occured" });
 		}
 	}
@@ -123,7 +126,7 @@ export default async function handler(req, res) {
 				createdAt: comment.createdAt,
 			});
 		} catch (error) {
-			console.error("Error creating comment:", error);
+			log.error("Failed to create comment", { error: error.message });
 			return res
 				.status(500)
 				.json({ message: "An error occurred while creating comments" });

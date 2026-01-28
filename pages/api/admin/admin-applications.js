@@ -8,6 +8,9 @@ import {
 	sendAdminApprovalNotification,
 	sendAdminDenialNotification,
 } from "../../../lib/email";
+import { createLogger } from "../../../lib/logger";
+
+const log = createLogger("AdminApplications");
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -34,7 +37,7 @@ export default async function handler(req, res) {
 
 			return res.status(200).json({ applications: pendingApplications });
 		} catch (error) {
-			console.error("Error fetching admin applications:", error);
+			log.error("Failed to fetch admin applications", { error: error.message });
 			return res.status(500).json({ message: "An error occurred" });
 		}
 	}
@@ -111,7 +114,7 @@ export default async function handler(req, res) {
 				}
 			} catch (emailError) {
 				// Log error but don't fail the request
-				console.error("Error sending notification email:", emailError);
+				log.error("Failed to send notification email", { email: user.email, error: emailError.message });
 			}
 
 			return res.status(200).json({
@@ -126,7 +129,7 @@ export default async function handler(req, res) {
 				},
 			});
 		} catch (error) {
-			console.error("Error processing admin application:", error);
+			log.error("Failed to process admin application", { userId: req.body?.userId, error: error.message });
 			return res.status(500).json({ message: "An error occurred" });
 		}
 	}

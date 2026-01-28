@@ -13,6 +13,9 @@ import { validateObjectId, toObjectId } from "../../lib/validation";
 import { csrfProtection } from "../../lib/csrf";
 import broadcaster from "../../lib/sse-broadcaster";
 import { sendSessionResultsEmail } from "../../lib/email";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("Votes");
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -139,9 +142,7 @@ export default async function handler(req, res) {
 
 			// If session closed, broadcast phase change
 			if (shouldClose) {
-				console.log(
-					"[VOTE] 🎉 Session closed! Broadcasting phase-change event..."
-				);
+				log.info("Session auto-closed after vote", { sessionId: freshSession._id.toString() });
 				await broadcaster.broadcast("phase-change", {
 					phase: "closed",
 					sessionId: freshSession._id.toString(),
@@ -158,7 +159,7 @@ export default async function handler(req, res) {
 				sessionClosed: shouldClose,
 			});
 		} catch (error) {
-			console.error("Error creating vote:", error);
+			log.error("Failed to create vote", { error: error.message });
 			return res.status(500).json({ message: "An error has occured" });
 		}
 	}
@@ -191,7 +192,7 @@ export default async function handler(req, res) {
 					votedProposalTitle: userVote?.proposalId?.title || null,
 				});
 			} catch (error) {
-				console.error("Error checking session vote:", error);
+				log.error("Failed to check session vote", { error: error.message });
 				return res
 					.status(500)
 					.json({ message: "An error has occured" });
@@ -236,7 +237,7 @@ export default async function handler(req, res) {
 					hasVoted: !!hasVoted,
 				});
 			} catch (error) {
-				console.error("Error fetching vote results:", error);
+				log.error("Failed to fetch vote results", { error: error.message });
 				return res
 					.status(500)
 					.json({ message: "An error has occured" });
@@ -275,17 +276,13 @@ async function checkAutoClose(activeSession) {
 			);
 
 			if (allUsersVoted) {
-				console.log(
-					`[AUTO-CLOSE] ✅ All ${activeUserIds.length} users have voted! Closing session...`
-				);
+				log.info("All users voted, closing session", {
+					sessionId: activeSession._id.toString(),
+					userCount: activeUserIds.length
+				});
 				await closeSession(activeSession);
 				return true;
-			} else {
 			}
-		} else {
-			console.log(
-				`[AUTO-CLOSE] ⚠️ No active users registered in session!`
-			);
 		}
 
 		// Check condition 2: Time limit exceeded (check total session time)
@@ -299,9 +296,11 @@ async function checkAutoClose(activeSession) {
 				(currentTime - sessionStartTime) / (1000 * 60 * 60);
 
 			if (elapsedHours >= sessionLimitHours) {
-				console.log(
-					`[AUTO-CLOSE] ⏰ Session time limit exceeded (${elapsedHours.toFixed(1)}h / ${sessionLimitHours}h). Closing session...`
-				);
+				log.info("Session time limit exceeded, closing", {
+					sessionId: activeSession._id.toString(),
+					elapsedHours: elapsedHours.toFixed(1),
+					limitHours: sessionLimitHours
+				});
 				await closeSession(activeSession);
 				return true;
 			}
@@ -309,7 +308,7 @@ async function checkAutoClose(activeSession) {
 
 		return false;
 	} catch (error) {
-		console.error("Error checking auto-close:", error);
+		log.error("Failed to check auto-close", { error: error.message });
 		return false;
 	}
 }
@@ -408,9 +407,10 @@ async function closeSession(activeSession) {
 		activeSession.endDate = new Date();
 		await activeSession.save();
 
-		console.log(
-			`[CLOSE-SESSION] ✅ Session ${activeSession.name} successfully closed and saved!`
-		);
+		log.info("Session closed successfully", {
+			sessionId: activeSession._id.toString(),
+			sessionName: activeSession.name
+		});
 
 		// Send results email to all participants
 		try {
@@ -445,21 +445,18 @@ async function closeSession(activeSession) {
 						language
 					);
 				} catch (emailError) {
-					console.error(
-						`[CLOSE-SESSION] ✗ Failed to send email to ${user.email}:`,
-						emailError
-					);
+					log.error("Failed to send results email", {
+						email: user.email,
+						error: emailError.message
+					});
 				}
 			}
 		} catch (emailError) {
-			console.error(
-				"[CLOSE-SESSION] Error during email sending process:",
-				emailError
-			);
+			log.error("Email sending process failed", { error: emailError.message });
 			// Don't throw - we still want the session to close even if emails fail
 		}
 	} catch (error) {
-		console.error("Error closing session:", error);
+		log.error("Failed to close session", { error: error.message });
 		throw error;
 	}
 }

@@ -4,6 +4,9 @@ import connectDB from "../../../lib/mongodb";
 import { User, MunicipalSession } from "../../../lib/models";
 import { csrfProtection } from "../../../lib/csrf";
 import { extractAgendaFromURL } from "../../../lib/municipal/agenda-extractor";
+import { createLogger } from "../../../lib/logger";
+
+const log = createLogger("ExtractAgenda");
 
 /**
  * POST /api/municipal/extract-agenda
@@ -53,7 +56,7 @@ export default async function handler(req, res) {
 			return res.status(400).json({ message: "Invalid URL format" });
 		}
 
-		console.log(`[ExtractAgenda] Extracting agenda from: ${url}`);
+		log.info("Extracting agenda", { url });
 
 		// Extract items from PDF using AI
 		const extractedData = await extractAgendaFromURL(url, meetingType || "Kommunfullmäktige");
@@ -64,7 +67,7 @@ export default async function handler(req, res) {
 			try {
 				meetingDate = new Date(extractedData.meetingDate);
 			} catch {
-				console.warn("[ExtractAgenda] Failed to parse meeting date, using current date");
+				// Use current date if parsing fails
 			}
 		}
 
@@ -91,7 +94,7 @@ export default async function handler(req, res) {
 
 		await municipalSession.save();
 
-		console.log(`[ExtractAgenda] Created draft session: ${municipalSession._id}`);
+		log.info("Draft session created", { sessionId: municipalSession._id.toString(), itemCount: municipalSession.items.length });
 
 		return res.status(201).json({
 			message: "Agenda extracted successfully",
@@ -104,7 +107,7 @@ export default async function handler(req, res) {
 			},
 		});
 	} catch (error) {
-		console.error("[ExtractAgenda] Error:", error);
+		log.error("Failed to extract agenda", { url: req.body?.url, error: error.message });
 		return res.status(500).json({
 			message: "Failed to extract agenda",
 			error: error.message,

@@ -2,6 +2,9 @@ import dbConnect from "@/lib/mongodb";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { getActiveSession } from "@/lib/session-helper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("Sessions");
 
 export default async function handler(req, res) {
 	await dbConnect();
@@ -46,7 +49,7 @@ export default async function handler(req, res) {
 			surveyDurationDays: activeSession.surveyDurationDays,
 		});
 	} catch (error) {
-		console.error("Error fetching current session:", error);
+		log.error("Failed to fetch current session", { error: error.message });
 		return res.status(500).json({ error: "Failed to fetch session" });
 	}
 }

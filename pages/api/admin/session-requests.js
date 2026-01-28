@@ -8,6 +8,9 @@ import {
 	sendSessionRequestApprovalNotification,
 	sendSessionRequestDenialNotification,
 } from "../../../lib/email";
+import { createLogger } from "../../../lib/logger";
+
+const log = createLogger("SessionRequests");
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -34,7 +37,7 @@ export default async function handler(req, res) {
 
 			return res.status(200).json({ requests: pendingRequests });
 		} catch (error) {
-			console.error("Error fetching session requests:", error);
+			log.error("Failed to fetch session requests", { error: error.message });
 			return res.status(500).json({ message: "An error occurred" });
 		}
 	}
@@ -116,7 +119,7 @@ export default async function handler(req, res) {
 						"sv" // Default to Swedish, could be made configurable
 					);
 				} catch (emailError) {
-					console.error("Error sending approval email:", emailError);
+					log.error("Failed to send approval email", { email: user.email, error: emailError.message });
 				}
 
 				return res.status(200).json({
@@ -137,7 +140,7 @@ export default async function handler(req, res) {
 						"sv" // Default to Swedish, could be made configurable
 					);
 				} catch (emailError) {
-					console.error("Error sending denial email:", emailError);
+					log.error("Failed to send denial email", { email: user.email, error: emailError.message });
 				}
 
 				return res.status(200).json({
@@ -146,7 +149,7 @@ export default async function handler(req, res) {
 				});
 			}
 		} catch (error) {
-			console.error("Error processing session request:", error);
+			log.error("Failed to process session request", { requestId: req.body?.requestId, error: error.message });
 			return res.status(500).json({ message: "An error occurred" });
 		}
 	}

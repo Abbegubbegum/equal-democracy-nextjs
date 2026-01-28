@@ -1,5 +1,8 @@
 import connectDB from "../../../lib/mongodb";
 import { MunicipalSession } from "../../../lib/models";
+import { createLogger } from "../../../lib/logger";
+
+const log = createLogger("BoardSessions");
 
 /**
  * GET /api/municipal/board-sessions
@@ -62,7 +65,7 @@ export default async function handler(req, res) {
 
 		return res.status(200).json({ sessions });
 	} catch (error) {
-		console.error("[BoardSessions] Error fetching sessions:", error);
+		log.error("Failed to fetch sessions", { error: error.message });
 		return res.status(500).json({
 			message: "Failed to fetch sessions",
 			error: error.message,

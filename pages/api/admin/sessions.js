@@ -9,6 +9,9 @@ import {
 	isSuperAdmin,
 	checkAdminSessionLimit,
 } from "@/lib/admin-helper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("AdminSessions");
 
 export default async function handler(req, res) {
 	await dbConnect();
@@ -85,7 +88,7 @@ export default async function handler(req, res) {
 
 			return res.status(200).json(sessions);
 		} catch (error) {
-			console.error("Error fetching sessions:", error);
+			log.error("Failed to fetch sessions", { error: error.message });
 			return res.status(500).json({ error: "Failed to fetch sessions" });
 		}
 	}
@@ -176,7 +179,7 @@ export default async function handler(req, res) {
 				remainingSessions: user?.remainingSessions || 0,
 			});
 		} catch (error) {
-			console.error("Error creating session:", error);
+			log.error("Failed to create session", { error: error.message });
 			if (error.code === 11000) {
 				return res
 					.status(400)
@@ -208,7 +211,7 @@ export default async function handler(req, res) {
 
 			return res.status(200).json(updatedSession);
 		} catch (error) {
-			console.error("Error updating session:", error);
+			log.error("Failed to update session", { error: error.message });
 			return res.status(500).json({ error: "Failed to update session" });
 		}
 	}

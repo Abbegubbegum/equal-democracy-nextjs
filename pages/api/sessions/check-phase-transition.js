@@ -3,6 +3,9 @@ import { Session, Proposal, ThumbsUp } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import broadcaster from "@/lib/sse-broadcaster";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("Sessions");
 
 /**
  * Checks if automatic phase transition should occur
@@ -161,7 +164,7 @@ export default async function handler(req, res) {
 			},
 		});
 	} catch (error) {
-		console.error("Error checking phase transition:", error);
+		log.error("Failed to check phase transition", { error: error.message });
 		return res.status(500).json({ error: "Failed to check transition" });
 	}
 }

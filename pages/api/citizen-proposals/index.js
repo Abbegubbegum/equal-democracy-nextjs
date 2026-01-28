@@ -3,6 +3,9 @@ import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "../../../lib/mongodb";
 import { User, CitizenProposal, CitizenProposalRating } from "../../../lib/models";
 import { csrfProtection } from "../../../lib/csrf";
+import { createLogger } from "../../../lib/logger";
+
+const log = createLogger("CitizenProposals");
 
 /**
  * GET/POST /api/citizen-proposals
@@ -72,7 +75,7 @@ export default async function handler(req, res) {
 
 			return res.status(200).json({ proposals });
 		} catch (error) {
-			console.error("[CitizenProposals] Error fetching proposals:", error);
+			log.error("Failed to fetch proposals", { error: error.message });
 			return res.status(500).json({ message: "Failed to fetch proposals" });
 		}
 	}
@@ -145,7 +148,7 @@ export default async function handler(req, res) {
 
 			await proposal.save();
 
-			console.log(`[CitizenProposals] Created proposal: ${proposal._id} by ${user.name}`);
+			log.info("Proposal created", { proposalId: proposal._id.toString(), author: user.name });
 
 			return res.status(201).json({
 				message: "Proposal created successfully",
@@ -159,7 +162,7 @@ export default async function handler(req, res) {
 				},
 			});
 		} catch (error) {
-			console.error("[CitizenProposals] Error creating proposal:", error);
+			log.error("Failed to create proposal", { error: error.message });
 			return res.status(500).json({
 				message: "Failed to create proposal",
 				error: error.message,

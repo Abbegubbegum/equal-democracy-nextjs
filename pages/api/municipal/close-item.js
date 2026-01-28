@@ -3,6 +3,9 @@ import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "../../../lib/mongodb";
 import { User, MunicipalSession, Session } from "../../../lib/models";
 import { csrfProtection } from "../../../lib/csrf";
+import { createLogger } from "../../../lib/logger";
+
+const log = createLogger("CloseItem");
 
 /**
  * POST /api/municipal/close-item
@@ -79,7 +82,7 @@ export default async function handler(req, res) {
 
 		await municipalSession.save();
 
-		console.log(`[CloseItem] Item "${item.title}" closed by ${user.name}`);
+		log.info("Item closed", { itemId, title: item.title, closedBy: user.name });
 
 		return res.status(200).json({
 			message: "Item closed successfully",
@@ -91,7 +94,7 @@ export default async function handler(req, res) {
 			},
 		});
 	} catch (error) {
-		console.error("[CloseItem] Error:", error);
+		log.error("Failed to close item", { itemId: req.body?.itemId, error: error.message });
 		return res.status(500).json({
 			message: "Failed to close item",
 			error: error.message,

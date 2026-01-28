@@ -1,6 +1,9 @@
 import dbConnect from "@/lib/mongodb";
 import { Session, Proposal } from "@/lib/models";
 import broadcaster from "@/lib/sse-broadcaster";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("Sessions");
 
 export default async function handler(req, res) {
 	await dbConnect();
@@ -50,7 +53,7 @@ export default async function handler(req, res) {
 			archivedSessions,
 		});
 	} catch (error) {
-		console.error("Error checking for sessions to archive:", error);
+		log.error("Failed to check sessions to archive", { error: error.message });
 		return res.status(500).json({ error: "Failed to check for sessions to archive" });
 	}
 }

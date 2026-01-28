@@ -4,6 +4,9 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { csrfProtection } from "@/lib/csrf";
 import { hasAdminAccess, isSuperAdmin } from "@/lib/admin-helper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("AdminCloseSession");
 
 export default async function handler(req, res) {
 	await dbConnect();
@@ -143,7 +146,7 @@ export default async function handler(req, res) {
 			topProposals: topProposals,
 		});
 	} catch (error) {
-		console.error("Error closing session:", error);
+		log.error("Failed to close session", { sessionId: req.body?.sessionId, error: error.message });
 		return res.status(500).json({ error: "Failed to close session" });
 	}
 }

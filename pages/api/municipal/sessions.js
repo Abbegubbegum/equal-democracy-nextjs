@@ -4,6 +4,9 @@ import connectDB from "../../../lib/mongodb";
 import { User, MunicipalSession, Proposal, Session, Comment } from "../../../lib/models";
 import { csrfProtection } from "../../../lib/csrf";
 import { sendMunicipalSessionNotifications } from "../../../lib/municipal/notifications";
+import { createLogger } from "../../../lib/logger";
+
+const log = createLogger("MunicipalSessions");
 
 /**
  * GET/PATCH/DELETE /api/municipal/sessions
@@ -42,7 +45,7 @@ export default async function handler(req, res) {
 
 			return res.status(200).json({ sessions });
 		} catch (error) {
-			console.error("[MunicipalSessions] Error fetching sessions:", error);
+			log.error("Failed to fetch sessions", { error: error.message });
 			return res.status(500).json({ message: "Failed to fetch sessions" });
 		}
 	}
@@ -141,16 +144,23 @@ export default async function handler(req, res) {
 				municipalSession.status = "active";
 				await municipalSession.save();
 
-				console.log(`[MunicipalSessions] Published session ${sessionId} with ${municipalSession.items.length} items`);
+				log.info("Session published", {
+					sessionId,
+					itemCount: municipalSession.items.length
+				});
 
 				// Send notifications to users based on categories
 				try {
 					const notificationResults = await sendMunicipalSessionNotifications(municipalSession);
-					console.log(`[MunicipalSessions] Notifications sent: ${notificationResults.emailsSent} emails, ${notificationResults.smsSent} SMS`);
+					log.info("Notifications sent", {
+						sessionId,
+						emails: notificationResults.emailsSent,
+						sms: notificationResults.smsSent
+					});
 					municipalSession.notificationsSent = true;
 					await municipalSession.save();
 				} catch (error) {
-					console.error("[MunicipalSessions] Failed to send notifications:", error);
+					log.error("Failed to send notifications", { sessionId, error: error.message });
 					// Don't fail the entire publish if notifications fail
 				}
 
@@ -177,7 +187,7 @@ export default async function handler(req, res) {
 
 			return res.status(400).json({ message: "Invalid action" });
 		} catch (error) {
-			console.error("[MunicipalSessions] Error updating session:", error);
+			log.error("Failed to update session", { error: error.message });
 			return res.status(500).json({
 				message: "Failed to update session",
 				error: error.message,
@@ -217,7 +227,7 @@ export default async function handler(req, res) {
 
 			return res.status(200).json({ message: "Session deleted successfully" });
 		} catch (error) {
-			console.error("[MunicipalSessions] Error deleting session:", error);
+			log.error("Failed to delete session", { error: error.message });
 			return res.status(500).json({ message: "Failed to delete session" });
 		}
 	}

@@ -8,6 +8,9 @@ import {
 } from "../../../lib/session-helper";
 import { csrfProtection } from "../../../lib/csrf";
 import broadcaster from "../../../lib/sse-broadcaster";
+import { createLogger } from "../../../lib/logger";
+
+const log = createLogger("Proposals");
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -66,7 +69,7 @@ export default async function handler(req, res) {
 
 			return res.status(200).json(proposalsWithCounts);
 		} catch (error) {
-			console.error("Error fetching proposals:", error);
+			log.error("Failed to fetch proposals", { error: error.message });
 			return res.status(500).json({ message: "An error has occured" });
 		}
 	}
@@ -182,7 +185,7 @@ export default async function handler(req, res) {
 				authorId: proposal.authorId.toString(),
 			});
 		} catch (error) {
-			console.error("Error creating proposal:", error);
+			log.error("Failed to create proposal", { error: error.message });
 			return res.status(500).json({
 				message: "An error occurred while creating proposals",
 			});
@@ -213,7 +216,7 @@ export default async function handler(req, res) {
 
 				return res.status(200).json({ message: "Top 3 updated" });
 			} catch (error) {
-				console.error("Error updating proposals:", error);
+				log.error("Failed to update proposal", { error: error.message });
 				return res
 					.status(500)
 					.json({ message: "An error has occured" });

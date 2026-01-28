@@ -3,6 +3,9 @@ import { Session, Proposal, ThumbsUp } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import broadcaster from "@/lib/sse-broadcaster";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("Sessions");
 
 /**
  * Checks if a scheduled phase transition should be executed
@@ -186,7 +189,7 @@ export default async function handler(req, res) {
 			archivedCount: archivedIds.length,
 		});
 	} catch (error) {
-		console.error("Error executing scheduled transition:", error);
+		log.error("Failed to execute scheduled transition", { error: error.message });
 		return res.status(500).json({ error: "Failed to execute transition" });
 	}
 }

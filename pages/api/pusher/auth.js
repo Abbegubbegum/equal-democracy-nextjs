@@ -1,6 +1,9 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import Pusher from "pusher";
+import { createLogger } from "../../../lib/logger";
+
+const log = createLogger("PusherAuth");
 
 /**
  * Pusher authentication endpoint for presence channels
@@ -52,7 +55,7 @@ export default async function handler(req, res) {
 		);
 		res.status(200).json(authResponse);
 	} catch (error) {
-		console.error("[Pusher Auth] Error:", error);
+		log.error("Channel authorization failed", { channel: channel_name, error: error.message });
 		res.status(500).json({ error: "Authentication failed" });
 	}
 }

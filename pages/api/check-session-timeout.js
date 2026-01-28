@@ -6,6 +6,9 @@ import {
 	FinalVote,
 	TopProposal,
 } from "@/lib/models";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("SessionTimeout");
 
 /**
  * API endpoint to check and automatically close sessions that have exceeded their time limit
@@ -47,13 +50,11 @@ export default async function handler(req, res) {
 
 			// If session has exceeded the time limit, close it
 			if (elapsedHours >= sessionLimitHours) {
-				console.log(
-					`[TIMEOUT CHECK] Session ${
-						session._id
-					} exceeded time limit (${elapsedHours.toFixed(
-						1
-					)}h / ${sessionLimitHours}h). Closing...`
-				);
+				log.info("Session exceeded time limit", {
+					sessionId: session._id.toString(),
+					elapsedHours: elapsedHours.toFixed(1),
+					limitHours: sessionLimitHours
+				});
 
 				await closeSession(session);
 				closedSessions.push({
@@ -73,10 +74,7 @@ export default async function handler(req, res) {
 			sessionLimitHours,
 		});
 	} catch (error) {
-		console.error(
-			"[TIMEOUT CHECK] Error checking session timeouts:",
-			error
-		);
+		log.error("Failed to check session timeouts", { error: error.message });
 		return res.status(500).json({
 			error: "Failed to check session timeouts",
 			details: error.message,
@@ -144,16 +142,17 @@ async function closeSession(session) {
 		session.endDate = new Date();
 		await session.save();
 
-		console.log(
-			`[TIMEOUT CHECK] Session ${session._id} closed successfully. Saved ${savedProposals.length} top proposals.`
-		);
+		log.info("Session closed successfully", {
+			sessionId: session._id.toString(),
+			savedProposals: savedProposals.length
+		});
 
 		return {
 			success: true,
 			topProposals: savedProposals,
 		};
 	} catch (error) {
-		console.error("[TIMEOUT CHECK] Error closing session:", error);
+		log.error("Failed to close session", { error: error.message });
 		throw error;
 	}
 }

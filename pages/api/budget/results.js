@@ -4,6 +4,9 @@ import connectDB from "../../../lib/mongodb";
 import { BudgetSession, BudgetVote, BudgetResult, User } from "../../../lib/models";
 import { csrfProtection } from "../../../lib/csrf";
 import { calculateMedianBudget } from "../../../lib/budget/median-calculator";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("BudgetResults");
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -63,7 +66,7 @@ export default async function handler(req, res) {
 				session: budgetSession,
 			});
 		} catch (error) {
-			console.error("Error fetching results:", error);
+			log.error("Failed to fetch budget results", { sessionId: req.query.sessionId, error: error.message });
 			return res.status(500).json({ message: "An error occurred" });
 		}
 	}
@@ -133,7 +136,7 @@ export default async function handler(req, res) {
 				result,
 			});
 		} catch (error) {
-			console.error("Error calculating results:", error);
+			log.error("Failed to calculate budget results", { sessionId: req.body.sessionId, error: error.message });
 			return res.status(500).json({
 				message: "An error occurred",
 				error: error.message,

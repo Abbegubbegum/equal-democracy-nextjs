@@ -5,6 +5,9 @@ import { User } from "../../../lib/models";
 import { extractBudgetFromPDF, generateCategoryColor } from "../../../lib/budget/ai-extractor";
 import formidable from "formidable";
 import fs from "fs";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("BudgetUploadPDF");
 
 // Disable default body parser to handle file upload
 export const config = {
@@ -91,7 +94,7 @@ export default async function handler(req, res) {
 			data: extractedData,
 		});
 	} catch (error) {
-		console.error("Error processing PDF:", error);
+		log.error("Failed to process budget PDF", { error: error.message });
 		return res.status(500).json({
 			message: "Failed to process PDF",
 			error: error.message,

@@ -4,6 +4,9 @@ import connectDB from "../../lib/mongodb";
 import { User } from "../../lib/models";
 import { csrfProtection } from "../../lib/csrf";
 import { sendAdminApplicationNotification } from "../../lib/email";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("ApplyAdmin");
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -99,7 +102,7 @@ export default async function handler(req, res) {
 			}
 		} catch (emailError) {
 			// Log error but don't fail the request
-			console.error("Error sending admin application emails:", emailError);
+			log.warn("Failed to send admin application emails", { error: emailError.message });
 		}
 
 		return res.status(200).json({
@@ -107,7 +110,7 @@ export default async function handler(req, res) {
 				"Your admin application has been submitted. A superadmin will review it shortly.",
 		});
 	} catch (error) {
-		console.error("Error applying for admin:", error);
+		log.error("Failed to process admin application", { error: error.message });
 		return res.status(500).json({ message: "An error occurred" });
 	}
 }

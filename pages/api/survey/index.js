@@ -1,6 +1,9 @@
 import dbConnect from "@/lib/mongodb";
 import { Survey, SurveyVote } from "@/lib/models";
 import { csrfProtection } from "@/lib/csrf";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("Survey");
 
 export default async function handler(req, res) {
 	await dbConnect();
@@ -59,7 +62,7 @@ export default async function handler(req, res) {
 				userVote,
 			});
 		} catch (error) {
-			console.error("Error fetching survey:", error);
+			log.error("Failed to fetch survey", { error: error.message });
 			return res.status(500).json({ error: "Failed to fetch survey" });
 		}
 	}
@@ -109,7 +112,7 @@ export default async function handler(req, res) {
 				},
 			});
 		} catch (error) {
-			console.error("Error submitting vote:", error);
+			log.error("Failed to submit survey vote", { surveyId: req.body.surveyId, error: error.message });
 			return res.status(500).json({ error: "Failed to submit vote" });
 		}
 	}

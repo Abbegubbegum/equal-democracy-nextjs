@@ -3,6 +3,9 @@ import { Settings } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
 import { csrfProtection } from "@/lib/csrf";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("Settings");
 
 export default async function handler(req, res) {
 	await dbConnect();
@@ -32,7 +35,7 @@ export default async function handler(req, res) {
 				theme: settings.theme || "default",
 			});
 		} catch (error) {
-			console.error("Error fetching settings:", error);
+			log.error("Failed to fetch settings", { error: error.message });
 			return res.status(500).json({ error: "Failed to fetch settings" });
 		}
 	}
@@ -100,7 +103,7 @@ export default async function handler(req, res) {
 				theme: settings.theme,
 			});
 		} catch (error) {
-			console.error("Error updating settings:", error);
+			log.error("Failed to update settings", { error: error.message });
 			return res.status(500).json({ error: "Failed to update settings" });
 		}
 	}

@@ -3,6 +3,9 @@ import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "../../../lib/mongodb";
 import { CitizenProposal, CitizenProposalRating } from "../../../lib/models";
 import { csrfProtection } from "../../../lib/csrf";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("CitizenProposalRate");
 
 /**
  * POST/GET /api/citizen-proposals/rate
@@ -35,7 +38,7 @@ export default async function handler(req, res) {
 				userRating: rating ? rating.rating : null,
 			});
 		} catch (error) {
-			console.error("[CitizenProposalRate] Error fetching rating:", error);
+			log.error("Failed to fetch rating", { proposalId: req.query.proposalId, error: error.message });
 			return res.status(500).json({ message: "Failed to fetch rating" });
 		}
 	}
@@ -110,9 +113,7 @@ export default async function handler(req, res) {
 
 			await proposal.save();
 
-			console.log(
-				`[CitizenProposalRate] User ${session.user.id} rated proposal ${proposalId}: ${oldRating} -> ${rating} (total: ${totalStars} stars)`
-			);
+			log.info("Proposal rated", { userId: session.user.id, proposalId, oldRating, newRating: rating, totalStars });
 
 			return res.status(200).json({
 				message: oldRating ? "Rating updated" : "Rating registered",
@@ -122,7 +123,7 @@ export default async function handler(req, res) {
 				userRating: rating,
 			});
 		} catch (error) {
-			console.error("[CitizenProposalRate] Error rating proposal:", error);
+			log.error("Failed to rate proposal", { proposalId: req.body.proposalId, error: error.message });
 			return res.status(500).json({
 				message: "Failed to rate proposal",
 				error: error.message,

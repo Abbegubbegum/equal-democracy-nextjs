@@ -2,6 +2,9 @@ import dbConnect from "@/lib/mongodb";
 import { TopProposal, Session } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("TopProposals");
 
 /**
  * Public endpoint to get winning proposals from the most recently closed session
@@ -46,7 +49,7 @@ export default async function handler(req, res) {
 
 			return res.status(200).json(formatted);
 		} catch (error) {
-			console.error("Error fetching winning proposals:", error);
+			log.error("Failed to fetch winning proposals", { error: error.message });
 			return res
 				.status(500)
 				.json({ error: "Failed to fetch winning proposals" });

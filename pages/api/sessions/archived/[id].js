@@ -2,6 +2,9 @@ import dbConnect from "@/lib/mongodb";
 import { Session, Proposal } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../../auth/[...nextauth]";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("ArchivedSession");
 
 export default async function handler(req, res) {
 	await dbConnect();
@@ -58,7 +61,7 @@ export default async function handler(req, res) {
 			})),
 		});
 	} catch (error) {
-		console.error("Error fetching archived session:", error);
+		log.error("Failed to fetch archived session", { sessionId: req.query.id, error: error.message });
 		return res.status(500).json({ error: "Failed to fetch archived session" });
 	}
 }

@@ -1,11 +1,6 @@
 import dbConnect from "@/lib/mongodb";
-import {
-	Session,
-	Settings,
-	Proposal,
-	FinalVote,
-	TopProposal,
-} from "@/lib/models";
+import { Session, Settings } from "@/lib/models";
+import { closeSession } from "@/lib/session-close";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("SessionTimeout");
@@ -53,7 +48,7 @@ export default async function handler(req, res) {
 				log.info("Session exceeded time limit", {
 					sessionId: session._id.toString(),
 					elapsedHours: elapsedHours.toFixed(1),
-					limitHours: sessionLimitHours
+					limitHours: sessionLimitHours,
 				});
 
 				await closeSession(session);
@@ -79,80 +74,5 @@ export default async function handler(req, res) {
 			error: "Failed to check session timeouts",
 			details: error.message,
 		});
-	}
-}
-
-// Helper function to close a session
-async function closeSession(session) {
-	try {
-		// Get all top proposals (status "top3") from this session
-		const topProposals = await Proposal.find({
-			sessionId: session._id,
-			status: "top3",
-		});
-
-		// For each top proposal, calculate vote results and archive if yes-majority
-		const savedProposals = [];
-		for (const proposal of topProposals) {
-			// Count yes/no votes for this proposal
-			const yesVotes = await FinalVote.countDocuments({
-				sessionId: session._id,
-				proposalId: proposal._id,
-				choice: "yes",
-			});
-			const noVotes = await FinalVote.countDocuments({
-				sessionId: session._id,
-				proposalId: proposal._id,
-				choice: "no",
-			});
-
-			// Only save if yes-majority
-			if (yesVotes > noVotes) {
-				const topProposal = new TopProposal({
-					sessionId: session._id,
-					sessionPlace: session.place,
-					sessionStartDate: session.startDate,
-					proposalId: proposal._id,
-					title: proposal.title,
-					problem: proposal.problem,
-					solution: proposal.solution,
-					description: proposal.description,
-					authorName: proposal.authorName,
-					yesVotes,
-					noVotes,
-					archivedAt: new Date(),
-				});
-
-				await topProposal.save();
-				savedProposals.push({
-					title: proposal.title,
-					yesVotes,
-					noVotes,
-				});
-			}
-
-			// Mark proposal as archived
-			proposal.status = "archived";
-			await proposal.save();
-		}
-
-		// Close the session
-		session.status = "closed";
-		session.phase = "closed";
-		session.endDate = new Date();
-		await session.save();
-
-		log.info("Session closed successfully", {
-			sessionId: session._id.toString(),
-			savedProposals: savedProposals.length
-		});
-
-		return {
-			success: true,
-			topProposals: savedProposals,
-		};
-	} catch (error) {
-		log.error("Failed to close session", { error: error.message });
-		throw error;
 	}
 }

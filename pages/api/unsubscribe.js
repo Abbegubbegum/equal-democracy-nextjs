@@ -28,7 +28,7 @@ export default async function handler(req, res) {
 			}
 
 			return res.status(200).send(htmlPage(email, true));
-		} catch (error) {
+		} catch {
 			return res
 				.status(500)
 				.send(htmlPage(email, false, "Something went wrong. Please try again."));

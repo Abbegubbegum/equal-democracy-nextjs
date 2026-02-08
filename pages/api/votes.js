@@ -3,8 +3,6 @@ import { authOptions } from "./auth/[...nextauth]";
 import connectDB from "../../lib/mongodb";
 import {
 	FinalVote,
-	Proposal,
-	TopProposal,
 	Settings,
 	User,
 } from "../../lib/models";
@@ -12,7 +10,7 @@ import { getActiveSession, registerActiveUser } from "../../lib/session-helper";
 import { validateObjectId, toObjectId } from "../../lib/validation";
 import { csrfProtection } from "../../lib/csrf";
 import broadcaster from "../../lib/sse-broadcaster";
-import { sendSessionResultsEmail } from "../../lib/email";
+import { closeSession } from "../../lib/session-close";
 import { createLogger } from "../../lib/logger";
 
 const log = createLogger("Votes");
@@ -259,16 +257,13 @@ async function checkAutoClose(activeSession) {
 		}
 
 		// Check condition 1: All active users have voted
-		// Since each user can only vote once, we check if all active users have used their vote
 		const activeUserIds = activeSession.activeUsers || [];
 
 		if (activeUserIds.length > 0) {
-			// Get unique users who have voted in Phase 2
 			const votedUserIds = await FinalVote.distinct("userId", {
 				sessionId: activeSession._id,
 			});
 
-			// Check if all active users have voted
 			const allUsersVoted = activeUserIds.every((userId) =>
 				votedUserIds.some(
 					(votedId) => votedId.toString() === userId.toString()
@@ -278,14 +273,14 @@ async function checkAutoClose(activeSession) {
 			if (allUsersVoted) {
 				log.info("All users voted, closing session", {
 					sessionId: activeSession._id.toString(),
-					userCount: activeUserIds.length
+					userCount: activeUserIds.length,
 				});
-				await closeSession(activeSession);
+				await closeSession(activeSession, { sendEmails: true });
 				return true;
 			}
 		}
 
-		// Check condition 2: Time limit exceeded (check total session time)
+		// Check condition 2: Time limit exceeded
 		if (activeSession.startDate) {
 			const settings = await Settings.findOne({});
 			const sessionLimitHours = settings?.sessionLimitHours || 24;
@@ -299,9 +294,9 @@ async function checkAutoClose(activeSession) {
 				log.info("Session time limit exceeded, closing", {
 					sessionId: activeSession._id.toString(),
 					elapsedHours: elapsedHours.toFixed(1),
-					limitHours: sessionLimitHours
+					limitHours: sessionLimitHours,
 				});
-				await closeSession(activeSession);
+				await closeSession(activeSession, { sendEmails: true });
 				return true;
 			}
 		}
@@ -310,153 +305,5 @@ async function checkAutoClose(activeSession) {
 	} catch (error) {
 		log.error("Failed to check auto-close", { error: error.message });
 		return false;
-	}
-}
-
-// Helper function to close the session and archive proposals
-async function closeSession(activeSession) {
-	try {
-		// Get all top proposals (status "top3") from this session
-		const topProposals = await Proposal.find({
-			sessionId: activeSession._id,
-			status: "top3", // Note: "top3" is the database status, but refers to top 40% of proposals
-		});
-
-		if (activeSession.singleResult) {
-			// Single result mode: find all proposals with highest result (yesVotes - noVotes)
-			// If there's a tie, all tied proposals share the win
-			let bestResult = -Infinity;
-			const proposalsWithVotes = [];
-
-			// First pass: calculate results and find best result
-			for (const proposal of topProposals) {
-				const votes = await FinalVote.find({ proposalId: proposal._id });
-				const yesVotes = votes.filter((v) => v.choice === "yes").length;
-				const noVotes = votes.filter((v) => v.choice === "no").length;
-				const result = yesVotes - noVotes;
-
-				proposalsWithVotes.push({ proposal, yesVotes, noVotes, result });
-
-				if (result > bestResult) {
-					bestResult = result;
-				}
-			}
-
-			// Second pass: save all proposals with the best result (handles ties)
-			for (const item of proposalsWithVotes) {
-				if (item.result === bestResult) {
-					await TopProposal.create({
-						sessionId: activeSession._id,
-						sessionPlace:
-							activeSession.place || activeSession.name || "Unknown",
-						sessionStartDate:
-							activeSession.startDate ||
-							activeSession.createdAt ||
-							new Date(),
-						proposalId: item.proposal._id,
-						title: item.proposal.title,
-						problem: item.proposal.problem,
-						solution: item.proposal.solution,
-						authorName: item.proposal.authorName,
-						yesVotes: item.yesVotes,
-						noVotes: item.noVotes,
-						archivedAt: new Date(),
-					});
-				}
-			}
-		} else {
-			// Normal mode: save all proposals with yes-majority
-			for (const proposal of topProposals) {
-				const votes = await FinalVote.find({ proposalId: proposal._id });
-
-				const yesVotes = votes.filter((v) => v.choice === "yes").length;
-				const noVotes = votes.filter((v) => v.choice === "no").length;
-
-				// Only save proposals with yes-majority
-				if (yesVotes > noVotes) {
-					await TopProposal.create({
-						sessionId: activeSession._id,
-						sessionPlace:
-							activeSession.place || activeSession.name || "Unknown",
-						sessionStartDate:
-							activeSession.startDate ||
-							activeSession.createdAt ||
-							new Date(),
-						proposalId: proposal._id,
-						title: proposal.title,
-						problem: proposal.problem,
-						solution: proposal.solution,
-						authorName: proposal.authorName,
-						yesVotes: yesVotes,
-						noVotes: noVotes,
-						archivedAt: new Date(),
-					});
-				}
-			}
-		}
-
-		// Archive all proposals in this session
-		await Proposal.updateMany(
-			{ sessionId: activeSession._id },
-			{ status: "archived" }
-		);
-
-		// Close the session
-		activeSession.status = "closed";
-		activeSession.phase = "closed";
-		activeSession.endDate = new Date();
-		await activeSession.save();
-
-		log.info("Session closed successfully", {
-			sessionId: activeSession._id.toString(),
-			sessionName: activeSession.name
-		});
-
-		// Send results email to all participants
-		try {
-			// Get current language setting
-			const settings = await Settings.findOne();
-			const language = settings?.language || "sv";
-
-			// Get all participants from the session's activeUsers array
-			const participantIds = activeSession.activeUsers || [];
-
-			// Get user emails
-			const participants = await User.find({
-				_id: { $in: participantIds },
-			});
-
-			// Get top proposals that were saved (with yes-majority)
-			const savedTopProposals = await TopProposal.find({
-				sessionId: activeSession._id,
-			});
-
-			// Send email to each participant
-			for (const user of participants) {
-				try {
-					await sendSessionResultsEmail(
-						user.email,
-						activeSession.place,
-						savedTopProposals.map((tp) => ({
-							title: tp.title,
-							yesVotes: tp.yesVotes,
-							noVotes: tp.noVotes,
-						})),
-						language
-					);
-				} catch (emailError) {
-					log.error("Failed to send results email", {
-						email: user.email,
-						error: emailError.message
-					});
-				}
-			}
-		} catch (emailError) {
-			log.error("Email sending process failed", { error: emailError.message });
-			// Don't throw - we still want the session to close even if emails fail
-		}
-	} catch (error) {
-		log.error("Failed to close session", { error: error.message });
-		throw error;
 	}
 }

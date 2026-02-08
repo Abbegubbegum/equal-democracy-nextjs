@@ -3,6 +3,7 @@ import { Session } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import broadcaster from "@/lib/sse-broadcaster";
+import { archiveRankingSession } from "@/lib/session-close";
 import { createLogger } from "@/lib/logger";
 
 const log = createLogger("ArchiveSession");
@@ -60,10 +61,7 @@ export default async function handler(req, res) {
 			}
 		}
 
-		// Archive the session
-		surveySession.status = "archived";
-		surveySession.endDate = new Date();
-		await surveySession.save();
+		await archiveRankingSession(surveySession);
 
 		// Broadcast session archived event
 		await broadcaster.broadcast("session-archived", {

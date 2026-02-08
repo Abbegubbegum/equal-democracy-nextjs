@@ -102,14 +102,12 @@ export default async function handler(req, res) {
 					await sendAdminApprovalNotification(
 						user.email,
 						user.name,
-						user.sessionLimit,
-						"sv" // Default to Swedish, could be made configurable
+						user.sessionLimit
 					);
 				} else {
 					await sendAdminDenialNotification(
 						user.email,
-						user.name,
-						"sv" // Default to Swedish, could be made configurable
+						user.name
 					);
 				}
 			} catch (emailError) {

@@ -95,8 +95,7 @@ export default async function handler(req, res) {
 						name,
 						user.email,
 						organization,
-						sessions,
-						"sv" // Default to Swedish, could be made configurable
+						sessions
 					);
 				}
 			}

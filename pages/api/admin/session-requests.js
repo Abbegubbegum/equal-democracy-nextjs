@@ -115,8 +115,7 @@ export default async function handler(req, res) {
 					await sendSessionRequestApprovalNotification(
 						user.email,
 						user.name,
-						sessionsToGrant,
-						"sv" // Default to Swedish, could be made configurable
+						sessionsToGrant
 					);
 				} catch (emailError) {
 					log.error("Failed to send approval email", { email: user.email, error: emailError.message });
@@ -136,8 +135,7 @@ export default async function handler(req, res) {
 				try {
 					await sendSessionRequestDenialNotification(
 						user.email,
-						user.name,
-						"sv" // Default to Swedish, could be made configurable
+						user.name
 					);
 				} catch (emailError) {
 					log.error("Failed to send denial email", { email: user.email, error: emailError.message });

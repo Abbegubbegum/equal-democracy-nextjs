@@ -88,8 +88,7 @@ export default async function handler(req, res) {
 						user.email,
 						user.organization || "N/A",
 						user.remainingSessions || 0,
-						sessions,
-						"sv" // Default to Swedish, could be made configurable
+						sessions
 					);
 				}
 			}

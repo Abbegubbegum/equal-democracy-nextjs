@@ -3,6 +3,9 @@ import { Session, Proposal, ThumbsUp } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import broadcaster from "@/lib/sse-broadcaster";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("Sessions");
 
 /**
  * Checks if automatic phase transition should occur
@@ -24,10 +27,23 @@ export default async function handler(req, res) {
 	}
 
 	try {
-		// Get active session
-		const activeSession = await Session.findOne({ status: "active" });
+		// Get sessionId from query parameter (optional for backward compatibility)
+		const { sessionId } = req.query;
+
+		// Get active session (with optional sessionId)
+		// Only standard sessions can transition to phase 2 (surveys stay in phase 1 until archived)
+		const sessionQuery = sessionId
+			? { _id: sessionId, status: "active" }
+			: { status: "active" };
+
+		const activeSession = await Session.findOne(sessionQuery);
 
 		if (!activeSession || activeSession.phase !== "phase1") {
+			return res.status(200).json({ shouldTransition: false });
+		}
+
+		// Survey sessions don't transition to phase 2 - they stay in phase 1 until archived
+		if (activeSession.sessionType === "survey") {
 			return res.status(200).json({ shouldTransition: false });
 		}
 
@@ -148,7 +164,7 @@ export default async function handler(req, res) {
 			},
 		});
 	} catch (error) {
-		console.error("Error checking phase transition:", error);
+		log.error("Failed to check phase transition", { error: error.message });
 		return res.status(500).json({ error: "Failed to check transition" });
 	}
 }

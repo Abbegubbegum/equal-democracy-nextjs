@@ -10,12 +10,16 @@ import {
 	Mail,
 	PlusCircle,
 	Wallet,
+	BarChart3,
+	FileText,
 } from "lucide-react";
 import { fetchWithCsrf } from "../../lib/fetch-with-csrf";
+import { useTranslation } from "../../lib/hooks/useTranslation";
 
 export default function AdminPage() {
 	const { data: session, status } = useSession();
 	const router = useRouter();
+	const { t } = useTranslation();
 	const [tab, setTab] = useState("sessions");
 
 	useEffect(() => {
@@ -67,10 +71,22 @@ export default function AdminPage() {
 						onClick={() => setTab("sessions")}
 					/>
 					<Tab
+						label="Kallelser"
+						icon={<FileText className="w-4 h-4" />}
+						active={tab === "municipal"}
+						onClick={() => router.push("/admin/municipal")}
+					/>
+					<Tab
 						label="Budget Admin"
 						icon={<Wallet className="w-4 h-4" />}
 						active={tab === "budget"}
 						onClick={() => router.push("/budget/admin")}
+					/>
+					<Tab
+						label="Survey"
+						icon={<BarChart3 className="w-4 h-4" />}
+						active={tab === "survey"}
+						onClick={() => router.push("/admin/survey")}
 					/>
 					<Tab
 						label="Top Proposals"
@@ -110,7 +126,7 @@ export default function AdminPage() {
 					/>
 				</nav>
 
-				{tab === "sessions" && <SessionsPanel />}
+				{tab === "sessions" && <SessionsPanel t={t} />}
 				{tab === "top-proposals" && <TopProposalsPanel />}
 				{tab === "admin-applications" && <AdminApplicationsPanel />}
 				{tab === "session-requests" && <SessionRequestsPanel />}
@@ -631,24 +647,23 @@ function UsersPanel() {
 	);
 }
 
-function SessionsPanel() {
+function SessionsPanel({ t }) {
 	const router = useRouter();
 
 	return (
 		<section className="bg-white rounded-xl p-6 shadow">
 			<div className="text-center py-12">
 				<h2 className="text-2xl font-bold mb-4 text-slate-800">
-					Session Management
+					{t("admin.sessionManagement") || "Session Management"}
 				</h2>
 				<p className="text-slate-600 mb-6 max-w-md mx-auto">
-					Session management has been moved to a dedicated page for
-					better organization and accessibility.
+					{t("admin.sessionsMovedMessage") || "Session management has been moved to a dedicated page for better organization and accessibility."}
 				</p>
 				<button
 					onClick={() => router.push("/manage-sessions")}
 					className="px-6 py-3 bg-accent-500 text-slate-900 rounded-lg hover:bg-accent-600 font-semibold shadow-md hover:shadow-lg transition-all"
 				>
-					Go to Manage Sessions
+					{t("admin.goToManageSessions") || "Go to Manage Sessions"}
 				</button>
 			</div>
 		</section>

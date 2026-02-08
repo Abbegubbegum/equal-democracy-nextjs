@@ -2,6 +2,9 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "../../../lib/mongodb";
 import { Proposal, ThumbsUp, Comment, FinalVote } from "../../../lib/models";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("UserActivity");
 
 export default async function handler(req, res) {
 	if (req.method !== "GET") {
@@ -77,7 +80,7 @@ export default async function handler(req, res) {
 
 		return res.status(200).json(activity);
 	} catch (error) {
-		console.error("Error fetching user activity:", error);
+		log.error("Failed to fetch user activity", { error: error.message });
 		return res.status(500).json({ message: "An error has occured" });
 	}
 }

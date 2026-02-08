@@ -10,12 +10,8 @@ export default function TreemapViz({
 	session,
 	allocations,
 	incomeAllocations,
-	onUpdate,
-	readOnly = false,
 }) {
 	const canvasRef = useRef(null);
-	const [selectedCategory, setSelectedCategory] = useState(null);
-	const [isDragging, setIsDragging] = useState(false);
 	const [showLayer, setShowLayer] = useState("both"); // "income", "expenses", "both"
 
 	const width = 800;
@@ -57,12 +53,12 @@ export default function TreemapViz({
 		ctx.restore();
 	}, []);
 
-	const drawIncomeLayer = useCallback((ctx, session, incomeAllocations) => {
+	const drawIncomeLayer = useCallback((ctx, sessionData, incomeAllocs) => {
 		// Create treemap data for income
 		const data = {
 			name: "Income",
-			children: session.incomeCategories.map((cat) => {
-				const allocation = incomeAllocations?.find((a) => a.categoryId === cat.id);
+			children: sessionData.incomeCategories.map((cat) => {
+				const allocation = incomeAllocs?.find((a) => a.categoryId === cat.id);
 				return {
 					name: cat.name,
 					value: allocation?.amount || cat.amount,
@@ -119,12 +115,12 @@ export default function TreemapViz({
 		ctx.globalAlpha = 1;
 	}, [wrapText]);
 
-	const drawExpenseLayer = useCallback((ctx, session, allocations) => {
+	const drawExpenseLayer = useCallback((ctx, sessionData, allocs) => {
 		// Create treemap data for expenses
 		const data = {
 			name: "Expenses",
-			children: session.categories.map((cat) => {
-				const allocation = allocations?.find((a) => a.categoryId === cat.id);
+			children: sessionData.categories.map((cat) => {
+				const allocation = allocs?.find((a) => a.categoryId === cat.id);
 				return {
 					name: cat.name,
 					value: allocation?.amount || cat.defaultAmount,

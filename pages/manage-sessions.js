@@ -4,11 +4,13 @@ import { useRouter } from "next/router";
 import { Calendar, ArrowLeft } from "lucide-react";
 import { fetchWithCsrf } from "../lib/fetch-with-csrf";
 import { useConfig } from "../lib/contexts/ConfigContext";
+import { useTranslation } from "../lib/hooks/useTranslation";
 
 export default function ManageSessionsPage() {
 	const { data: session, status } = useSession();
 	const router = useRouter();
 	const { theme } = useConfig();
+	const { t } = useTranslation();
 
 	useEffect(() => {
 		if (status === "loading") return;
@@ -45,11 +47,13 @@ export default function ManageSessionsPage() {
 								/>
 							</div>
 							<div className="min-w-0">
-								<h1 className="text-xl sm:text-2xl font-bold break-words">
-									Manage Sessions
+								<h1 className="text-xl sm:text-2xl font-bold wrap-break-word">
+									{t("nav.manageSessions") ||
+										"Manage Sessions"}
 								</h1>
-								<p className="text-primary-100 text-xs sm:text-sm break-words">
-									Create and manage democracy sessions
+								<p className="text-primary-100 text-xs sm:text-sm wrap-break-word">
+									{t("manageSessions.subtitle") ||
+										"Create and manage democracy sessions"}
 								</p>
 							</div>
 						</div>
@@ -58,20 +62,20 @@ export default function ManageSessionsPage() {
 							className="text-white hover:opacity-80 font-medium whitespace-nowrap flex items-center gap-2 text-sm"
 						>
 							<ArrowLeft className="w-4 h-4" />
-							Back to home
+							{t("common.backToHome") || "Back to home"}
 						</button>
 					</div>
 				</div>
 			</header>
 
 			<main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
-				<SessionsPanel isSuperAdmin={session.user?.isSuperAdmin} />
+				<SessionsPanel />
 			</main>
 		</div>
 	);
 }
 
-function SessionsPanel({ isSuperAdmin }) {
+function SessionsPanel() {
 	const { data: session } = useSession();
 	const { theme } = useConfig();
 	const [sessions, setSessions] = useState([]);
@@ -82,12 +86,14 @@ function SessionsPanel({ isSuperAdmin }) {
 	const [showUserCount, setShowUserCount] = useState(false);
 	const [noMotivation, setNoMotivation] = useState(false);
 	const [singleResult, setSingleResult] = useState(false);
+	const [sessionType, setSessionType] = useState("standard"); // "standard" or "survey"
+	const [surveyDurationDays, setSurveyDurationDays] = useState("6");
 	const [message, setMessage] = useState("");
 	const [remainingSessions, setRemainingSessions] = useState(null);
 	const [requestedSessions, setRequestedSessions] = useState("10");
 	const [language, setLanguage] = useState("sv");
 	const [themeValue, setThemeValue] = useState("default");
-	const [settingsLoaded, setSettingsLoaded] = useState(false);
+	const [, setSettingsLoaded] = useState(false);
 
 	const accentColor = theme?.accentColor || "#fbbf24";
 	const primaryDark = theme?.primaryDark || "#1e3a8a";
@@ -231,6 +237,11 @@ function SessionsPanel({ isSuperAdmin }) {
 					showUserCount: showUserCount,
 					noMotivation: noMotivation,
 					singleResult: singleResult,
+					sessionType: sessionType,
+					surveyDurationDays:
+						sessionType === "survey"
+							? parseInt(surveyDurationDays)
+							: undefined,
 				}),
 			});
 
@@ -254,6 +265,8 @@ function SessionsPanel({ isSuperAdmin }) {
 					loadSessionLimit();
 					setNewPlace("Write a short question max eight words here");
 					setMaxOneProposalPerUser(false);
+					setSessionType("standard");
+					setSurveyDurationDays("6");
 					setTimeout(
 						() => setMessage(""),
 						data.isLastSession ? 5000 : 3000
@@ -272,8 +285,8 @@ function SessionsPanel({ isSuperAdmin }) {
 	};
 
 	const requestMoreSessions = async () => {
-		const sessions = parseInt(requestedSessions);
-		if (isNaN(sessions) || sessions < 1 || sessions > 50) {
+		const numSessions = parseInt(requestedSessions);
+		if (isNaN(numSessions) || numSessions < 1 || numSessions > 50) {
 			alert("Please enter a number between 1 and 50");
 			return;
 		}
@@ -335,12 +348,43 @@ function SessionsPanel({ isSuperAdmin }) {
 		}
 	};
 
+	const archiveSession = async (sessionId) => {
+		if (
+			!confirm(
+				"Are you sure you want to archive this ranking? The current rankings will be preserved and visible in the archive section."
+			)
+		) {
+			return;
+		}
+
+		try {
+			const res = await fetchWithCsrf("/api/admin/archive-session", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ sessionId }),
+			});
+
+			if (res.ok) {
+				alert(
+					"Ranking archived successfully! Results are now available in the archive section."
+				);
+				loadSessions();
+			} else {
+				const error = await res.json();
+				alert(`Error: ${error.error}`);
+			}
+		} catch (error) {
+			console.error("Error archiving session:", error);
+			alert("Could not archive session");
+		}
+	};
+
 	if (loading)
 		return (
 			<div className="p-6 bg-white rounded-2xl shadow-lg">Loading…</div>
 		);
 
-	const activeSession = sessions.find((s) => s.status === "active");
+	const activeSessions = sessions.filter((s) => s.status === "active");
 	const closedSessions = sessions.filter((s) => s.status === "closed");
 
 	return (
@@ -358,39 +402,104 @@ function SessionsPanel({ isSuperAdmin }) {
 				</div>
 			)}
 
-			{(session?.user?.isSuperAdmin || remainingSessions > 0) &&
-				!activeSession && (
-					<section className="bg-white rounded-2xl p-6 shadow-lg">
-						<h2
-							className="text-2xl font-bold mb-6"
-							style={{ color: primaryDark }}
-						>
-							Start New Session
-						</h2>
+			{(session?.user?.isSuperAdmin || remainingSessions > 0) && (
+				<section className="bg-white rounded-2xl p-6 shadow-lg">
+					<h2
+						className="text-2xl font-bold mb-6"
+						style={{ color: primaryDark }}
+					>
+						Start New Session
+					</h2>
 
-						<div className="space-y-5">
-							<div>
-								<label className="block text-sm font-semibold text-slate-700 mb-2">
-									What do you want to ask?
+					<div className="space-y-5">
+						<div>
+							<label className="block text-sm font-semibold text-slate-700 mb-2">
+								What do you want to ask?
+							</label>
+							<input
+								type="text"
+								value={newPlace}
+								onChange={(e) => setNewPlace(e.target.value)}
+								className="w-full border-2 border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+								placeholder="e.g. 'City Name' or 'Topic'"
+							/>
+						</div>
+
+						<div>
+							<label className="block text-sm font-semibold text-slate-700 mb-2">
+								Session Type
+							</label>
+							<div className="flex flex-col sm:flex-row gap-3">
+								<button
+									type="button"
+									onClick={() => setSessionType("standard")}
+									className={`flex-1 p-4 rounded-xl border-2 transition-all text-left ${
+										sessionType === "standard"
+											? "border-blue-500 bg-blue-50"
+											: "border-slate-300 hover:border-slate-400"
+									}`}
+								>
+									<span className="block font-semibold text-slate-800">
+										Standard (Democracy)
+									</span>
+									<span className="text-xs text-slate-500 mt-1 block">
+										Two phases: idea collection with
+										ratings, then debate & voting
+									</span>
+								</button>
+								<button
+									type="button"
+									onClick={() => setSessionType("survey")}
+									className={`flex-1 p-4 rounded-xl border-2 transition-all text-left ${
+										sessionType === "survey"
+											? "border-purple-500 bg-purple-50"
+											: "border-slate-300 hover:border-slate-400"
+									}`}
+								>
+									<span className="block font-semibold text-slate-800">
+										Survey (Rankings)
+									</span>
+									<span className="text-xs text-slate-500 mt-1 block">
+										Time-limited responses with live
+										rankings, then archived
+									</span>
+								</button>
+							</div>
+						</div>
+
+						{sessionType === "survey" && (
+							<div className="p-4 bg-purple-50 border-2 border-purple-200 rounded-xl">
+								<label className="block text-sm font-semibold text-purple-800 mb-2">
+									Survey Duration (days)
 								</label>
 								<input
-									type="text"
-									value={newPlace}
+									type="number"
+									min="1"
+									max="365"
+									value={surveyDurationDays}
 									onChange={(e) =>
-										setNewPlace(e.target.value)
+										setSurveyDurationDays(e.target.value)
 									}
-									className="w-full border-2 border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
-									placeholder="e.g. 'City Name' or 'Topic'"
+									className="w-full border-2 border-purple-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500"
 								/>
+								<p className="text-xs text-purple-600 mt-2">
+									After this period, the session will be
+									automatically archived and results will be
+									preserved in the archive section.
+								</p>
 							</div>
+						)}
 
+						{sessionType === "standard" && (
 							<div>
 								<label className="flex items-center gap-2 cursor-pointer">
 									<input
 										type="checkbox"
 										checked={maxOneProposalPerUser}
 										onChange={(e) =>
-											setMaxOneProposalPerUser(e.target.checked)
+											setMaxOneProposalPerUser(
+												e.target.checked
+											)
 										}
 										className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
 									/>
@@ -399,158 +508,188 @@ function SessionsPanel({ isSuperAdmin }) {
 									</span>
 								</label>
 								<p className="text-xs text-slate-500 mt-1 ml-6">
-									Limit all users (including admins) to one proposal per session
+									Limit all users (including admins) to one
+									proposal per session
 								</p>
 							</div>
+						)}
 
+						{sessionType === "survey" && (
 							<div>
 								<label className="flex items-center gap-2 cursor-pointer">
 									<input
 										type="checkbox"
-										checked={showUserCount}
+										checked={maxOneProposalPerUser}
 										onChange={(e) =>
-											setShowUserCount(e.target.checked)
+											setMaxOneProposalPerUser(
+												e.target.checked
+											)
 										}
-										className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+										className="w-4 h-4 rounded border-slate-300 text-purple-600 focus:ring-2 focus:ring-purple-500"
 									/>
 									<span className="text-sm font-semibold text-slate-700">
-										Show user count
+										Max one response each
 									</span>
 								</label>
 								<p className="text-xs text-slate-500 mt-1 ml-6">
-									Display the number of active users in the header
+									Limit all users (including admins) to one
+									response per survey
 								</p>
 							</div>
+						)}
 
-							<div>
-								<label className="flex items-center gap-2 cursor-pointer">
-									<input
-										type="checkbox"
-										checked={noMotivation}
-										onChange={(e) =>
-											setNoMotivation(e.target.checked)
-										}
-										className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
-									/>
-									<span className="text-sm font-semibold text-slate-700">
-										No motivation
-									</span>
-								</label>
-								<p className="text-xs text-slate-500 mt-1 ml-6">
-									Hide problem and solution fields, only show proposal title
-								</p>
-							</div>
-
-							<div>
-								<label className="flex items-center gap-2 cursor-pointer">
-									<input
-										type="checkbox"
-										checked={singleResult}
-										onChange={(e) =>
-											setSingleResult(e.target.checked)
-										}
-										className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
-									/>
-									<span className="text-sm font-semibold text-slate-700">
-										Single result
-									</span>
-								</label>
-								<p className="text-xs text-slate-500 mt-1 ml-6">
-									Only one winner: proposal with highest result (yes votes - no votes)
-								</p>
-							</div>
-
-							<div>
-								<label className="block text-sm font-semibold text-slate-700 mb-2">
-									Language
-								</label>
-								<select
-									value={language}
+						<div>
+							<label className="flex items-center gap-2 cursor-pointer">
+								<input
+									type="checkbox"
+									checked={showUserCount}
 									onChange={(e) =>
-										setLanguage(e.target.value)
+										setShowUserCount(e.target.checked)
 									}
-									className="w-full border-2 border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
-								>
-									<option value="sv">Svenska</option>
-									<option value="en">English</option>
-									<option value="sr">
-										Српски (Serbian)
-									</option>
-									<option value="es">Español</option>
-									<option value="de">Deutsch</option>
-								</select>
-								<p className="text-xs text-slate-500 mt-1">
-									Select which language to use in the entire
-									application
-								</p>
-							</div>
-
-							<div>
-								<label className="block text-sm font-semibold text-slate-700 mb-2">
-									Color Theme
-								</label>
-								<select
-									value={themeValue}
-									onChange={(e) =>
-										setThemeValue(e.target.value)
-									}
-									className="w-full border-2 border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
-								>
-									<option value="default">
-										Blue/Yellow - Sweden, English (Default)
-									</option>
-									<option value="green">
-										Green - Germany, Activism
-									</option>
-									<option value="red">
-										Red/Gold - Spain, Serbia
-									</option>
-								</select>
-								<p className="text-xs text-slate-500 mt-1">
-									Recommendations: Swedish/English→Blue,
-									German→Green, Spanish/Serbian→Red
-								</p>
-							</div>
-
-							{!session?.user?.isSuperAdmin &&
-								remainingSessions !== null && (
-									<p className="text-sm text-slate-600 font-medium">
-										Remaining sessions:{" "}
-										<strong
-											className="text-lg"
-											style={{ color: primaryDark }}
-										>
-											{remainingSessions}
-										</strong>
-									</p>
-								)}
-
-							<button
-								onClick={createSession}
-								disabled={creating}
-								className="px-8 py-3 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all"
-								style={{
-									backgroundColor: accentColor,
-									color: primaryDark,
-								}}
-							>
-								{creating ? "Starting..." : "Start session"}
-							</button>
-
-							{message && (
-								<div
-									className={`p-4 rounded-xl font-medium ${
-										message.startsWith("Error")
-											? "bg-red-100 text-red-700"
-											: "bg-green-100 text-green-700"
-									}`}
-								>
-									{message}
-								</div>
-							)}
+									className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+								/>
+								<span className="text-sm font-semibold text-slate-700">
+									Show user count
+								</span>
+							</label>
+							<p className="text-xs text-slate-500 mt-1 ml-6">
+								Display the number of active users in the header
+							</p>
 						</div>
-					</section>
-				)}
+
+						{sessionType === "standard" && (
+							<>
+								<div>
+									<label className="flex items-center gap-2 cursor-pointer">
+										<input
+											type="checkbox"
+											checked={noMotivation}
+											onChange={(e) =>
+												setNoMotivation(
+													e.target.checked
+												)
+											}
+											className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+										/>
+										<span className="text-sm font-semibold text-slate-700">
+											No motivation
+										</span>
+									</label>
+									<p className="text-xs text-slate-500 mt-1 ml-6">
+										Hide problem and solution fields, only
+										show proposal title
+									</p>
+								</div>
+
+								<div>
+									<label className="flex items-center gap-2 cursor-pointer">
+										<input
+											type="checkbox"
+											checked={singleResult}
+											onChange={(e) =>
+												setSingleResult(
+													e.target.checked
+												)
+											}
+											className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+										/>
+										<span className="text-sm font-semibold text-slate-700">
+											Single result
+										</span>
+									</label>
+									<p className="text-xs text-slate-500 mt-1 ml-6">
+										Only one winner: proposal with highest
+										result (yes votes - no votes)
+									</p>
+								</div>
+							</>
+						)}
+
+						<div>
+							<label className="block text-sm font-semibold text-slate-700 mb-2">
+								Language
+							</label>
+							<select
+								value={language}
+								onChange={(e) => setLanguage(e.target.value)}
+								className="w-full border-2 border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+							>
+								<option value="sv">Svenska</option>
+								<option value="en">English</option>
+								<option value="sr">Српски (Serbian)</option>
+								<option value="es">Español</option>
+								<option value="de">Deutsch</option>
+							</select>
+							<p className="text-xs text-slate-500 mt-1">
+								Select which language to use in the entire
+								application
+							</p>
+						</div>
+
+						<div>
+							<label className="block text-sm font-semibold text-slate-700 mb-2">
+								Color Theme
+							</label>
+							<select
+								value={themeValue}
+								onChange={(e) => setThemeValue(e.target.value)}
+								className="w-full border-2 border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+							>
+								<option value="default">
+									Blue/Yellow - Sweden, English (Default)
+								</option>
+								<option value="green">
+									Green - Germany, Activism
+								</option>
+								<option value="red">
+									Red/Gold - Spain, Serbia
+								</option>
+							</select>
+							<p className="text-xs text-slate-500 mt-1">
+								Recommendations: Swedish/English→Blue,
+								German→Green, Spanish/Serbian→Red
+							</p>
+						</div>
+
+						{!session?.user?.isSuperAdmin &&
+							remainingSessions !== null && (
+								<p className="text-sm text-slate-600 font-medium">
+									Remaining sessions:{" "}
+									<strong
+										className="text-lg"
+										style={{ color: primaryDark }}
+									>
+										{remainingSessions}
+									</strong>
+								</p>
+							)}
+
+						<button
+							onClick={createSession}
+							disabled={creating}
+							className="px-8 py-3 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transition-all"
+							style={{
+								backgroundColor: accentColor,
+								color: primaryDark,
+							}}
+						>
+							{creating ? "Starting..." : "Start session"}
+						</button>
+
+						{message && (
+							<div
+								className={`p-4 rounded-xl font-medium ${
+									message.startsWith("Error")
+										? "bg-red-100 text-red-700"
+										: "bg-green-100 text-green-700"
+								}`}
+							>
+								{message}
+							</div>
+						)}
+					</div>
+				</section>
+			)}
 
 			{!session?.user?.isSuperAdmin && remainingSessions === 0 && (
 				<section className="p-6 bg-yellow-50 border-2 border-yellow-300 rounded-2xl shadow-lg">
@@ -590,157 +729,204 @@ function SessionsPanel({ isSuperAdmin }) {
 				</section>
 			)}
 
-			{activeSession && (
+			{activeSessions.length > 0 && (
 				<section className="bg-white rounded-2xl p-6 shadow-lg">
 					<h2
 						className="text-2xl font-bold mb-6"
 						style={{ color: primaryDark }}
 					>
-						Active Session
+						Active Sessions ({activeSessions.length})
 					</h2>
-					{activeSession.isOtherUserSession && (
-						<div className="mb-4 p-4 bg-orange-50 border-2 border-orange-200 rounded-xl">
-							<p className="text-sm text-orange-800">
-								<strong>Notice:</strong> This session was
-								created by another admin. You cannot manage it,
-								but you must wait for it to close before
-								creating a new session.
-							</p>
-						</div>
-					)}
-					<div
-						className={`p-5 border-2 rounded-xl space-y-4 ${
-							activeSession.isOtherUserSession
-								? "border-orange-300 bg-orange-50"
-								: "border-green-300 bg-green-50"
-						}`}
-					>
-						<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-							<div>
-								<h3
-									className="font-bold text-xl"
-									style={{ color: primaryDark }}
-								>
-									{activeSession.place}
-									{activeSession.isOtherUserSession && (
-										<span className="ml-2 text-xs font-normal text-orange-600">
-											(Created by another admin)
-										</span>
-									)}
-								</h3>
-								{activeSession.startDate && (
-									<>
-										<p className="text-sm text-slate-600 mt-1">
-											Started:{" "}
-											{new Date(
-												activeSession.startDate
-											).toLocaleString("sv-SE", {
-												year: "numeric",
-												month: "short",
-												day: "numeric",
-												hour: "2-digit",
-												minute: "2-digit",
-											})}
+					<div className="space-y-4">
+						{activeSessions.map((activeSession) => (
+							<div key={activeSession._id}>
+								{activeSession.isOtherUserSession && (
+									<div className="mb-4 p-4 bg-orange-50 border-2 border-orange-200 rounded-xl">
+										<p className="text-sm text-orange-800">
+											<strong>Notice:</strong> This
+											session was created by another
+											admin.
 										</p>
-										<p className="text-sm text-slate-500">
-											Duration:{" "}
-											{Math.floor(
-												(new Date() -
-													new Date(
-														activeSession.startDate
-													)) /
-													(1000 * 60 * 60)
-											)}{" "}
-											hours
-										</p>
-									</>
+									</div>
 								)}
-								<p
-									className="text-sm font-bold mt-2"
-									style={{ color: primaryDark }}
+								<div
+									className={`p-5 border-2 rounded-xl space-y-4 ${
+										activeSession.isOtherUserSession
+											? "border-orange-300 bg-orange-50"
+											: "border-green-300 bg-green-50"
+									}`}
 								>
-									Current phase:{" "}
-									{activeSession.phase === "phase1"
-										? "Phase 1 (Rating)"
-										: "Phase 2 (Debate & Voting)"}
-								</p>
-								{session?.user?.isSuperAdmin &&
-									activeSession.createdBy &&
-									activeSession.createdBy !== "other" && (
-										<p className="text-xs text-slate-500 mt-1">
-											Created by:{" "}
-											{typeof activeSession.createdBy ===
-											"object"
-												? activeSession.createdBy.name
-												: activeSession.createdBy}
-										</p>
-									)}
-							</div>
-							{!activeSession.isOtherUserSession &&
-								(session?.user?.isSuperAdmin ||
-									(typeof activeSession.createdBy === "object"
-										? activeSession.createdBy._id
-										: activeSession.createdBy
-									)?.toString() === session?.user?.id) && (
-									<button
-										onClick={() =>
-											closeSession(activeSession._id)
-										}
-										className="px-6 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold shadow-md hover:shadow-lg transition-all"
-									>
-										Close session
-									</button>
-								)}
-						</div>
-
-						{!activeSession.isOtherUserSession &&
-							session?.user?.isSuperAdmin &&
-							activeSession.activeUsersWithStatus &&
-							activeSession.activeUsersWithStatus.length > 0 && (
-								<div className="mt-4 pt-4 border-t-2 border-green-200">
-									<h4 className="font-bold text-sm text-slate-700 mb-3">
-										Active Users (
-										{
-											activeSession.activeUsersWithStatus
-												.length
-										}
-										)
-									</h4>
-									<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-										{activeSession.activeUsersWithStatus.map(
-											(user) => (
-												<div
-													key={user._id}
-													className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200 shadow-sm"
+									<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+										<div>
+											<h3
+												className="font-bold text-xl"
+												style={{ color: primaryDark }}
+											>
+												{activeSession.place}
+												{activeSession.isOtherUserSession && (
+													<span className="ml-2 text-xs font-normal text-orange-600">
+														(Created by another
+														admin)
+													</span>
+												)}
+											</h3>
+											{activeSession.startDate && (
+												<>
+													<p className="text-sm text-slate-600 mt-1">
+														Started:{" "}
+														{new Date(
+															activeSession.startDate
+														).toLocaleString(
+															"sv-SE",
+															{
+																year: "numeric",
+																month: "short",
+																day: "numeric",
+																hour: "2-digit",
+																minute: "2-digit",
+															}
+														)}
+													</p>
+													<p className="text-sm text-slate-500">
+														Duration:{" "}
+														{Math.floor(
+															(new Date() -
+																new Date(
+																	activeSession.startDate
+																)) /
+																(1000 * 60 * 60)
+														)}{" "}
+														hours
+													</p>
+												</>
+											)}
+											<p
+												className="text-sm font-bold mt-2"
+												style={{ color: primaryDark }}
+											>
+												{activeSession.sessionType ===
+												"survey" ? (
+													<span className="text-purple-700">
+														Ranking
+													</span>
+												) : (
+													<>
+														Current phase:{" "}
+														{activeSession.phase ===
+														"phase1"
+															? "Phase 1 (Rating)"
+															: "Phase 2 (Debate & Voting)"}
+													</>
+												)}
+											</p>
+											{session?.user?.isSuperAdmin &&
+												activeSession.createdBy &&
+												activeSession.createdBy !==
+													"other" && (
+													<p className="text-xs text-slate-500 mt-1">
+														Created by:{" "}
+														{typeof activeSession.createdBy ===
+														"object"
+															? activeSession
+																	.createdBy
+																	.name
+															: activeSession.createdBy}
+													</p>
+												)}
+										</div>
+										{!activeSession.isOtherUserSession &&
+											(session?.user?.isSuperAdmin ||
+												(typeof activeSession.createdBy ===
+												"object"
+													? activeSession.createdBy
+															._id
+													: activeSession.createdBy
+												)?.toString() ===
+													session?.user?.id) &&
+											(activeSession.sessionType ===
+											"survey" ? (
+												<button
+													onClick={() =>
+														archiveSession(
+															activeSession._id
+														)
+													}
+													className="px-6 py-2.5 bg-purple-600 text-white rounded-xl hover:bg-purple-700 font-bold shadow-md hover:shadow-lg transition-all"
 												>
-													<div className="flex-1 min-w-0">
-														<p className="text-sm font-semibold text-slate-900 truncate">
-															{user.name}
-														</p>
-														<p className="text-xs text-slate-500 truncate">
-															{user.email}
-														</p>
-													</div>
-													{activeSession.phase ===
-														"phase2" && (
-														<div className="ml-2 flex-shrink-0">
-															{user.hasVoted ? (
-																<span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-green-100 text-green-800">
-																	✓ Voted
-																</span>
-															) : (
-																<span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-yellow-100 text-yellow-800">
-																	Pending
-																</span>
-															)}
-														</div>
+													Archive ranking
+												</button>
+											) : (
+												<button
+													onClick={() =>
+														closeSession(
+															activeSession._id
+														)
+													}
+													className="px-6 py-2.5 bg-red-600 text-white rounded-xl hover:bg-red-700 font-bold shadow-md hover:shadow-lg transition-all"
+												>
+													Close session
+												</button>
+											))}
+									</div>
+
+									{!activeSession.isOtherUserSession &&
+										session?.user?.isSuperAdmin &&
+										activeSession.activeUsersWithStatus &&
+										activeSession.activeUsersWithStatus
+											.length > 0 && (
+											<div className="mt-4 pt-4 border-t-2 border-green-200">
+												<h4 className="font-bold text-sm text-slate-700 mb-3">
+													Active Users (
+													{
+														activeSession
+															.activeUsersWithStatus
+															.length
+													}
+													)
+												</h4>
+												<div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+													{activeSession.activeUsersWithStatus.map(
+														(user) => (
+															<div
+																key={user._id}
+																className="flex items-center justify-between p-3 bg-white rounded-lg border border-slate-200 shadow-sm"
+															>
+																<div className="flex-1 min-w-0">
+																	<p className="text-sm font-semibold text-slate-900 truncate">
+																		{
+																			user.name
+																		}
+																	</p>
+																	<p className="text-xs text-slate-500 truncate">
+																		{
+																			user.email
+																		}
+																	</p>
+																</div>
+																{activeSession.phase ===
+																	"phase2" && (
+																	<div className="ml-2 flex-shrink-0">
+																		{user.hasVoted ? (
+																			<span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-green-100 text-green-800">
+																				✓
+																				Voted
+																			</span>
+																		) : (
+																			<span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-yellow-100 text-yellow-800">
+																				Pending
+																			</span>
+																		)}
+																	</div>
+																)}
+															</div>
+														)
 													)}
 												</div>
-											)
+											</div>
 										)}
-									</div>
 								</div>
-							)}
+							</div>
+						))}
 					</div>
 				</section>
 			)}
@@ -762,9 +948,9 @@ function SessionsPanel({ isSuperAdmin }) {
 				</div>
 				{closedSessions.length > 0 ? (
 					<div className="space-y-3">
-						{closedSessions.map((session) => {
-							const startDate = new Date(session.startDate);
-							const endDate = new Date(session.endDate);
+						{closedSessions.map((sessionItem) => {
+							const startDate = new Date(sessionItem.startDate);
+							const endDate = new Date(sessionItem.endDate);
 							const durationHours = Math.floor(
 								(endDate - startDate) / (1000 * 60 * 60)
 							);
@@ -773,14 +959,14 @@ function SessionsPanel({ isSuperAdmin }) {
 
 							return (
 								<div
-									key={session._id}
+									key={sessionItem._id}
 									className="p-4 border-2 border-slate-200 rounded-xl hover:border-slate-300 transition-colors"
 								>
 									<h3
 										className="font-bold text-lg"
 										style={{ color: primaryDark }}
 									>
-										{session.place}
+										{sessionItem.place}
 									</h3>
 									<p className="text-sm text-slate-600 mt-1">
 										Started:{" "}

@@ -4,6 +4,9 @@ import { sendBroadcastEmail } from "@/lib/email";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { csrfProtection } from "@/lib/csrf";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("BroadcastEmail");
 
 export default async function handler(req, res) {
 	await dbConnect();
@@ -48,13 +51,12 @@ export default async function handler(req, res) {
 				await sendBroadcastEmail(user.email, subject, message, language);
 				successCount++;
 			} catch (emailError) {
-				console.error(
-					`Failed to send email to ${user.email}:`,
-					emailError
-				);
+				log.error("Failed to send broadcast email", { email: user.email, error: emailError.message });
 				errorCount++;
 			}
 		}
+
+		log.info("Broadcast emails completed", { total: users.length, success: successCount, errors: errorCount });
 
 		return res.status(200).json({
 			message: "Broadcast emails sent",
@@ -63,7 +65,7 @@ export default async function handler(req, res) {
 			errorCount,
 		});
 	} catch (error) {
-		console.error("Error sending broadcast emails:", error);
+		log.error("Broadcast email operation failed", { error: error.message });
 		return res
 			.status(500)
 			.json({ error: "Failed to send broadcast emails" });

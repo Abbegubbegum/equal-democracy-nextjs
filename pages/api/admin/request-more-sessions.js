@@ -4,6 +4,9 @@ import connectDB from "../../../lib/mongodb";
 import { User, SessionRequest } from "../../../lib/models";
 import { csrfProtection } from "../../../lib/csrf";
 import { sendSessionRequestNotification } from "../../../lib/email";
+import { createLogger } from "../../../lib/logger";
+
+const log = createLogger("SessionRequest");
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -85,14 +88,13 @@ export default async function handler(req, res) {
 						user.email,
 						user.organization || "N/A",
 						user.remainingSessions || 0,
-						sessions,
-						"sv" // Default to Swedish, could be made configurable
+						sessions
 					);
 				}
 			}
 		} catch (emailError) {
 			// Log error but don't fail the request
-			console.error("Error sending request emails:", emailError);
+			log.error("Failed to send request emails", { error: emailError.message });
 		}
 
 		return res.status(200).json({
@@ -100,7 +102,7 @@ export default async function handler(req, res) {
 				"Your request for more sessions has been submitted. A superadmin will review it shortly.",
 		});
 	} catch (error) {
-		console.error("Error requesting more sessions:", error);
+		log.error("Failed to request more sessions", { userId: session?.user?.id, error: error.message });
 		return res.status(500).json({ message: "An error occurred" });
 	}
 }

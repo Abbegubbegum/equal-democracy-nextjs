@@ -4,6 +4,9 @@ import connectDB from "../../../lib/mongodb";
 import { BudgetSession, User } from "../../../lib/models";
 import { csrfProtection } from "../../../lib/csrf";
 import { generateSessionId, ensureUniqueSessionId } from "../../../lib/budget/session-id";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("BudgetSessions");
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -33,13 +36,14 @@ export default async function handler(req, res) {
 				query.createdBy = createdBy;
 			}
 
+			// Don't populate creator info for regular users (anonymity)
+			// Superadmins can still see creator in admin endpoints if needed
 			const sessions = await BudgetSession.find(query)
-				.populate("createdBy", "name email")
 				.sort({ createdAt: -1 });
 
 			return res.status(200).json({ sessions });
 		} catch (error) {
-			console.error("Error fetching budget sessions:", error);
+			log.error("Failed to fetch budget sessions", { error: error.message });
 			return res.status(500).json({ message: "An error occurred" });
 		}
 	}
@@ -105,7 +109,7 @@ export default async function handler(req, res) {
 				session: budgetSession,
 			});
 		} catch (error) {
-			console.error("Error creating budget session:", error);
+			log.error("Failed to create budget session", { error: error.message });
 			return res.status(500).json({ message: "An error occurred" });
 		}
 	}
@@ -160,7 +164,7 @@ export default async function handler(req, res) {
 				session: budgetSession,
 			});
 		} catch (error) {
-			console.error("Error updating budget session:", error);
+			log.error("Failed to update budget session", { sessionId: req.body.sessionId, error: error.message });
 			return res.status(500).json({ message: "An error occurred" });
 		}
 	}
@@ -203,7 +207,7 @@ export default async function handler(req, res) {
 				message: "Budget session deleted successfully",
 			});
 		} catch (error) {
-			console.error("Error deleting budget session:", error);
+			log.error("Failed to delete budget session", { sessionId: req.query.sessionId, error: error.message });
 			return res.status(500).json({ message: "An error occurred" });
 		}
 	}

@@ -5,6 +5,9 @@ import { Comment } from "../../lib/models";
 import { getActiveSession, registerActiveUser } from "../../lib/session-helper";
 import { csrfProtection } from "../../lib/csrf";
 import broadcaster from "../../lib/sse-broadcaster";
+import { createLogger } from "../../lib/logger";
+
+const log = createLogger("Comments");
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -22,24 +25,32 @@ export default async function handler(req, res) {
 		}
 
 		try {
+			// Get authentication session
+			const session = await getServerSession(req, res, authOptions);
+			const currentUserId = session?.user?.id;
+
 			const comments = await Comment.find({ proposalId })
 				.sort({ averageRating: -1, createdAt: -1 }) // Sort by rating first, then by creation date
 				.lean();
 
-			// Return comments with anonymized data and type
-			const anonymizedComments = comments.map((comment) => ({
-				_id: comment._id.toString(),
-				proposalId: comment.proposalId.toString(),
-				authorName: comment.authorName, // This is the anonymous display name
-				text: comment.text,
-				type: comment.type || "neutral",
-				averageRating: comment.averageRating || 0,
-				createdAt: comment.createdAt,
-			}));
+			// Return comments with author info only for own comments
+			const anonymizedComments = comments.map((comment) => {
+				const isOwnComment = currentUserId && comment.userId.toString() === currentUserId;
+
+				return {
+					_id: comment._id.toString(),
+					proposalId: comment.proposalId.toString(),
+					isOwn: isOwnComment, // Flag to identify user's own comments
+					text: comment.text,
+					type: comment.type || "neutral",
+					averageRating: comment.averageRating || 0,
+					createdAt: comment.createdAt,
+				};
+			});
 
 			return res.status(200).json(anonymizedComments);
 		} catch (error) {
-			console.error("Error fetching comments:", error);
+			log.error("Failed to fetch comments", { error: error.message });
 			return res.status(500).json({ message: "An error has occured" });
 		}
 	}
@@ -53,7 +64,7 @@ export default async function handler(req, res) {
 				.json({ message: "You have to be logged in" });
 		}
 
-		const { proposalId, text, type } = req.body;
+		const { proposalId, text, type, sessionId } = req.body;
 
 		if (!proposalId || !text) {
 			return res
@@ -73,8 +84,8 @@ export default async function handler(req, res) {
 		}
 
 		try {
-			// Get the active session
-			const activeSession = await getActiveSession();
+			// Get the active session (with optional sessionId)
+			const activeSession = await getActiveSession(sessionId);
 
 			// If no active session, cannot create comment
 			if (!activeSession) {
@@ -93,13 +104,12 @@ export default async function handler(req, res) {
 			});
 
 			// Register user as active in session
-			await registerActiveUser(session.user.id);
+			await registerActiveUser(session.user.id, activeSession._id.toString());
 
-			// Broadcast new comment event
+			// Broadcast new comment event (authorName removed for anonymity)
 			await broadcaster.broadcast("new-comment", {
 				_id: comment._id.toString(),
 				proposalId: comment.proposalId.toString(),
-				authorName: comment.authorName,
 				text: comment.text,
 				type: comment.type,
 				averageRating: comment.averageRating || 0,
@@ -109,14 +119,14 @@ export default async function handler(req, res) {
 			return res.status(201).json({
 				_id: comment._id.toString(),
 				proposalId: comment.proposalId.toString(),
-				authorName: comment.authorName,
+				isOwn: true, // This is the user's own comment
 				text: comment.text,
 				type: comment.type,
 				averageRating: comment.averageRating || 0,
 				createdAt: comment.createdAt,
 			});
 		} catch (error) {
-			console.error("Error creating comment:", error);
+			log.error("Failed to create comment", { error: error.message });
 			return res
 				.status(500)
 				.json({ message: "An error occurred while creating comments" });

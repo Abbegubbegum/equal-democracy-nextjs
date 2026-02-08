@@ -1,28 +1,33 @@
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
+import Link from "next/link";
 import { useTranslation } from "../lib/hooks/useTranslation";
 import { useConfig } from "../lib/contexts/ConfigContext";
 export default function AboutPage() {
 	const { data: session } = useSession();
 	const router = useRouter();
 	const { t } = useTranslation();
-	const { config } = useConfig();
+	useConfig();
 
 	return (
 		<div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100">
 			{/* Header */}
-			<div className="bg-blue-600 text-white p-6 shadow-lg">
+			<header className="bg-blue-600 text-white p-6 shadow-lg">
 				<div className="max-w-4xl mx-auto">
-					<button
-						onClick={() => router.push("/")}
-						className="mb-4 text-white hover:text-yellow-400 font-medium"
-					>
-						← {t("common.back")}
-					</button>
-					<h1 className="text-3xl font-bold">{t("about.title")}</h1>
-					<p className="text-blue-100 mt-2">{t("about.subtitle")}</p>
+					<div className="flex items-center justify-between">
+						<div>
+							<h1 className="text-3xl font-bold">{t("about.title")}</h1>
+							<p className="text-blue-100 mt-2">{t("about.subtitle")}</p>
+						</div>
+						<Link
+							href="/"
+							className="px-4 py-2 bg-yellow-400 text-gray-900 hover:bg-yellow-500 rounded-lg font-medium"
+						>
+							{t("common.backToStart")}
+						</Link>
+					</div>
 				</div>
-			</div>
+			</header>
 
 			{/* Content */}
 			<div className="max-w-4xl mx-auto p-6">

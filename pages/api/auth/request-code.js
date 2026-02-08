@@ -2,6 +2,9 @@ import bcrypt from "bcryptjs";
 import connectDB from "../../../lib/mongodb";
 import { LoginCode, Settings } from "../../../lib/models";
 import { sendLoginCode } from "../../../lib/email";
+import { createLogger } from "../../../lib/logger";
+
+const log = createLogger("Auth");
 
 function random6() {
 	return Math.floor(100000 + Math.random() * 900000).toString();
@@ -54,7 +57,7 @@ export default async function handler(req, res) {
 			email: email.toLowerCase(),
 			expiresAt: { $gt: new Date() },
 		});
-		console.error("sendLoginCode error:", e);
+		log.error("Failed to send login code", { error: e.message });
 		return res.status(500).json({ message: "Could not send code" });
 	}
 

@@ -3,6 +3,9 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import connectDB from "../../../lib/mongodb";
 import { User, LoginCode } from "../../../lib/models";
+import { createLogger } from "../../../lib/logger";
+
+const log = createLogger("Auth");
 
 export const authOptions = {
 	providers: [
@@ -77,7 +80,7 @@ export const authOptions = {
 						adminStatus: user.adminStatus || "none",
 					};
 				} catch (error) {
-					console.error("Auth error:", error);
+					log.error("Authentication failed", { error: error.message });
 					throw error;
 				}
 			},
@@ -118,7 +121,7 @@ export const authOptions = {
 					session.user.isSuperAdmin = !!dbUser.isSuperAdmin;
 					session.user.adminStatus = dbUser.adminStatus || "none";
 				} catch (error) {
-					console.error("Session validation error:", error);
+					log.error("Session validation failed", { error: error.message });
 					// Return null to invalidate the session
 					return null;
 				}

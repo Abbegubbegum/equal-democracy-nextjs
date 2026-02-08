@@ -2,6 +2,9 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "../../../lib/mongodb";
 import { User } from "../../../lib/models";
+import { createLogger } from "../../../lib/logger";
+
+const log = createLogger("SessionLimit");
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -43,7 +46,7 @@ export default async function handler(req, res) {
 
 		return res.status(403).json({ message: "Not an admin" });
 	} catch (error) {
-		console.error("Error fetching session limit:", error);
+		log.error("Failed to fetch session limit", { error: error.message });
 		return res.status(500).json({ message: "An error occurred" });
 	}
 }

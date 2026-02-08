@@ -2,6 +2,9 @@ import dbConnect from "@/lib/mongodb";
 import { TopProposal } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("TopProposals");
 
 export default async function handler(req, res) {
 	await dbConnect();
@@ -35,7 +38,7 @@ export default async function handler(req, res) {
 
 			return res.status(200).json(formatted);
 		} catch (error) {
-			console.error("Error fetching top proposals:", error);
+			log.error("Failed to fetch top proposals", { error: error.message });
 			return res
 				.status(500)
 				.json({ error: "Failed to fetch top proposals" });

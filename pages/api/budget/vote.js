@@ -4,6 +4,9 @@ import connectDB from "../../../lib/mongodb";
 import { BudgetSession, BudgetVote, User } from "../../../lib/models";
 import { csrfProtection } from "../../../lib/csrf";
 import { validateBudgetVote } from "../../../lib/budget/median-calculator";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("BudgetVote");
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -40,7 +43,7 @@ export default async function handler(req, res) {
 
 			return res.status(200).json({ vote });
 		} catch (error) {
-			console.error("Error fetching vote:", error);
+			log.error("Failed to fetch budget vote", { sessionId: req.query.sessionId, error: error.message });
 			return res.status(500).json({ message: "An error occurred" });
 		}
 	}
@@ -130,7 +133,7 @@ export default async function handler(req, res) {
 				vote,
 			});
 		} catch (error) {
-			console.error("Error submitting vote:", error);
+			log.error("Failed to submit budget vote", { sessionId: req.body.sessionId, error: error.message });
 			return res.status(500).json({ message: "An error occurred" });
 		}
 	}

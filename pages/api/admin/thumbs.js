@@ -3,6 +3,9 @@ import { ThumbsUp, User, Proposal } from "../../../lib/models";
 import { requireAdmin } from "../../../lib/admin";
 import { validateObjectId, toObjectId } from "../../../lib/validation";
 import { csrfProtection } from "../../../lib/csrf";
+import { createLogger } from "../../../lib/logger";
+
+const log = createLogger("AdminThumbs");
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -101,7 +104,7 @@ export default async function handler(req, res) {
 
 		return res.status(405).json({ message: "Method not allowed" });
 	} catch (e) {
-		console.error(e);
+		log.error("Operation failed", { method: req.method, error: e.message });
 		return res.status(500).json({ message: "An error has occured" });
 	}
 }

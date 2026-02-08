@@ -9,7 +9,7 @@ import * as d3 from "d3";
  */
 export default function SimpleTreemap({ categories, onAmountChange, taxBaseInfo, onCategoryClick }) {
   const containerRef = useRef(null);
-  const [activeTouch, setActiveTouch] = useState(null);
+  const [, setActiveTouch] = useState(null);
 
   useEffect(() => {
     if (!containerRef.current || !categories || categories.length === 0) return;
@@ -90,7 +90,7 @@ export default function SimpleTreemap({ categories, onAmountChange, taxBaseInfo,
     // Draw rectangles
     const cells = svg
       .selectAll("g")
-      .data(root.leaves())
+      .data(leaves)
       .join("g")
       .attr("transform", (d) => `translate(${d.x0},${d.y0})`)
       .on("click", function(_event, d) {
@@ -406,7 +406,7 @@ export default function SimpleTreemap({ categories, onAmountChange, taxBaseInfo,
       "or",
     ];
 
-    for (let breakPoint of breakPoints) {
+    for (const breakPoint of breakPoints) {
       const index = word.indexOf(breakPoint);
       if (index > 0 && index < maxChars - 1) {
         return word.substring(0, index + breakPoint.length) + "-";

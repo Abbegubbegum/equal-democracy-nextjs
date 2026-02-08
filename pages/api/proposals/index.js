@@ -8,6 +8,9 @@ import {
 } from "../../../lib/session-helper";
 import { csrfProtection } from "../../../lib/csrf";
 import broadcaster from "../../../lib/sse-broadcaster";
+import { createLogger } from "../../../lib/logger";
+
+const log = createLogger("Proposals");
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -19,8 +22,15 @@ export default async function handler(req, res) {
 
 	if (req.method === "GET") {
 		try {
-			// Get the active session
-			const activeSession = await getActiveSession();
+			// Get authentication session
+			const session = await getServerSession(req, res, authOptions);
+			const currentUserId = session?.user?.id;
+
+			// Get sessionId from query parameter (optional for backward compatibility)
+			const { sessionId } = req.query;
+
+			// Get the active session (with optional sessionId)
+			const activeSession = await getActiveSession(sessionId);
 
 			// If no active session, return empty array
 			if (!activeSession) {
@@ -43,10 +53,14 @@ export default async function handler(req, res) {
 						proposalId: proposal._id,
 					});
 
+					// Only include authorId and authorName if this is the user's own proposal
+					const isOwnProposal = currentUserId && proposal.authorId.toString() === currentUserId;
+
 					return {
 						...proposal,
 						_id: proposal._id.toString(),
-						authorId: proposal.authorId.toString(),
+						authorId: isOwnProposal ? proposal.authorId.toString() : undefined,
+						authorName: isOwnProposal ? proposal.authorName : undefined,
 						thumbsUpCount,
 						commentsCount,
 					};
@@ -55,7 +69,7 @@ export default async function handler(req, res) {
 
 			return res.status(200).json(proposalsWithCounts);
 		} catch (error) {
-			console.error("Error fetching proposals:", error);
+			log.error("Failed to fetch proposals", { error: error.message });
 			return res.status(500).json({ message: "An error has occured" });
 		}
 	}
@@ -69,11 +83,11 @@ export default async function handler(req, res) {
 				.json({ message: "You have to be logged in" });
 		}
 
-		const { title, problem, solution } = req.body;
+		const { title, problem, solution, sessionId } = req.body;
 
 		try {
-			// Get the active session
-			const activeSession = await getActiveSession();
+			// Get the active session (with optional sessionId)
+			const activeSession = await getActiveSession(sessionId);
 
 			// If no active session, cannot create proposal
 			if (!activeSession) {
@@ -146,9 +160,10 @@ export default async function handler(req, res) {
 			});
 
 			// Register user as active in session
-			await registerActiveUser(session.user.id);
+			await registerActiveUser(session.user.id, activeSession._id.toString());
 
 			// Broadcast new proposal event to all connected clients
+			// Note: authorId and authorName removed for anonymity
 			await broadcaster.broadcast("new-proposal", {
 				_id: proposal._id.toString(),
 				sessionId: proposal.sessionId.toString(),
@@ -160,8 +175,6 @@ export default async function handler(req, res) {
 				averageRating: 0,
 				yesVotes: 0,
 				noVotes: 0,
-				authorId: proposal.authorId.toString(),
-				authorName: proposal.authorName,
 				createdAt: proposal.createdAt,
 				commentsCount: 0,
 			});
@@ -172,7 +185,7 @@ export default async function handler(req, res) {
 				authorId: proposal.authorId.toString(),
 			});
 		} catch (error) {
-			console.error("Error creating proposal:", error);
+			log.error("Failed to create proposal", { error: error.message });
 			return res.status(500).json({
 				message: "An error occurred while creating proposals",
 			});
@@ -203,7 +216,7 @@ export default async function handler(req, res) {
 
 				return res.status(200).json({ message: "Top 3 updated" });
 			} catch (error) {
-				console.error("Error updating proposals:", error);
+				log.error("Failed to update proposal", { error: error.message });
 				return res
 					.status(500)
 					.json({ message: "An error has occured" });

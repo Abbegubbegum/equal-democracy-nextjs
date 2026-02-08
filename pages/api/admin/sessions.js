@@ -1,5 +1,5 @@
 import dbConnect from "@/lib/mongodb";
-import { Session, Settings, User, FinalVote } from "@/lib/models";
+import { Session, User, FinalVote } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { csrfProtection } from "@/lib/csrf";
@@ -9,6 +9,9 @@ import {
 	isSuperAdmin,
 	checkAdminSessionLimit,
 } from "@/lib/admin-helper";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("AdminSessions");
 
 export default async function handler(req, res) {
 	await dbConnect();
@@ -85,14 +88,22 @@ export default async function handler(req, res) {
 
 			return res.status(200).json(sessions);
 		} catch (error) {
-			console.error("Error fetching sessions:", error);
+			log.error("Failed to fetch sessions", { error: error.message });
 			return res.status(500).json({ error: "Failed to fetch sessions" });
 		}
 	}
 
 	if (req.method === "POST") {
 		try {
-			const { place, maxOneProposalPerUser, showUserCount, noMotivation, singleResult } = req.body;
+			const {
+				place,
+				maxOneProposalPerUser,
+				showUserCount,
+				noMotivation,
+				singleResult,
+				sessionType,
+				surveyDurationDays
+			} = req.body;
 
 			if (!place) {
 				return res.status(400).json({ error: "Place is required" });
@@ -108,23 +119,32 @@ export default async function handler(req, res) {
 				});
 			}
 
-			// Check if there's already an active session
-			const activeSession = await Session.findOne({ status: "active" });
-			if (activeSession) {
-				return res.status(400).json({
-					error: "There is already an active session. Please close it before creating a new one.",
-				});
+			// Multiple active sessions are now allowed - no restriction check needed
+
+			// Calculate archive date for survey sessions
+			const startDate = new Date();
+			let archiveDate = null;
+			const isSurvey = sessionType === "survey";
+			const durationDays = surveyDurationDays || 6;
+
+			if (isSurvey) {
+				archiveDate = new Date(startDate);
+				archiveDate.setDate(archiveDate.getDate() + durationDays);
 			}
 
 			// Create new session
 			const newSession = await Session.create({
 				place: place.trim(),
 				status: "active",
-				startDate: new Date(),
+				startDate: startDate,
 				createdBy: session.user.id,
+				sessionType: isSurvey ? "survey" : "standard",
+				surveyDurationDays: isSurvey ? durationDays : undefined,
+				archiveDate: archiveDate,
 				maxOneProposalPerUser: maxOneProposalPerUser || false,
 				showUserCount: showUserCount !== undefined ? showUserCount : false,
-				noMotivation: noMotivation !== undefined ? noMotivation : false,
+				// Survey sessions always have noMotivation enabled (responses are just titles)
+				noMotivation: isSurvey ? true : (noMotivation !== undefined ? noMotivation : false),
 				singleResult: singleResult !== undefined ? singleResult : false,
 			});
 
@@ -149,6 +169,8 @@ export default async function handler(req, res) {
 				status: newSession.status,
 				phase: newSession.phase,
 				startDate: newSession.startDate,
+				sessionType: newSession.sessionType,
+				archiveDate: newSession.archiveDate,
 			});
 
 			return res.status(201).json({
@@ -157,7 +179,7 @@ export default async function handler(req, res) {
 				remainingSessions: user?.remainingSessions || 0,
 			});
 		} catch (error) {
-			console.error("Error creating session:", error);
+			log.error("Failed to create session", { error: error.message });
 			if (error.code === 11000) {
 				return res
 					.status(400)
@@ -189,7 +211,7 @@ export default async function handler(req, res) {
 
 			return res.status(200).json(updatedSession);
 		} catch (error) {
-			console.error("Error updating session:", error);
+			log.error("Failed to update session", { error: error.message });
 			return res.status(500).json({ error: "Failed to update session" });
 		}
 	}

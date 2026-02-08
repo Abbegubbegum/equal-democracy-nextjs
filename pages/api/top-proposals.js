@@ -2,6 +2,9 @@ import dbConnect from "@/lib/mongodb";
 import { TopProposal, Session } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("TopProposals");
 
 /**
  * Public endpoint to get winning proposals from the most recently closed session
@@ -31,7 +34,7 @@ export default async function handler(req, res) {
 				sessionId: latestClosedSession._id,
 			}).sort({ yesVotes: -1 }); // Sort by yes votes descending
 
-			// Format the response
+			// Format the response (authorName removed for anonymity)
 			const formatted = winningProposals.map((tp) => ({
 				_id: tp._id.toString(),
 				sessionName: tp.sessionName,
@@ -39,7 +42,6 @@ export default async function handler(req, res) {
 				problem: tp.problem,
 				solution: tp.solution,
 				estimatedCost: tp.estimatedCost,
-				authorName: tp.authorName,
 				yesVotes: tp.yesVotes,
 				noVotes: tp.noVotes,
 				archivedAt: tp.archivedAt,
@@ -47,7 +49,7 @@ export default async function handler(req, res) {
 
 			return res.status(200).json(formatted);
 		} catch (error) {
-			console.error("Error fetching winning proposals:", error);
+			log.error("Failed to fetch winning proposals", { error: error.message });
 			return res
 				.status(500)
 				.json({ error: "Failed to fetch winning proposals" });

@@ -2,6 +2,9 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
 import connectDB from "../../lib/mongodb";
 import { User } from "../../lib/models";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("DebugUser");
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -69,7 +72,7 @@ export default async function handler(req, res) {
 			},
 		});
 	} catch (error) {
-		console.error("Error:", error);
+		log.error("Debug user error", { error: error.message });
 		return res.status(500).json({ message: "An error occurred", error: error.message });
 	}
 }

@@ -1,6 +1,9 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import Pusher from "pusher";
+import { createLogger } from "../../../lib/logger";
+
+const log = createLogger("PusherAuth");
 
 /**
  * Pusher authentication endpoint for presence channels
@@ -36,11 +39,11 @@ export default async function handler(req, res) {
 	}
 
 	// Define the user data that will be visible in the presence channel
+	// Only expose anonymous user_id for privacy - no names or other PII
 	const presenceData = {
 		user_id: session.user.id,
 		user_info: {
-			name: session.user.name,
-			// Add more user info if needed
+			// Removed name for anonymity
 		},
 	};
 
@@ -52,7 +55,7 @@ export default async function handler(req, res) {
 		);
 		res.status(200).json(authResponse);
 	} catch (error) {
-		console.error("[Pusher Auth] Error:", error);
+		log.error("Channel authorization failed", { channel: channel_name, error: error.message });
 		res.status(500).json({ error: "Authentication failed" });
 	}
 }

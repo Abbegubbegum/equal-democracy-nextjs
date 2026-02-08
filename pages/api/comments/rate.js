@@ -5,6 +5,9 @@ import { Comment, CommentRating } from "../../../lib/models";
 import { getActiveSession, registerActiveUser } from "../../../lib/session-helper";
 import { csrfProtection } from "../../../lib/csrf";
 import broadcaster from "../../../lib/sse-broadcaster";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("CommentRate");
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -21,7 +24,7 @@ export default async function handler(req, res) {
 	}
 
 	if (req.method === "POST") {
-		const { commentId, rating } = req.body;
+		const { commentId, rating, sessionId } = req.body;
 
 		if (!commentId || !rating) {
 			return res
@@ -37,8 +40,8 @@ export default async function handler(req, res) {
 		}
 
 		try {
-			// Get the active session
-			const activeSession = await getActiveSession();
+			// Get the active session (with optional sessionId)
+			const activeSession = await getActiveSession(sessionId);
 
 			// If no active session, cannot rate
 			if (!activeSession) {
@@ -74,7 +77,7 @@ export default async function handler(req, res) {
 			}
 
 			// Register user as active in session
-			await registerActiveUser(session.user.id);
+			await registerActiveUser(session.user.id, activeSession._id.toString());
 
 			// Calculate new average rating
 			const ratings = await CommentRating.find({ commentId });
@@ -100,7 +103,7 @@ export default async function handler(req, res) {
 				totalRatings: ratings.length,
 			});
 		} catch (error) {
-			console.error("Error rating comment:", error);
+			log.error("Failed to rate comment", { commentId: req.body.commentId, error: error.message });
 			return res.status(500).json({
 				message: "An error occurred with rating comments",
 			});
@@ -125,7 +128,7 @@ export default async function handler(req, res) {
 				userRating: rating ? rating.rating : 0,
 			});
 		} catch (error) {
-			console.error("Error fetching comment rating:", error);
+			log.error("Failed to fetch comment rating", { commentId: req.query.commentId, error: error.message });
 			return res.status(500).json({ message: "An error has occured" });
 		}
 	}

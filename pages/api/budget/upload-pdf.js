@@ -2,10 +2,12 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import connectDB from "../../../lib/mongodb";
 import { User } from "../../../lib/models";
-import { csrfProtection } from "../../../lib/csrf";
 import { extractBudgetFromPDF, generateCategoryColor } from "../../../lib/budget/ai-extractor";
 import formidable from "formidable";
 import fs from "fs";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("BudgetUploadPDF");
 
 // Disable default body parser to handle file upload
 export const config = {
@@ -45,9 +47,9 @@ export default async function handler(req, res) {
 		});
 
 		const [fields, files] = await new Promise((resolve, reject) => {
-			form.parse(req, (err, fields, files) => {
+			form.parse(req, (err, parsedFields, parsedFiles) => {
 				if (err) reject(err);
-				resolve([fields, files]);
+				resolve([parsedFields, parsedFiles]);
 			});
 		});
 
@@ -92,7 +94,7 @@ export default async function handler(req, res) {
 			data: extractedData,
 		});
 	} catch (error) {
-		console.error("Error processing PDF:", error);
+		log.error("Failed to process budget PDF", { error: error.message });
 		return res.status(500).json({
 			message: "Failed to process PDF",
 			error: error.message,

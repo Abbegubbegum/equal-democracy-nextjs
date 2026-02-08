@@ -4,6 +4,9 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import { csrfProtection } from "@/lib/csrf";
 import broadcaster from "@/lib/sse-broadcaster";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("Sessions");
 
 export default async function handler(req, res) {
 	await dbConnect();
@@ -23,8 +26,13 @@ export default async function handler(req, res) {
 	}
 
 	try {
-		// Get active session
-		const activeSession = await Session.findOne({ status: "active" });
+		// Get sessionId from request body (optional for backward compatibility)
+		const { sessionId } = req.body;
+
+		// Get active session (with optional sessionId)
+		const activeSession = sessionId
+			? await Session.findOne({ _id: sessionId, status: "active" })
+			: await Session.findOne({ status: "active" });
 
 		if (!activeSession) {
 			return res.status(404).json({ error: "No active session found" });
@@ -132,7 +140,7 @@ export default async function handler(req, res) {
 			});
 		}
 	} catch (error) {
-		console.error("Error advancing phase:", error);
+		log.error("Failed to advance phase", { sessionId: req.body?.sessionId, error: error.message });
 		return res.status(500).json({ error: "Failed to advance phase" });
 	}
 }

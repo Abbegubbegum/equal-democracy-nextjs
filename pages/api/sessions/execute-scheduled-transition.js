@@ -3,6 +3,9 @@ import { Session, Proposal, ThumbsUp } from "@/lib/models";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
 import broadcaster from "@/lib/sse-broadcaster";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("Sessions");
 
 /**
  * Checks if a scheduled phase transition should be executed
@@ -21,14 +24,27 @@ export default async function handler(req, res) {
 	}
 
 	try {
+		// Get sessionId from request body (optional for backward compatibility)
+		const { sessionId } = req.body;
 		const now = new Date();
 
-		// First, check if there's an active session with a scheduled transition
-		const checkSession = await Session.findOne({
+		// Build query for session - add sessionId if provided
+		// Only standard sessions can transition to phase 2 (surveys stay in phase 1 until archived)
+		const sessionQuery = {
 			status: "active",
 			phase: "phase1",
 			phase1TransitionScheduled: { $exists: true },
-		});
+			$or: [
+				{ sessionType: { $exists: false } },
+				{ sessionType: "standard" },
+			],
+		};
+		if (sessionId) {
+			sessionQuery._id = sessionId;
+		}
+
+		// First, check if there's an active session with a scheduled transition
+		const checkSession = await Session.findOne(sessionQuery);
 
 		if (!checkSession) {
 			return res.status(200).json({ transitionExecuted: false });
@@ -45,17 +61,28 @@ export default async function handler(req, res) {
 			});
 		}
 
+		// Build atomic update query - add sessionId if provided
+		// Only standard sessions can transition (surveys stay in phase 1)
+		const atomicQuery = {
+			status: "active",
+			phase: "phase1",
+			phase1TransitionScheduled: {
+				$exists: true,
+				$lte: now, // Only if scheduled time has passed
+			},
+			$or: [
+				{ sessionType: { $exists: false } },
+				{ sessionType: "standard" },
+			],
+		};
+		if (sessionId) {
+			atomicQuery._id = sessionId;
+		}
+
 		// Time has passed! Use atomic findOneAndUpdate to claim the transition lock
 		// This prevents race conditions when multiple clients try to execute simultaneously
 		const activeSession = await Session.findOneAndUpdate(
-			{
-				status: "active",
-				phase: "phase1",
-				phase1TransitionScheduled: {
-					$exists: true,
-					$lte: now, // Only if scheduled time has passed
-				},
-			},
+			atomicQuery,
 			{
 				$set: { phase1TransitionScheduled: null }, // Clear immediately to prevent re-execution
 			},
@@ -162,7 +189,7 @@ export default async function handler(req, res) {
 			archivedCount: archivedIds.length,
 		});
 	} catch (error) {
-		console.error("Error executing scheduled transition:", error);
+		log.error("Failed to execute scheduled transition", { error: error.message });
 		return res.status(500).json({ error: "Failed to execute transition" });
 	}
 }

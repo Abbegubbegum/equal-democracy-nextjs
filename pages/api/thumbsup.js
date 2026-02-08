@@ -1,10 +1,13 @@
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./auth/[...nextauth]";
 import connectDB from "../../lib/mongodb";
-import { ThumbsUp, Proposal, Session } from "../../lib/models";
+import { ThumbsUp, Proposal } from "../../lib/models";
 import { getActiveSession, registerActiveUser } from "../../lib/session-helper";
 import { csrfProtection } from "../../lib/csrf";
 import broadcaster from "../../lib/sse-broadcaster";
+import { createLogger } from "@/lib/logger";
+
+const log = createLogger("ThumbsUp");
 
 export default async function handler(req, res) {
 	await connectDB();
@@ -23,7 +26,7 @@ export default async function handler(req, res) {
 				.json({ message: "You have to be logged in" });
 		}
 
-		const { proposalId, rating } = req.body;
+		const { proposalId, rating, sessionId } = req.body;
 
 		if (!proposalId) {
 			return res.status(400).json({ message: "Proposal ID is required" });
@@ -37,8 +40,8 @@ export default async function handler(req, res) {
 		}
 
 		try {
-			// Get the active session
-			const activeSession = await getActiveSession();
+			// Get the active session (with optional sessionId)
+			const activeSession = await getActiveSession(sessionId);
 
 			// If no active session, cannot rate
 			if (!activeSession) {
@@ -93,7 +96,7 @@ export default async function handler(req, res) {
 			});
 
 			// Register user as active in session
-			await registerActiveUser(session.user.id);
+			await registerActiveUser(session.user.id, activeSession._id.toString());
 
 			// Calculate average rating
 			const ratings = await ThumbsUp.find({ proposalId });
@@ -120,7 +123,7 @@ export default async function handler(req, res) {
 				userRating: rating || 5,
 			});
 		} catch (error) {
-			console.error("Error adding thumbs up:", error);
+			log.error("Failed to add thumbs up", { proposalId: req.body.proposalId, error: error.message });
 			return res.status(500).json({ message: "An error has occured" });
 		}
 	}

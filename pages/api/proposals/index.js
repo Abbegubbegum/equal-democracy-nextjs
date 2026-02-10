@@ -7,6 +7,7 @@ import {
 	registerActiveUser,
 } from "../../../lib/session-helper";
 import { csrfProtection } from "../../../lib/csrf";
+import { hasAdminAccess } from "../../../lib/admin-helper";
 import broadcaster from "../../../lib/sse-broadcaster";
 import { createLogger } from "../../../lib/logger";
 
@@ -107,10 +108,8 @@ export default async function handler(req, res) {
 			}
 
 			// Check if session has maxOneProposalPerUser enabled
-			// Superadmin (peer.norback@gmail.com) is exempt from this rule to allow manual entry of paper proposals
-			const isSuperAdmin = session.user.email === "peer.norback@gmail.com";
-
-			if (activeSession.maxOneProposalPerUser && !isSuperAdmin) {
+			// Admins are exempt to allow manual entry of paper proposals
+			if (activeSession.maxOneProposalPerUser && !hasAdminAccess(session.user)) {
 				// Check if user already has a proposal in this session
 				const userProposalCount = await Proposal.countDocuments({
 					sessionId: activeSession._id,

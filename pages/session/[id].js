@@ -1103,11 +1103,11 @@ function ProposalCard({
 			{/* Proposal header - clickable in Phase 2 */}
 			<div
 				className={
-					!isPhase1
+					!isPhase1 && !noMotivation
 						? "cursor-pointer hover:bg-primary-50 -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 px-4 sm:px-6 pt-4 sm:pt-6 pb-4 rounded-t-2xl transition-all duration-200 hover:shadow-sm relative"
 						: ""
 				}
-				onClick={!isPhase1 ? handleToggleDiscuss : undefined}
+				onClick={!isPhase1 && !noMotivation ? handleToggleDiscuss : undefined}
 			>
 				<div className="flex items-start gap-2 mb-2">
 					<h4
@@ -1146,7 +1146,7 @@ function ProposalCard({
 					</div>
 				)}
 
-				{!isPhase1 && !isExpandedForDiscuss && (
+				{!isPhase1 && !noMotivation && !isExpandedForDiscuss && (
 					<div className="absolute bottom-2 right-2 text-xs text-gray-500 bg-white px-2 py-1 rounded-lg shadow-sm border border-gray-200 pointer-events-none">
 						▼ {t("comments.showArguments")}
 					</div>
@@ -1244,7 +1244,7 @@ function ProposalCard({
 			)}
 
 			{/* Expanded discussion area for Phase 2 */}
-			{!isPhase1 && isExpandedForDiscuss && (
+			{!isPhase1 && !noMotivation && isExpandedForDiscuss && (
 				<div className="space-y-4 border-t pt-4">
 					{/* Comment type selector */}
 					<div className="flex flex-col sm:flex-row gap-2">

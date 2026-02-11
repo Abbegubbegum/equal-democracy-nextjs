@@ -3,8 +3,8 @@ import { authOptions } from "./auth/[...nextauth]";
 import connectDB from "../../lib/mongodb";
 import {
 	FinalVote,
+	Session,
 	Settings,
-	User,
 } from "../../lib/models";
 import { getActiveSession, registerActiveUser } from "../../lib/session-helper";
 import { validateObjectId, toObjectId } from "../../lib/validation";
@@ -63,44 +63,27 @@ export default async function handler(req, res) {
 					.json({ message: "No active session exists" });
 			}
 
-			// Get user info to check voting rights
-			const user = await User.findById(session.user.id);
+			// Check if termination countdown is active (allows vote changes)
+			const rawSession = await Session.findById(activeSession._id).lean();
+			const terminationActive = !!rawSession?.phase2TerminationScheduled;
 
-			if (!user) {
-				return res.status(404).json({ message: "User not found" });
-			}
+			// Check if user already voted in this session (1 vote per session)
+			const existingVoteInSession = await FinalVote.findOne({
+				sessionId: activeSession._id,
+				userId: session.user.id,
+			});
 
-			// Check voting rights based on user type
-			if (user.userType === "member") {
-				// Members: 1 vote per session
-				const existingVoteInSession = await FinalVote.findOne({
-					sessionId: activeSession._id,
-					userId: session.user.id,
-				});
-
-				if (existingVoteInSession) {
-					return res.status(400).json({
-						message:
-							"You have already used your vote this session. Members may vote on one (1) proposal per session.",
+			if (existingVoteInSession) {
+				if (terminationActive) {
+					// During termination countdown: allow vote change
+					await FinalVote.deleteMany({
+						sessionId: activeSession._id,
+						userId: session.user.id,
 					});
-				}
-			} else {
-				// Citizens (and users with no specific type): 1 vote per year
-				// This allows simple email-verified logins to vote
-				const currentYear = new Date().getFullYear();
-				const yearStart = new Date(currentYear, 0, 1);
-
-				const votesThisYear = await FinalVote.countDocuments({
-					userId: session.user.id,
-					createdAt: { $gte: yearStart },
-				});
-
-				if (votesThisYear >= 1) {
+				} else {
 					return res.status(400).json({
 						message:
-							"You have already used your annual vote. Citizens may vote on one (1) proposal per year.",
-						votesUsed: votesThisYear,
-						nextVoteDate: new Date(currentYear + 1, 0, 1).toISOString(),
+							"You have already used your vote this session.",
 					});
 				}
 			}
@@ -253,6 +236,12 @@ async function checkAutoClose(activeSession) {
 	try {
 		// Only check in phase 2
 		if (activeSession.phase !== "phase2") {
+			return false;
+		}
+
+		// Don't auto-close if a termination timer is active — let the timer handle it
+		const rawSession = await Session.findById(activeSession._id).lean();
+		if (rawSession?.phase2TerminationScheduled) {
 			return false;
 		}
 

@@ -108,16 +108,15 @@ export default async function handler(req, res) {
 			});
 		}
 
-		// Calculate top proposals using square root curve
-		// Fits: 10→4, 20→5, 100→10 (approximately)
-		// Formula balances between allowing enough proposals through while preventing overwhelming choice
-		const topCount = Math.max(
-			2, // Minimum 2 proposals
-			Math.min(
-				proposalCount, // Can't exceed total proposals
-				Math.round(1.2 * Math.sqrt(proposalCount))
-			)
+		// Use admin-adjusted count if set, otherwise calculate using square root curve
+		// Formula fits: 10→4, 20→5, 100→10 (approximately)
+		const formulaCount = Math.max(
+			2,
+			Math.min(proposalCount, Math.round(1.2 * Math.sqrt(proposalCount)))
 		);
+		const topCount = activeSession.customTopCount
+			? Math.max(2, Math.min(proposalCount, activeSession.customTopCount))
+			: formulaCount;
 
 		// Get proposals sorted by average rating
 		const proposals = await Proposal.find({
@@ -172,6 +171,7 @@ export default async function handler(req, res) {
 		// Note: phase1TransitionScheduled was already cleared atomically above
 		activeSession.phase = "phase2";
 		activeSession.phase2StartTime = new Date();
+		activeSession.customTopCount = null;
 		await activeSession.save();
 
 		// Broadcast phase change to all connected clients

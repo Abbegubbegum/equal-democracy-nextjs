@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
-import { Calendar, ArrowLeft } from "lucide-react";
+import { Calendar, ArrowLeft, Radio, Minus, Plus } from "lucide-react";
 import { fetchWithCsrf } from "../lib/fetch-with-csrf";
 import { useConfig } from "../lib/contexts/ConfigContext";
 import { useTranslation } from "../lib/hooks/useTranslation";
+import useSSE from "../lib/hooks/useSSE";
 
 export default function ManageSessionsPage() {
 	const { data: session, status } = useSession();
@@ -508,7 +509,7 @@ function SessionsPanel() {
 									</span>
 								</label>
 								<p className="text-xs text-slate-500 mt-1 ml-6">
-									Limit all users (including admins) to one
+									Limit all users (except admins) to one
 									proposal per session
 								</p>
 							</div>
@@ -532,7 +533,7 @@ function SessionsPanel() {
 									</span>
 								</label>
 								<p className="text-xs text-slate-500 mt-1 ml-6">
-									Limit all users (including admins) to one
+									Limit all users (except admins) to one
 									response per survey
 								</p>
 							</div>
@@ -870,6 +871,15 @@ function SessionsPanel() {
 									</div>
 
 									{!activeSession.isOtherUserSession &&
+										activeSession.sessionType !== "survey" &&
+										(activeSession.phase === "phase1" || activeSession.phase === "phase2") && (
+											<LivePanel
+												sessionId={activeSession._id}
+												onPhaseAdvanced={loadSessions}
+											/>
+										)}
+
+									{!activeSession.isOtherUserSession &&
 										session?.user?.isSuperAdmin &&
 										activeSession.activeUsersWithStatus &&
 										activeSession.activeUsersWithStatus
@@ -1004,6 +1014,435 @@ function SessionsPanel() {
 					</p>
 				)}
 			</section>
+		</div>
+	);
+}
+
+function LivePanel({ sessionId, onPhaseAdvanced }) {
+	const { theme } = useConfig();
+	const [data, setData] = useState(null);
+	const [loading, setLoading] = useState(true);
+	const [adjusting, setAdjusting] = useState(false);
+	const [advancing, setAdvancing] = useState(false);
+	const [countdown, setCountdown] = useState(null);
+	const timerRef = useRef(null);
+	const pollRef = useRef(null);
+	const lastAdjustRef = useRef(0);
+
+	const primaryDark = theme?.primaryDark || "#1e3a8a";
+
+	const executeTermination = useCallback(async () => {
+		try {
+			await fetch("/api/admin/execute-scheduled-termination", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ sessionId }),
+			});
+		} catch (error) {
+			console.error("Failed to execute termination:", error);
+		}
+	}, [sessionId]);
+
+	const fetchData = useCallback(async () => {
+		try {
+			const res = await fetch(`/api/admin/live-panel?sessionId=${sessionId}`);
+			if (res.ok) {
+				const result = await res.json();
+				// Preserve local customTopCount if recently adjusted (avoid poll race condition)
+				if (result.phase === "phase1" && Date.now() - lastAdjustRef.current < 8000) {
+					setData((prev) => prev ? { ...result, customTopCount: prev.customTopCount } : result);
+				} else {
+					setData(result);
+				}
+				// Phase 1: transition countdown
+				if (result.phase === "phase1") {
+					if (result.transitionScheduled && result.secondsRemaining > 0) {
+						setCountdown(result.secondsRemaining);
+					} else if (!result.transitionScheduled) {
+						setCountdown(null);
+					}
+				}
+				// Phase 2: termination countdown
+				if (result.phase === "phase2") {
+					if (result.terminationScheduled && result.secondsRemaining > 0) {
+						setCountdown(result.secondsRemaining);
+					} else if (!result.terminationScheduled) {
+						setCountdown(null);
+					}
+				}
+			}
+		} catch (error) {
+			console.error("LivePanel fetch error:", error);
+		}
+		setLoading(false);
+	}, [sessionId]);
+
+	// Poll every 5 seconds
+	useEffect(() => {
+		fetchData(); // eslint-disable-line react-hooks/set-state-in-effect
+		pollRef.current = setInterval(fetchData, 5000);
+		return () => {
+			if (pollRef.current) clearInterval(pollRef.current);
+		};
+	}, [fetchData]);
+
+	// Countdown timer (ticks every second when transition/termination is scheduled)
+	useEffect(() => {
+		if (countdown !== null && countdown > 0) {
+			timerRef.current = setInterval(() => {
+				setCountdown((prev) => {
+					if (prev <= 1) {
+						clearInterval(timerRef.current);
+						// Phase 2: execute termination when timer expires
+						if (data?.phase === "phase2") {
+							executeTermination().then(() => {
+								fetchData();
+								if (onPhaseAdvanced) onPhaseAdvanced();
+							});
+						} else {
+							fetchData();
+							if (onPhaseAdvanced) onPhaseAdvanced();
+						}
+						return 0;
+					}
+					return prev - 1;
+				});
+			}, 1000);
+		}
+		return () => {
+			if (timerRef.current) clearInterval(timerRef.current);
+		};
+	}, [countdown, fetchData, onPhaseAdvanced, data?.phase, executeTermination]);
+
+	// Listen for Pusher events to trigger immediate refresh
+	useSSE({
+		onRatingUpdate: () => fetchData(),
+		onNewProposal: () => fetchData(),
+		onVoteUpdate: () => fetchData(),
+		onTransitionScheduled: () => fetchData(),
+		onTerminationScheduled: () => fetchData(),
+		onPhaseChange: () => {
+			fetchData();
+			if (onPhaseAdvanced) onPhaseAdvanced();
+		},
+	});
+
+	const adjustTopCount = async (delta) => {
+		if (!data || adjusting) return;
+		const current = data.customTopCount || data.calculatedTopCount;
+		const newCount = current + delta;
+		if (newCount < 2 || newCount > data.totalProposals) return;
+
+		setAdjusting(true);
+		try {
+			const res = await fetchWithCsrf("/api/admin/live-panel", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ sessionId, customTopCount: newCount }),
+			});
+
+			if (res.ok) {
+				lastAdjustRef.current = Date.now();
+				setData((prev) => ({ ...prev, customTopCount: newCount }));
+			}
+		} catch (error) {
+			console.error("Failed to adjust top count:", error);
+		}
+		setAdjusting(false);
+	};
+
+	const activateTransition = async () => {
+		if (advancing) return;
+		if (!confirm("Start 90-second countdown to Phase 2? You can adjust the number of proposals during the countdown.")) return;
+
+		setAdvancing(true);
+		try {
+			const res = await fetchWithCsrf("/api/admin/schedule-transition", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ sessionId }),
+			});
+
+			if (res.ok) {
+				fetchData();
+			} else {
+				const errData = await res.json();
+				alert(`Error: ${errData.error}`);
+			}
+		} catch (error) {
+			console.error("Failed to schedule transition:", error);
+			alert("Could not schedule phase transition");
+		}
+		setAdvancing(false);
+	};
+
+	const activateTermination = async () => {
+		if (advancing) return;
+		if (!confirm("Start 60-second termination timer? The session will close when it expires.")) return;
+
+		setAdvancing(true);
+		try {
+			const res = await fetchWithCsrf("/api/admin/schedule-termination", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ sessionId }),
+			});
+
+			if (res.ok) {
+				fetchData();
+			} else {
+				const errData = await res.json();
+				alert(`Error: ${errData.error}`);
+			}
+		} catch (error) {
+			console.error("Failed to schedule termination:", error);
+			alert("Could not schedule termination");
+		}
+		setAdvancing(false);
+	};
+
+	if (loading) {
+		return (
+			<div className="mt-4 pt-4 border-t-2 border-green-200">
+				<p className="text-sm text-slate-500">Loading Live Panel...</p>
+			</div>
+		);
+	}
+
+	if (!data) return null;
+
+	// Phase 2 UI
+	if (data.phase === "phase2") {
+		const votedPercent = data.activeUsersCount > 0
+			? Math.round((data.usersWhoVotedCount / data.activeUsersCount) * 100)
+			: 0;
+		const isTerminating = data.terminationScheduled && countdown !== null;
+
+		return (
+			<div className="mt-4 pt-4 border-t-2 border-orange-200">
+				<div className="flex items-center gap-2 mb-4">
+					<Radio className="w-4 h-4 text-orange-600" />
+					<h4 className="font-bold text-sm" style={{ color: primaryDark }}>
+						Live Panel — Phase 2
+					</h4>
+				</div>
+
+				<div className="space-y-3">
+					{/* Users voted ratio */}
+					<div>
+						<div className="flex items-center justify-between text-sm mb-1">
+							<span className="text-slate-600 font-medium">Users voted</span>
+							<span className="font-bold" style={{ color: primaryDark }}>
+								{data.usersWhoVotedCount} / {data.activeUsersCount}
+								<span className="text-slate-400 font-normal ml-1">({votedPercent}%)</span>
+							</span>
+						</div>
+						<div className="w-full bg-slate-200 rounded-full h-2.5">
+							<div
+								className="h-2.5 rounded-full transition-all duration-500"
+								style={{
+									width: `${Math.min(100, votedPercent)}%`,
+									backgroundColor: votedPercent >= 75 ? "#16a34a" : primaryDark,
+								}}
+							/>
+						</div>
+					</div>
+
+					{/* Signal lamp and termination controls */}
+					<div className="flex items-center justify-between pt-2">
+						<div className="flex items-center gap-2">
+							<div
+								className={`w-4 h-4 rounded-full border-2 ${
+									isTerminating
+										? "bg-orange-500 border-orange-600 animate-pulse"
+										: data.terminationConditionMet
+										? "bg-green-500 border-green-600"
+										: "bg-slate-300 border-slate-400"
+								}`}
+							/>
+							<span className="text-sm font-medium text-slate-700">
+								{isTerminating
+									? "Termination active"
+									: data.terminationConditionMet
+									? "Ready to terminate"
+									: "Termination phase"}
+							</span>
+						</div>
+
+						{!isTerminating && (
+							<button
+								onClick={activateTermination}
+								disabled={advancing}
+								className="px-4 py-1.5 text-sm font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+								style={{
+									backgroundColor: primaryDark,
+									color: "white",
+								}}
+							>
+								{advancing ? "Activating..." : "Activate termination"}
+							</button>
+						)}
+					</div>
+
+					{/* Termination countdown */}
+					{isTerminating && (
+						<div className="p-4 bg-orange-50 border-2 border-orange-200 rounded-xl">
+							<div className="flex items-center justify-between">
+								<span className="text-sm font-medium text-orange-800">
+									Session closes in
+								</span>
+								<span className="text-2xl font-bold text-orange-700">
+									{countdown}s
+								</span>
+							</div>
+						</div>
+					)}
+				</div>
+			</div>
+		);
+	}
+
+	// Phase 1 UI
+	const usersPercent = data.activeUsersCount > 0
+		? Math.round((data.usersWhoRatedCount / data.activeUsersCount) * 100)
+		: 0;
+	const proposalsPercent = data.totalProposals > 0
+		? Math.round((data.ratedProposals / data.totalProposals) * 100)
+		: 0;
+	const effectiveTopCount = data.customTopCount || data.calculatedTopCount;
+	const isTransitioning = data.transitionScheduled && countdown !== null;
+
+	return (
+		<div className="mt-4 pt-4 border-t-2 border-green-200">
+			<div className="flex items-center gap-2 mb-4">
+				<Radio className="w-4 h-4 text-green-600" />
+				<h4 className="font-bold text-sm" style={{ color: primaryDark }}>
+					Live Panel
+				</h4>
+			</div>
+
+			<div className="space-y-3">
+				{/* Users ratio */}
+				<div>
+					<div className="flex items-center justify-between text-sm mb-1">
+						<span className="text-slate-600 font-medium">Users rated</span>
+						<span className="font-bold" style={{ color: primaryDark }}>
+							{data.usersWhoRatedCount} / {data.activeUsersCount}
+							<span className="text-slate-400 font-normal ml-1">({usersPercent}%)</span>
+						</span>
+					</div>
+					<div className="w-full bg-slate-200 rounded-full h-2.5">
+						<div
+							className="h-2.5 rounded-full transition-all duration-500"
+							style={{
+								width: `${Math.min(100, usersPercent)}%`,
+								backgroundColor: usersPercent >= 75 ? "#16a34a" : primaryDark,
+							}}
+						/>
+					</div>
+				</div>
+
+				{/* Proposals ratio */}
+				<div>
+					<div className="flex items-center justify-between text-sm mb-1">
+						<span className="text-slate-600 font-medium">Proposals rated</span>
+						<span className="font-bold" style={{ color: primaryDark }}>
+							{data.ratedProposals} / {data.totalProposals}
+							<span className="text-slate-400 font-normal ml-1">({proposalsPercent}%)</span>
+						</span>
+					</div>
+					<div className="w-full bg-slate-200 rounded-full h-2.5">
+						<div
+							className="h-2.5 rounded-full transition-all duration-500"
+							style={{
+								width: `${Math.min(100, proposalsPercent)}%`,
+								backgroundColor: proposalsPercent >= 75 ? "#16a34a" : primaryDark,
+							}}
+						/>
+					</div>
+				</div>
+
+				{/* Signal lamp and transition controls */}
+				<div className="flex items-center justify-between pt-2">
+					<div className="flex items-center gap-2">
+						<div
+							className={`w-4 h-4 rounded-full border-2 ${
+								isTransitioning
+									? "bg-green-500 border-green-600 animate-pulse"
+									: data.conditionsMet
+									? "bg-green-500 border-green-600"
+									: "bg-slate-300 border-slate-400"
+							}`}
+						/>
+						<span className="text-sm font-medium text-slate-700">
+							{isTransitioning
+								? "Phase transition"
+								: data.conditionsMet
+								? "Conditions met"
+								: "Phase transition"}
+						</span>
+					</div>
+
+					{!isTransitioning && (
+						<button
+							onClick={activateTransition}
+							disabled={advancing || data.totalProposals < 2}
+							className="px-4 py-1.5 text-sm font-bold rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+							style={{
+								backgroundColor: primaryDark,
+								color: "white",
+							}}
+						>
+							{advancing ? "Activating..." : "Activate"}
+						</button>
+					)}
+				</div>
+
+				{/* Transition countdown and proposal adjuster */}
+				{isTransitioning && (
+					<div className="p-4 bg-green-50 border-2 border-green-200 rounded-xl space-y-3">
+						<div className="flex items-center justify-between">
+							<span className="text-sm font-medium text-green-800">
+								Transition in
+							</span>
+							<span className="text-2xl font-bold text-green-700">
+								{countdown}s
+							</span>
+						</div>
+
+						<div className="flex items-center justify-between">
+							<span className="text-sm font-medium text-green-800">
+								Proposals to proceed
+							</span>
+							<div className="flex items-center gap-2">
+								<button
+									onClick={() => adjustTopCount(-1)}
+									disabled={adjusting || effectiveTopCount <= 2}
+									className="w-8 h-8 flex items-center justify-center rounded-lg bg-white border-2 border-green-300 text-green-700 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+								>
+									<Minus className="w-4 h-4" />
+								</button>
+								<span className="w-10 text-center text-lg font-bold text-green-800">
+									{effectiveTopCount}
+								</span>
+								<button
+									onClick={() => adjustTopCount(1)}
+									disabled={adjusting || effectiveTopCount >= data.totalProposals}
+									className="w-8 h-8 flex items-center justify-center rounded-lg bg-white border-2 border-green-300 text-green-700 hover:bg-green-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+								>
+									<Plus className="w-4 h-4" />
+								</button>
+							</div>
+						</div>
+
+						{data.customTopCount && data.customTopCount !== data.calculatedTopCount && (
+							<p className="text-xs text-green-600">
+								Default: {data.calculatedTopCount} (adjusted to {data.customTopCount})
+							</p>
+						)}
+					</div>
+				)}
+			</div>
 		</div>
 	);
 }

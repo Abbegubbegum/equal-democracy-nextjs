@@ -27,7 +27,7 @@ export default async function handler(req, res) {
 
 	try {
 		// Get sessionId from request body (optional for backward compatibility)
-		const { sessionId } = req.body;
+		const { sessionId, topCount: requestedTopCount } = req.body;
 
 		// Get active session (with optional sessionId)
 		const activeSession = sessionId
@@ -52,12 +52,14 @@ export default async function handler(req, res) {
 				});
 			}
 
-			// Calculate top proposals (min of: all proposals, max(2, 40% of proposals))
-			// This ensures we don't try to select more proposals than exist
-			const topCount = Math.min(
+			// Use requested topCount if provided, otherwise use 40% formula
+			const formulaCount = Math.min(
 				proposalCount,
 				Math.max(2, Math.ceil(proposalCount * 0.4))
 			);
+			const topCount = requestedTopCount
+				? Math.max(2, Math.min(proposalCount, parseInt(requestedTopCount)))
+				: formulaCount;
 
 			// Get proposals sorted by average rating
 			const proposals = await Proposal.find({

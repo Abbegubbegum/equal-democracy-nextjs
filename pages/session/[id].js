@@ -12,6 +12,7 @@ import {
 	Clock,
 	Star,
 	ArrowLeft,
+	ChevronRight,
 } from "lucide-react";
 import { fetchWithCsrf } from "../../lib/fetch-with-csrf";
 import { useTranslation } from "../../lib/hooks/useTranslation";
@@ -61,6 +62,7 @@ export default function SessionPage() {
 	const [, setUserHasCreatedProposal] = useState(false);
 	const [showUserCount, setShowUserCount] = useState(false);
 	const [noMotivation, setNoMotivation] = useState(false);
+	const [onlyYesVotes, setOnlyYesVotes] = useState(false);
 	const [sessionTypeVerified, setSessionTypeVerified] = useState(false);
 
 	// Sound effects
@@ -124,6 +126,10 @@ export default function SessionPage() {
 
 			if (data.noMotivation !== undefined) {
 				setNoMotivation(data.noMotivation);
+			}
+
+			if (data.onlyYesVotes !== undefined) {
+				setOnlyYesVotes(data.onlyYesVotes);
 			}
 
 			// Redirect to survey page if this is a survey session
@@ -618,6 +624,7 @@ export default function SessionPage() {
 				userHasVoted={userHasVotedInSession}
 				t={t}
 				noMotivation={noMotivation}
+				onlyYesVotes={onlyYesVotes}
 			/>
 		);
 	}
@@ -1665,6 +1672,7 @@ function VoteView({
 	userHasVoted = false,
 	t,
 	noMotivation,
+	onlyYesVotes,
 }) {
 	const [currentProposalIndex, setCurrentProposalIndex] =
 		useState(initialProposalIndex);
@@ -1674,6 +1682,7 @@ function VoteView({
 	const [isVoting, setIsVoting] = useState(false);
 	const [hasVotedInThisSession, setHasVotedInThisSession] =
 		useState(userHasVoted);
+	const [confirmVote, setConfirmVote] = useState(null);
 
 	const fetchVoteData = useCallback(async () => {
 		try {
@@ -1835,41 +1844,74 @@ function VoteView({
 					{!voted ? (
 						<div className="px-4 sm:px-8 pb-6 sm:pb-8">
 							<div className="border-t-4 border-accent-400 pt-6 sm:pt-8">
+								{onlyYesVotes && proposals.length > 1 && (
+									<p className="text-center text-sm text-gray-500 mb-2">
+										Förslag {currentProposalIndex + 1} av {proposals.length}
+									</p>
+								)}
 								<p className="text-center text-base sm:text-lg font-semibold text-gray-700 mb-4 sm:mb-6 wrap-break-word">
 									{t("voting.castYourVote")}
 								</p>
-								<div className="grid grid-cols-2 gap-3 sm:gap-6">
-									<button
-										onClick={() =>
-											handleVote(
-												currentProposal._id,
-												"yes",
-											)
-										}
-										disabled={isVoting}
-										className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-4 sm:py-6 px-4 sm:px-8 rounded-xl sm:rounded-2xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex flex-col items-center justify-center gap-2 sm:gap-3"
-									>
-										<ThumbsUp className="w-8 h-8 sm:w-12 sm:h-12" />
-										<span className="text-lg sm:text-2xl">
-											{t("voting.yes")}
-										</span>
-									</button>
-									<button
-										onClick={() =>
-											handleVote(
-												currentProposal._id,
-												"no",
-											)
-										}
-										disabled={isVoting}
-										className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-bold py-4 sm:py-6 px-4 sm:px-8 rounded-xl sm:rounded-2xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex flex-col items-center justify-center gap-2 sm:gap-3"
-									>
-										<ThumbsDown className="w-8 h-8 sm:w-12 sm:h-12" />
-										<span className="text-lg sm:text-2xl">
-											{t("voting.no")}
-										</span>
-									</button>
-								</div>
+								{onlyYesVotes ? (
+									<div className="grid grid-cols-2 gap-3 sm:gap-6">
+										<button
+											onClick={() => setConfirmVote(currentProposal)}
+											disabled={isVoting}
+											className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-4 sm:py-6 px-4 sm:px-8 rounded-xl sm:rounded-2xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex flex-col items-center justify-center gap-2 sm:gap-3"
+										>
+											<ThumbsUp className="w-8 h-8 sm:w-12 sm:h-12" />
+											<span className="text-lg sm:text-2xl">
+												{t("voting.yes")}
+											</span>
+										</button>
+										<button
+											onClick={() =>
+												setCurrentProposalIndex(
+													(currentProposalIndex + 1) % proposals.length,
+												)
+											}
+											className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-4 sm:py-6 px-4 sm:px-8 rounded-xl sm:rounded-2xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex flex-col items-center justify-center gap-2 sm:gap-3"
+										>
+											<ChevronRight className="w-8 h-8 sm:w-12 sm:h-12" />
+											<span className="text-lg sm:text-2xl">
+												Nästa förslag
+											</span>
+										</button>
+									</div>
+								) : (
+									<div className="grid grid-cols-2 gap-3 sm:gap-6">
+										<button
+											onClick={() =>
+												handleVote(
+													currentProposal._id,
+													"yes",
+												)
+											}
+											disabled={isVoting}
+											className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-4 sm:py-6 px-4 sm:px-8 rounded-xl sm:rounded-2xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex flex-col items-center justify-center gap-2 sm:gap-3"
+										>
+											<ThumbsUp className="w-8 h-8 sm:w-12 sm:h-12" />
+											<span className="text-lg sm:text-2xl">
+												{t("voting.yes")}
+											</span>
+										</button>
+										<button
+											onClick={() =>
+												handleVote(
+													currentProposal._id,
+													"no",
+												)
+											}
+											disabled={isVoting}
+											className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white font-bold py-4 sm:py-6 px-4 sm:px-8 rounded-xl sm:rounded-2xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex flex-col items-center justify-center gap-2 sm:gap-3"
+										>
+											<ThumbsDown className="w-8 h-8 sm:w-12 sm:h-12" />
+											<span className="text-lg sm:text-2xl">
+												{t("voting.no")}
+											</span>
+										</button>
+									</div>
+								)}
 							</div>
 						</div>
 					) : (
@@ -1883,24 +1925,37 @@ function VoteView({
 										<span>{t("voting.youHaveVoted")}</span>
 									</div>
 								</div>
-								<div className="grid grid-cols-2 gap-3 sm:gap-4 pt-4">
-									<div className="bg-green-50 border-2 border-green-200 rounded-xl p-3 sm:p-4 text-center">
-										<p className="text-3xl sm:text-4xl font-bold text-green-700">
-											{results.yes}
-										</p>
-										<p className="text-xs sm:text-sm text-green-600 font-medium mt-1">
-											{t("voting.yesVotes")}
-										</p>
+								{onlyYesVotes ? (
+									<div className="pt-4">
+										<div className="bg-green-50 border-2 border-green-200 rounded-xl p-3 sm:p-4 text-center">
+											<p className="text-3xl sm:text-4xl font-bold text-green-700">
+												{results.yes}
+											</p>
+											<p className="text-xs sm:text-sm text-green-600 font-medium mt-1">
+												{t("voting.yesVotes")}
+											</p>
+										</div>
 									</div>
-									<div className="bg-red-50 border-2 border-red-200 rounded-xl p-3 sm:p-4 text-center">
-										<p className="text-3xl sm:text-4xl font-bold text-red-700">
-											{results.no}
-										</p>
-										<p className="text-xs sm:text-sm text-red-600 font-medium mt-1">
-											{t("voting.noVotes")}
-										</p>
+								) : (
+									<div className="grid grid-cols-2 gap-3 sm:gap-4 pt-4">
+										<div className="bg-green-50 border-2 border-green-200 rounded-xl p-3 sm:p-4 text-center">
+											<p className="text-3xl sm:text-4xl font-bold text-green-700">
+												{results.yes}
+											</p>
+											<p className="text-xs sm:text-sm text-green-600 font-medium mt-1">
+												{t("voting.yesVotes")}
+											</p>
+										</div>
+										<div className="bg-red-50 border-2 border-red-200 rounded-xl p-3 sm:p-4 text-center">
+											<p className="text-3xl sm:text-4xl font-bold text-red-700">
+												{results.no}
+											</p>
+											<p className="text-xs sm:text-sm text-red-600 font-medium mt-1">
+												{t("voting.noVotes")}
+											</p>
+										</div>
 									</div>
-								</div>
+								)}
 								<p className="text-center text-xs sm:text-sm text-gray-500 pt-2">
 									{t("voting.totalVotes", {
 										count: results.total,
@@ -1925,8 +1980,39 @@ function VoteView({
 					)}
 				</div>
 
-				{/* Navigation buttons - only show if user hasn't voted yet */}
-				{!hasVotedInThisSession && proposals.length > 1 && (
+				{/* Confirmation popup for onlyYesVotes */}
+				{confirmVote && (
+					<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+						<div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 max-w-md w-full">
+							<p className="text-lg sm:text-xl font-semibold text-gray-800 text-center mb-6">
+								Är du säker på att du vill rösta på{" "}
+								<span className="text-primary-700">&quot;{confirmVote.title}&quot;</span>?
+							</p>
+							<div className="grid grid-cols-2 gap-3">
+								<button
+									onClick={async () => {
+										const proposal = confirmVote;
+										setConfirmVote(null);
+										await handleVote(proposal._id, "yes");
+									}}
+									disabled={isVoting}
+									className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-3 sm:py-4 rounded-xl transition-colors text-lg"
+								>
+									Ja
+								</button>
+								<button
+									onClick={() => setConfirmVote(null)}
+									className="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 sm:py-4 rounded-xl transition-colors text-lg"
+								>
+									Avbryt
+								</button>
+							</div>
+						</div>
+					</div>
+				)}
+
+				{/* Navigation buttons - only show if user hasn't voted yet and not onlyYesVotes */}
+				{!onlyYesVotes && !hasVotedInThisSession && proposals.length > 1 && (
 					<div className="flex justify-between gap-3 mt-6">
 						<button
 							onClick={() =>

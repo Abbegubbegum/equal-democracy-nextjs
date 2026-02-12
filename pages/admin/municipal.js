@@ -11,6 +11,7 @@ import {
 	XCircle,
 	AlertCircle,
 	Send,
+	Plus,
 } from "lucide-react";
 import { fetchWithCsrf } from "../../lib/fetch-with-csrf";
 
@@ -198,6 +199,23 @@ export default function MunicipalAdminPage() {
 			}
 		}
 		setEditingItems(updated);
+	};
+
+	const removeItem = (index) => {
+		setEditingItems(editingItems.filter((_, i) => i !== index));
+	};
+
+	const addItem = () => {
+		setEditingItems([
+			...editingItems,
+			{
+				originalNumber: "",
+				title: "",
+				description: "",
+				categories: [],
+				initialArguments: [],
+			},
+		]);
 	};
 
 	if (status === "loading") return <div className="p-8">Laddar...</div>;
@@ -467,12 +485,19 @@ export default function MunicipalAdminPage() {
 							{editingItems.map((item, index) => (
 								<div
 									key={index}
-									className="border rounded-lg p-4 bg-gray-50"
+									className="border rounded-lg p-4 bg-gray-50 relative"
 								>
 									<div className="mb-3 flex items-start justify-between">
 										<span className="text-xs text-gray-500 font-mono">
 											{item.originalNumber}
 										</span>
+										<button
+											onClick={() => removeItem(index)}
+											className="p-1 text-red-500 hover:bg-red-50 rounded"
+											title="Ta bort ärende"
+										>
+											<Trash2 className="w-4 h-4" />
+										</button>
 									</div>
 
 									<div className="space-y-3">
@@ -569,6 +594,14 @@ export default function MunicipalAdminPage() {
 									</div>
 								</div>
 							))}
+
+							<button
+								onClick={addItem}
+								className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-primary-400 hover:text-primary-600 transition-colors flex items-center justify-center gap-2"
+							>
+								<Plus className="w-4 h-4" />
+								Lägg till ärende
+							</button>
 						</div>
 					</div>
 				)}

@@ -80,7 +80,29 @@ export default async function handler(req, res) {
 
 		// Re-fetch the session since closeSession needs a fresh document
 		const sessionToClose = await Session.findById(activeSession._id);
-		await closeSession(sessionToClose, { sendEmails: true });
+		const result = await closeSession(sessionToClose, { sendEmails: true });
+
+		if (result.tiebreakerStarted) {
+			// Tie detected — broadcast tiebreaker event instead of closing
+			await broadcaster.broadcast("tiebreaker-started", {
+				sessionId: activeSession._id.toString(),
+				tiedProposalIds: result.tiedProposalIds,
+				scheduledTime: result.scheduledTime,
+				secondsRemaining: result.secondsRemaining,
+			});
+
+			log.info("Tiebreaker started after termination", {
+				sessionId: activeSession._id.toString(),
+				tiedCount: result.tiedProposalIds.length,
+			});
+
+			return res.status(200).json({
+				terminationExecuted: false,
+				tiebreakerStarted: true,
+				tiedProposalIds: result.tiedProposalIds,
+				secondsRemaining: result.secondsRemaining,
+			});
+		}
 
 		await broadcaster.broadcast("phase-change", {
 			phase: "closed",

@@ -20,18 +20,27 @@ export default async function handler(req, res) {
 
 	if (req.method === "GET") {
 		try {
-			// Get the most recently closed session
-			const latestClosedSession = await Session.findOne({
-				status: "closed",
-			}).sort({ endDate: -1 });
+			const { sessionId } = req.query;
 
-			if (!latestClosedSession) {
-				return res.status(200).json([]);
+			let targetSessionId;
+			if (sessionId) {
+				// Use the specific session requested
+				targetSessionId = sessionId;
+			} else {
+				// Fall back to most recently closed session
+				const latestClosedSession = await Session.findOne({
+					status: "closed",
+				}).sort({ endDate: -1 });
+
+				if (!latestClosedSession) {
+					return res.status(200).json([]);
+				}
+				targetSessionId = latestClosedSession._id;
 			}
 
 			// Get winning proposals from this session
 			const winningProposals = await TopProposal.find({
-				sessionId: latestClosedSession._id,
+				sessionId: targetSessionId,
 			}).sort({ yesVotes: -1 }); // Sort by yes votes descending
 
 			// Format the response (authorName removed for anonymity)

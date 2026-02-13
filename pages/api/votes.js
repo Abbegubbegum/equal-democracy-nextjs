@@ -67,6 +67,16 @@ export default async function handler(req, res) {
 			const rawSession = await Session.findById(activeSession._id).lean();
 			const terminationActive = !!rawSession?.phase2TerminationScheduled;
 
+			// During tiebreaker, only allow votes on the tied proposals
+			if (rawSession?.tiebreakerActive) {
+				const tiedIds = (rawSession.tiebreakerProposals || []).map(id => id.toString());
+				if (!tiedIds.includes(proposalId.toString())) {
+					return res.status(400).json({
+						message: "Under förlängd omröstning kan du bara rösta på de oavgjorda förslagen.",
+					});
+				}
+			}
+
 			// Server-side guard: onlyYesVotes sessions only accept "yes" votes
 			if (rawSession?.onlyYesVotes && choice !== "yes") {
 				return res.status(400).json({
@@ -106,10 +116,12 @@ export default async function handler(req, res) {
 			await registerActiveUser(session.user.id, activeSession._id.toString());
 
 			const yesCount = await FinalVote.countDocuments({
+				sessionId: activeSession._id,
 				proposalId: toObjectId(proposalId),
 				choice: "yes",
 			});
 			const noCount = await FinalVote.countDocuments({
+				sessionId: activeSession._id,
 				proposalId: toObjectId(proposalId),
 				choice: "no",
 			});
@@ -201,11 +213,15 @@ export default async function handler(req, res) {
 			}
 
 			try {
+				const activeSession = await getActiveSession(sessionId);
+				const voteSessionId = activeSession ? activeSession._id : toObjectId(sessionId);
 				const yesCount = await FinalVote.countDocuments({
+					sessionId: voteSessionId,
 					proposalId: toObjectId(proposalId),
 					choice: "yes",
 				});
 				const noCount = await FinalVote.countDocuments({
+					sessionId: voteSessionId,
 					proposalId: toObjectId(proposalId),
 					choice: "no",
 				});
@@ -271,7 +287,16 @@ async function checkAutoClose(activeSession) {
 					sessionId: activeSession._id.toString(),
 					userCount: activeUserIds.length,
 				});
-				await closeSession(activeSession, { sendEmails: true });
+				const result = await closeSession(activeSession, { sendEmails: true });
+				if (result.tiebreakerStarted) {
+					await broadcaster.broadcast("tiebreaker-started", {
+						sessionId: activeSession._id.toString(),
+						tiedProposalIds: result.tiedProposalIds,
+						scheduledTime: result.scheduledTime,
+						secondsRemaining: result.secondsRemaining,
+					});
+					return false;
+				}
 				return true;
 			}
 		}

@@ -53,6 +53,10 @@ export default function SessionPage() {
 	const [showSessionClosed, setShowSessionClosed] = useState(false);
 	const [winningProposals, setWinningProposals] = useState([]);
 	const [transitionCountdown, setTransitionCountdown] = useState(null);
+	const [terminationCountdown, setTerminationCountdown] = useState(null);
+	const terminationIntervalRef = useRef(null);
+	const terminationCountdownRef = useRef(null);
+	const startTerminationCountdownRef = useRef(null);
 	const [userHasVotedInSession, setUserHasVotedInSession] = useState(false);
 	const [votedProposalId, setVotedProposalId] = useState(null);
 	const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -63,6 +67,12 @@ export default function SessionPage() {
 	const [showUserCount, setShowUserCount] = useState(false);
 	const [noMotivation, setNoMotivation] = useState(false);
 	const [onlyYesVotes, setOnlyYesVotes] = useState(false);
+	const [tiebreakerActive, setTiebreakerActive] = useState(false);
+	const [tiebreakerProposalIds, setTiebreakerProposalIds] = useState([]);
+	const [tiebreakerCountdown, setTiebreakerCountdown] = useState(null);
+	const tiebreakerIntervalRef = useRef(null);
+	const tiebreakerCountdownRef = useRef(null);
+	const startTiebreakerCountdownRef = useRef(null);
 	const [sessionTypeVerified, setSessionTypeVerified] = useState(false);
 
 	// Sound effects
@@ -130,6 +140,20 @@ export default function SessionPage() {
 
 			if (data.onlyYesVotes !== undefined) {
 				setOnlyYesVotes(data.onlyYesVotes);
+			}
+
+			// Pick up termination countdown if already scheduled (e.g. page reload)
+			if (data.terminationSecondsRemaining > 0 && terminationCountdownRef.current === null && !data.tiebreakerActive) {
+				startTerminationCountdownRef.current?.(data.terminationSecondsRemaining);
+			}
+
+			// Pick up tiebreaker countdown if active (e.g. page reload)
+			if (data.tiebreakerActive) {
+				setTiebreakerActive(true);
+				setTiebreakerProposalIds(data.tiebreakerProposalIds || []);
+				if (data.tiebreakerSecondsRemaining > 0 && tiebreakerCountdownRef.current === null) {
+					startTiebreakerCountdownRef.current?.(data.tiebreakerSecondsRemaining);
+				}
 			}
 
 			// Redirect to survey page if this is a survey session
@@ -246,6 +270,124 @@ export default function SessionPage() {
 		}
 	}, [sessionId, fetchSessionInfo, fetchProposals, playEndSign]);
 
+	const startTerminationCountdown = useCallback(
+		(secondsRemaining) => {
+			terminationCountdownRef.current = secondsRemaining;
+			setTerminationCountdown(secondsRemaining);
+
+			if (terminationIntervalRef.current) {
+				clearInterval(terminationIntervalRef.current);
+				terminationIntervalRef.current = null;
+			}
+
+			terminationIntervalRef.current = setInterval(async () => {
+				terminationCountdownRef.current -= 1;
+				const remaining = terminationCountdownRef.current;
+				setTerminationCountdown(remaining);
+
+				if (remaining <= 0) {
+					clearInterval(terminationIntervalRef.current);
+					terminationIntervalRef.current = null;
+
+					// Execute termination
+					let thisClientExecuted = false;
+					try {
+						const execRes = await fetchWithCsrf("/api/admin/execute-scheduled-termination", {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({ sessionId }),
+						});
+						const execData = await execRes.json();
+						thisClientExecuted = execData.terminationExecuted;
+						// Check if tiebreaker started instead of close
+						if (execData.tiebreakerStarted) {
+							setTerminationCountdown(null);
+							setTiebreakerActive(true);
+							setTiebreakerProposalIds(execData.tiedProposalIds);
+							startTiebreakerCountdownRef.current?.(execData.secondsRemaining);
+							return 0;
+						}
+					} catch (err) {
+						console.error("Termination execute failed:", err);
+					}
+					setTerminationCountdown(null);
+					if (thisClientExecuted) {
+						// This client closed the session — results are ready
+						setCurrentPhase("closed");
+						await fetchWinningProposals();
+						playEndSign();
+						setShowSessionClosed(true);
+					}
+					// Other clients: Pusher tiebreaker-started or phase-change event handles display
+				}
+			}, 1000);
+
+			// Safety: stop polling after 80 seconds
+			setTimeout(() => {
+				if (terminationIntervalRef.current) {
+					clearInterval(terminationIntervalRef.current);
+					terminationIntervalRef.current = null;
+				}
+			}, 80000);
+		},
+		[sessionId, fetchWinningProposals, playEndSign],
+	);
+	startTerminationCountdownRef.current = startTerminationCountdown;
+
+	const startTiebreakerCountdown = useCallback(
+		(secondsRemaining) => {
+			tiebreakerCountdownRef.current = secondsRemaining;
+			setTiebreakerCountdown(secondsRemaining);
+
+			if (tiebreakerIntervalRef.current) {
+				clearInterval(tiebreakerIntervalRef.current);
+				tiebreakerIntervalRef.current = null;
+			}
+
+			tiebreakerIntervalRef.current = setInterval(async () => {
+				tiebreakerCountdownRef.current -= 1;
+				const remaining = tiebreakerCountdownRef.current;
+				setTiebreakerCountdown(remaining);
+
+				if (remaining <= 0) {
+					clearInterval(tiebreakerIntervalRef.current);
+					tiebreakerIntervalRef.current = null;
+
+					let thisClientExecuted = false;
+					try {
+						const execRes = await fetchWithCsrf("/api/admin/execute-scheduled-termination", {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({ sessionId }),
+						});
+						const execData = await execRes.json();
+						thisClientExecuted = execData.terminationExecuted;
+					} catch (err) {
+						console.error("Tiebreaker execute failed:", err);
+					}
+					setTiebreakerCountdown(null);
+					setTiebreakerActive(false);
+					setTiebreakerProposalIds([]);
+					if (thisClientExecuted) {
+						setCurrentPhase("closed");
+						await fetchWinningProposals();
+						playEndSign();
+						setShowSessionClosed(true);
+					}
+				}
+			}, 1000);
+
+			setTimeout(() => {
+				if (tiebreakerIntervalRef.current) {
+					clearInterval(tiebreakerIntervalRef.current);
+					tiebreakerIntervalRef.current = null;
+				}
+			}, 45000);
+		},
+		[sessionId, fetchWinningProposals, playEndSign],
+	);
+	startTiebreakerCountdownRef.current = startTiebreakerCountdown;
+
 	// Setup SSE for real-time updates
 	const { activeUserCount } = useSSE({
 		onNewProposal: (proposal) => {
@@ -286,7 +428,18 @@ export default function SessionPage() {
 		onPhaseChange: async (phaseData) => {
 			if (phaseData.sessionId === sessionId) {
 				setCurrentPhase(phaseData.phase);
+				if (phaseData.phase === "phase2") {
+					fetchProposals();
+				}
 				if (phaseData.phase === "closed" && !showSessionClosed) {
+					setTerminationCountdown(null);
+					setTiebreakerActive(false);
+					setTiebreakerCountdown(null);
+					setTiebreakerProposalIds([]);
+					if (tiebreakerIntervalRef.current) {
+						clearInterval(tiebreakerIntervalRef.current);
+						tiebreakerIntervalRef.current = null;
+					}
 					await fetchWinningProposals();
 					playEndSign();
 					setShowSessionClosed(true);
@@ -298,6 +451,21 @@ export default function SessionPage() {
 				playNotification();
 				setTransitionCountdown(transitionData.secondsRemaining);
 				checkPhaseTransition();
+			}
+		},
+		onTerminationScheduled: (data) => {
+			if (data.sessionId === sessionId) {
+				playNotification();
+				startTerminationCountdown(data.secondsRemaining);
+			}
+		},
+		onTiebreakerStarted: (data) => {
+			if (data.sessionId === sessionId) {
+				playNotification();
+				setTerminationCountdown(null);
+				setTiebreakerActive(true);
+				setTiebreakerProposalIds(data.tiedProposalIds);
+				startTiebreakerCountdown(data.secondsRemaining);
 			}
 		},
 		onNewSession: async () => {
@@ -365,6 +533,20 @@ export default function SessionPage() {
 			}
 		};
 	}, [session, currentPhase, sessionId, fetchSessionInfo, fetchProposals]);
+
+	// Clean up termination and tiebreaker intervals only on unmount
+	useEffect(() => {
+		return () => {
+			if (terminationIntervalRef.current) {
+				clearInterval(terminationIntervalRef.current);
+				terminationIntervalRef.current = null;
+			}
+			if (tiebreakerIntervalRef.current) {
+				clearInterval(tiebreakerIntervalRef.current);
+				tiebreakerIntervalRef.current = null;
+			}
+		};
+	}, []);
 
 	const handleCreateProposal = async (title, problem, solution) => {
 		try {
@@ -486,7 +668,7 @@ export default function SessionPage() {
 						{t("phases.ideaPhaseComplete")}
 					</h2>
 					<p className="text-xl text-gray-700">
-						{t("phases.nowToDebateAndVoting")}
+						{noMotivation ? t("phases.nowToVoting") : t("phases.nowToDebateAndVoting")}
 					</p>
 				</div>
 			</div>
@@ -607,7 +789,10 @@ export default function SessionPage() {
 	}
 
 	if (view === "vote") {
-		const topProposals = proposals.filter((p) => p.status === "top3");
+		let topProposals = proposals.filter((p) => p.status === "top3");
+		if (tiebreakerActive && tiebreakerProposalIds.length > 0) {
+			topProposals = topProposals.filter((p) => tiebreakerProposalIds.includes(p._id));
+		}
 		const initialIndex = selectedProposal
 			? topProposals.findIndex((p) => p._id === selectedProposal)
 			: 0;
@@ -625,6 +810,7 @@ export default function SessionPage() {
 				t={t}
 				noMotivation={noMotivation}
 				onlyYesVotes={onlyYesVotes}
+				tiebreakerActive={tiebreakerActive}
 			/>
 		);
 	}
@@ -634,7 +820,7 @@ export default function SessionPage() {
 		.filter((p) => p.status === "active")
 		.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-	const topProposals = proposals
+	let topProposals = proposals
 		.filter((p) => p.status === "top3")
 		.sort((a, b) => {
 			if (b.averageRating !== a.averageRating) {
@@ -642,6 +828,9 @@ export default function SessionPage() {
 			}
 			return b.thumbsUpCount - a.thumbsUpCount;
 		});
+	if (tiebreakerActive && tiebreakerProposalIds.length > 0) {
+		topProposals = topProposals.filter((p) => tiebreakerProposalIds.includes(p._id));
+	}
 
 	const displayProposals =
 		currentPhase === "phase1" ? activeProposals : topProposals;
@@ -780,7 +969,7 @@ export default function SessionPage() {
 						<div className="flex flex-col sm:flex-row items-center justify-center gap-3">
 							<Clock className="w-6 h-6 text-accent-600 animate-pulse shrink-0" />
 							<p className="text-center text-base sm:text-lg font-semibold text-accent-800 wrap-break-word">
-								{t("phases.transitionToDebate")}{" "}
+								{noMotivation ? t("phases.transitionToVoting") : t("phases.transitionToDebate")}{" "}
 								<span className="text-xl sm:text-2xl font-bold text-accent-900">
 									{transitionCountdown}
 								</span>{" "}
@@ -788,12 +977,55 @@ export default function SessionPage() {
 							</p>
 						</div>
 						<p className="text-center text-xs sm:text-sm text-accent-700 mt-2 wrap-break-word">
-							{t("phases.transitionMessage")}
+							{noMotivation ? t("phases.transitionMessageVotingOnly") : t("phases.transitionMessage")}
 						</p>
 					</div>
 				)}
 
-				{/* Information about limited voting rights in Phase 2 */}
+				{/* Countdown banner for Phase 2 termination */}
+			{terminationCountdown !== null && currentPhase === "phase2" && (
+				<div className="bg-gradient-to-r from-red-100 to-orange-50 border-2 border-red-400 rounded-2xl p-4 sm:p-6 shadow-md">
+					<div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+						<Clock className="w-6 h-6 text-red-600 animate-pulse shrink-0" />
+						<p className="text-center text-base sm:text-lg font-semibold text-red-800 wrap-break-word">
+							Röstningen avslutas om{" "}
+							<span className="text-xl sm:text-2xl font-bold text-red-900">
+								{terminationCountdown}
+							</span>{" "}
+							sekunder...
+						</p>
+					</div>
+					<p className="text-center text-xs sm:text-sm text-red-700 mt-2 wrap-break-word">
+						Resultaten visas när nedräkningen är klar.
+					</p>
+				</div>
+			)}
+
+			{/* Tiebreaker countdown banner */}
+			{tiebreakerActive && tiebreakerCountdown !== null && currentPhase === "phase2" && (
+				<div className="bg-gradient-to-r from-purple-100 to-indigo-50 border-2 border-purple-500 rounded-2xl p-4 sm:p-6 shadow-md">
+					<div className="text-center mb-3">
+						<p className="text-lg sm:text-xl font-bold text-purple-900">
+							Resultatet är OAVGJORT
+						</p>
+					</div>
+					<div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+						<Clock className="w-6 h-6 text-purple-600 animate-pulse shrink-0" />
+						<p className="text-center text-base sm:text-lg font-semibold text-purple-800 wrap-break-word">
+							Förlängd omröstning{" "}
+							<span className="text-xl sm:text-2xl font-bold text-purple-900">
+								{tiebreakerCountdown}
+							</span>{" "}
+							sekunder mellan förslagen.
+						</p>
+					</div>
+					<p className="text-center text-xs sm:text-sm text-purple-700 mt-2 wrap-break-word">
+						Du kan ändra din röst under denna tid.
+					</p>
+				</div>
+			)}
+
+			{/* Information about limited voting rights in Phase 2 */}
 				{currentPhase === "phase2" && !userHasVotedInSession && (
 					<div
 						className={`bg-gradient-to-r ${
@@ -833,8 +1065,8 @@ export default function SessionPage() {
 					</div>
 				)}
 
-				{/* User has voted - show confirmation */}
-				{currentPhase === "phase2" && userHasVotedInSession && (
+				{/* User has voted - show confirmation (hidden during tiebreaker to allow re-voting) */}
+				{currentPhase === "phase2" && userHasVotedInSession && !tiebreakerActive && (
 					<div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-400 rounded-2xl p-4 sm:p-6 shadow-md">
 						<div className="flex flex-col items-center gap-4">
 							<div className="flex flex-col sm:flex-row items-center gap-3">
@@ -867,9 +1099,9 @@ export default function SessionPage() {
 					</div>
 				)}
 
-				{/* Vote section - only show if user hasn't voted yet */}
+				{/* Vote section - show if user hasn't voted yet, or during tiebreaker */}
 				{currentPhase === "phase2" &&
-					!userHasVotedInSession &&
+					(!userHasVotedInSession || tiebreakerActive) &&
 					topProposals.length > 0 && (
 						<div className="bg-accent-50 border-2 border-accent-400 rounded-2xl p-4 sm:p-6 space-y-4">
 							<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -940,6 +1172,7 @@ export default function SessionPage() {
 									t={t}
 									noMotivation={noMotivation}
 									sessionId={sessionId}
+									tiebreakerActive={tiebreakerActive}
 								/>
 							))
 						)}
@@ -970,6 +1203,7 @@ function ProposalCard({
 	t,
 	noMotivation,
 	sessionId,
+	tiebreakerActive = false,
 }) {
 	const [hasVoted, setHasVoted] = useState(false);
 	const [checking, setChecking] = useState(true);
@@ -1497,7 +1731,16 @@ function ProposalCard({
 
 					{/* Vote button and collapse indicator */}
 					<div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-						{userHasVotedInSession &&
+						{tiebreakerActive ? (
+							<button
+								onClick={onVote}
+								className="flex-1 bg-purple-700 hover:bg-purple-800 text-white font-bold py-3 rounded-xl transition-colors text-sm sm:text-base"
+							>
+								{userHasVotedInSession && votedProposalId === proposal._id
+									? "Ändra röst"
+									: "Rösta"}
+							</button>
+						) : userHasVotedInSession &&
 						votedProposalId === proposal._id ? (
 							<div className="flex-1 bg-green-100 border-2 border-green-500 text-green-800 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 text-sm sm:text-base">
 								<span className="text-xl">✓</span>
@@ -1673,6 +1916,7 @@ function VoteView({
 	t,
 	noMotivation,
 	onlyYesVotes,
+	tiebreakerActive = false,
 }) {
 	const [currentProposalIndex, setCurrentProposalIndex] =
 		useState(initialProposalIndex);
@@ -1841,16 +2085,23 @@ function VoteView({
 					</div>
 
 					{/* Voting section */}
-					{!voted ? (
+					{!voted || tiebreakerActive ? (
 						<div className="px-4 sm:px-8 pb-6 sm:pb-8">
-							<div className="border-t-4 border-accent-400 pt-6 sm:pt-8">
+							<div className={`border-t-4 ${tiebreakerActive ? "border-purple-400" : "border-accent-400"} pt-6 sm:pt-8`}>
+								{tiebreakerActive && voted && (
+									<div className="text-center mb-3">
+										<span className="inline-flex items-center gap-1 bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm font-medium">
+											✓ Din nuvarande röst
+										</span>
+									</div>
+								)}
 								{onlyYesVotes && proposals.length > 1 && (
 									<p className="text-center text-sm text-gray-500 mb-2">
 										Förslag {currentProposalIndex + 1} av {proposals.length}
 									</p>
 								)}
 								<p className="text-center text-base sm:text-lg font-semibold text-gray-700 mb-4 sm:mb-6 wrap-break-word">
-									{t("voting.castYourVote")}
+									{tiebreakerActive ? "Rösta eller ändra din röst" : t("voting.castYourVote")}
 								</p>
 								{onlyYesVotes ? (
 									<div className="grid grid-cols-2 gap-3 sm:gap-6">
@@ -2011,8 +2262,8 @@ function VoteView({
 					</div>
 				)}
 
-				{/* Navigation buttons - only show if user hasn't voted yet and not onlyYesVotes */}
-				{!onlyYesVotes && !hasVotedInThisSession && proposals.length > 1 && (
+				{/* Navigation buttons - show if user hasn't voted yet (or during tiebreaker) and not onlyYesVotes */}
+				{!onlyYesVotes && (!hasVotedInThisSession || tiebreakerActive) && proposals.length > 1 && (
 					<div className="flex justify-between gap-3 mt-6">
 						<button
 							onClick={() =>

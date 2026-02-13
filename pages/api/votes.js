@@ -67,6 +67,13 @@ export default async function handler(req, res) {
 			const rawSession = await Session.findById(activeSession._id).lean();
 			const terminationActive = !!rawSession?.phase2TerminationScheduled;
 
+			// Server-side guard: onlyYesVotes sessions only accept "yes" votes
+			if (rawSession?.onlyYesVotes && choice !== "yes") {
+				return res.status(400).json({
+					message: "This session only accepts yes-votes.",
+				});
+			}
+
 			// Check if user already voted in this session (1 vote per session)
 			const existingVoteInSession = await FinalVote.findOne({
 				sessionId: activeSession._id,

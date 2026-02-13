@@ -87,6 +87,7 @@ function SessionsPanel() {
 	const [showUserCount, setShowUserCount] = useState(false);
 	const [noMotivation, setNoMotivation] = useState(false);
 	const [singleResult, setSingleResult] = useState(false);
+	const [onlyYesVotes, setOnlyYesVotes] = useState(false);
 	const [sessionType, setSessionType] = useState("standard"); // "standard" or "survey"
 	const [surveyDurationDays, setSurveyDurationDays] = useState("6");
 	const [message, setMessage] = useState("");
@@ -238,6 +239,7 @@ function SessionsPanel() {
 					showUserCount: showUserCount,
 					noMotivation: noMotivation,
 					singleResult: singleResult,
+					onlyYesVotes: onlyYesVotes,
 					sessionType: sessionType,
 					surveyDurationDays:
 						sessionType === "survey"
@@ -266,6 +268,7 @@ function SessionsPanel() {
 					loadSessionLimit();
 					setNewPlace("Write a short question max eight words here");
 					setMaxOneProposalPerUser(false);
+					setOnlyYesVotes(false);
 					setSessionType("standard");
 					setSurveyDurationDays("6");
 					setTimeout(
@@ -601,6 +604,29 @@ function SessionsPanel() {
 									<p className="text-xs text-slate-500 mt-1 ml-6">
 										Only one winner: proposal with highest
 										result (yes votes - no votes)
+									</p>
+								</div>
+
+								<div>
+									<label className="flex items-center gap-2 cursor-pointer">
+										<input
+											type="checkbox"
+											checked={onlyYesVotes}
+											onChange={(e) =>
+												setOnlyYesVotes(
+													e.target.checked
+												)
+											}
+											className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+										/>
+										<span className="text-sm font-semibold text-slate-700">
+											Only yes-votes
+										</span>
+									</label>
+									<p className="text-xs text-slate-500 mt-1 ml-6">
+										Replace the no-button with
+										&quot;Next proposal&quot;. Users browse
+										in a loop and confirm before voting.
 									</p>
 								</div>
 							</>

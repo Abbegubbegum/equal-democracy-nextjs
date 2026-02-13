@@ -101,6 +101,7 @@ export default async function handler(req, res) {
 				showUserCount,
 				noMotivation,
 				singleResult,
+				onlyYesVotes,
 				sessionType,
 				surveyDurationDays
 			} = req.body;
@@ -146,6 +147,7 @@ export default async function handler(req, res) {
 				// Survey sessions always have noMotivation enabled (responses are just titles)
 				noMotivation: isSurvey ? true : (noMotivation !== undefined ? noMotivation : false),
 				singleResult: singleResult !== undefined ? singleResult : false,
+				onlyYesVotes: onlyYesVotes || false,
 			});
 
 			// Decrement remainingSessions for regular admins (not superadmins)

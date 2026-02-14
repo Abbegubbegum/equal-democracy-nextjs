@@ -1,6 +1,7 @@
 import dbConnect from "@/lib/mongodb";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../auth/[...nextauth]";
+import { Session } from "@/lib/models";
 import { getActiveSession } from "@/lib/session-helper";
 import { createLogger } from "@/lib/logger";
 
@@ -36,6 +37,24 @@ export default async function handler(req, res) {
 		// Users are now only registered as active when they perform actions
 		// (create proposal, rate, vote, comment) via registerActiveUser() helper
 
+		// Use lean() to get raw doc with phase2TerminationScheduled (bypasses schema cache)
+		const rawSession = await Session.findById(activeSession._id).lean();
+		let terminationSecondsRemaining = null;
+		if (rawSession?.phase2TerminationScheduled) {
+			const scheduledTime = new Date(rawSession.phase2TerminationScheduled);
+			terminationSecondsRemaining = Math.max(0, Math.floor((scheduledTime - new Date()) / 1000));
+		}
+
+		// Tiebreaker state
+		let tiebreakerSecondsRemaining = null;
+		let tiebreakerProposalIds = null;
+		const tiebreakerActive = !!rawSession?.tiebreakerActive;
+		if (tiebreakerActive && rawSession?.tiebreakerScheduled) {
+			const tbTime = new Date(rawSession.tiebreakerScheduled);
+			tiebreakerSecondsRemaining = Math.max(0, Math.floor((tbTime - new Date()) / 1000));
+			tiebreakerProposalIds = (rawSession.tiebreakerProposals || []).map(id => id.toString());
+		}
+
 		return res.status(200).json({
 			_id: activeSession._id.toString(),
 			place: activeSession.place,
@@ -48,6 +67,10 @@ export default async function handler(req, res) {
 			sessionType: activeSession.sessionType || "standard",
 			archiveDate: activeSession.archiveDate,
 			surveyDurationDays: activeSession.surveyDurationDays,
+			terminationSecondsRemaining,
+			tiebreakerActive,
+			tiebreakerSecondsRemaining,
+			tiebreakerProposalIds,
 		});
 	} catch (error) {
 		log.error("Failed to fetch current session", { error: error.message });

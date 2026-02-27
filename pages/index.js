@@ -159,9 +159,9 @@ export default function HomePage() {
 	}
 
 	// Get theme colors
-	const primaryColor = theme.colors.primary[600] || "#2563eb";
-	const accentColor = theme.colors.accent[400] || "#facc15";
-	const primaryDark = theme.colors.primary[800] || "#1e40af";
+	const primaryColor = theme.colors.primary[600] || "#002d75";
+	const accentColor = theme.colors.accent[400] || "#f8b60e";
+	const primaryDark = theme.colors.primary[800] || "#001c55";
 
 	if (view === "apply-admin") {
 		return (

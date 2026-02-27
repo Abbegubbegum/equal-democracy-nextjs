@@ -18,7 +18,7 @@ import { fetchWithCsrf } from "../../lib/fetch-with-csrf";
 import { useTranslation } from "../../lib/hooks/useTranslation";
 import { useConfig } from "../../lib/contexts/ConfigContext";
 import useSSE from "../../lib/hooks/useSSE";
-import useSound from "use-sound";
+import { useLazySound } from "../../lib/hooks/useLazySound";
 
 // Standard session page - for 2-phase democracy sessions
 // Survey sessions are handled by /session/survey/[id].js
@@ -75,9 +75,9 @@ export default function SessionPage() {
 	const startTiebreakerCountdownRef = useRef(null);
 	const [sessionTypeVerified, setSessionTypeVerified] = useState(false);
 
-	// Sound effects
-	const [playEndSign] = useSound("/sounds/end_sign.mp3", { volume: 0.5 });
-	const [playNotification] = useSound("/sounds/notification.mp3", {
+	// Sound effects (lazy-loaded to reduce initial bundle)
+	const [playEndSign] = useLazySound("/sounds/end_sign.mp3", { volume: 0.5 });
+	const [playNotification] = useLazySound("/sounds/notification.mp3", {
 		volume: 0.5,
 	});
 

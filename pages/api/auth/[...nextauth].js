@@ -94,37 +94,45 @@ export const authOptions = {
 	callbacks: {
 		async jwt({ token, user }) {
 			if (user) {
+				// Initial sign-in: store all user data in the token
 				token.id = user.id;
+				token.email = user.email;
+				token.name = user.name;
 				token.isAdmin = !!user.isAdmin;
 				token.isSuperAdmin = !!user.isSuperAdmin;
 				token.adminStatus = user.adminStatus || "none";
+				token.lastRefreshed = Date.now();
+			} else if (!token.lastRefreshed || Date.now() - token.lastRefreshed > 5 * 60 * 1000) {
+				// Refresh from DB every 5 minutes
+				try {
+					await connectDB();
+					const dbUser = await User.findById(token.id);
+					if (!dbUser) {
+						return {};
+					}
+					token.email = dbUser.email;
+					token.name = dbUser.name;
+					token.isAdmin = !!dbUser.isAdmin;
+					token.isSuperAdmin = !!dbUser.isSuperAdmin;
+					token.adminStatus = dbUser.adminStatus || "none";
+					token.lastRefreshed = Date.now();
+				} catch (error) {
+					log.error("JWT refresh failed", { error: error.message });
+				}
 			}
 			return token;
 		},
 		async session({ session, token }) {
 			if (token && session.user) {
-				// Validate that the user still exists in the database
-				try {
-					await connectDB();
-					const dbUser = await User.findById(token.id);
-
-					if (!dbUser) {
-						// User no longer exists in database, invalidate session
-						throw new Error("User not found in database");
-					}
-
-					// Update session with current user data from database
-					session.user.id = dbUser._id.toString();
-					session.user.email = dbUser.email;
-					session.user.name = dbUser.name;
-					session.user.isAdmin = !!dbUser.isAdmin;
-					session.user.isSuperAdmin = !!dbUser.isSuperAdmin;
-					session.user.adminStatus = dbUser.adminStatus || "none";
-				} catch (error) {
-					log.error("Session validation failed", { error: error.message });
-					// Return null to invalidate the session
+				if (!token.id) {
 					return null;
 				}
+				session.user.id = token.id;
+				session.user.email = token.email;
+				session.user.name = token.name;
+				session.user.isAdmin = !!token.isAdmin;
+				session.user.isSuperAdmin = !!token.isSuperAdmin;
+				session.user.adminStatus = token.adminStatus || "none";
 			}
 			return session;
 		},

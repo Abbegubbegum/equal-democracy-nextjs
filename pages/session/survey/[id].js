@@ -14,7 +14,7 @@ import { fetchWithCsrf } from "../../../lib/fetch-with-csrf";
 import { useTranslation } from "../../../lib/hooks/useTranslation";
 import { useConfig } from "../../../lib/contexts/ConfigContext";
 import useSSE from "../../../lib/hooks/useSSE";
-import useSound from "use-sound";
+import { useLazySound } from "../../../lib/hooks/useLazySound";
 
 export default function SurveySessionPage() {
 	const { data: session, status } = useSession();
@@ -36,8 +36,8 @@ export default function SurveySessionPage() {
 	const accentColor = theme.colors?.accent?.[400] || "#f8b60e";
 	const primaryDark = theme.colors?.primary?.[800] || "#001c55";
 
-	// Sound effects
-	const [playNotification] = useSound("/sounds/notification.mp3", {
+	// Sound effects (lazy-loaded to reduce initial bundle)
+	const [playNotification] = useLazySound("/sounds/notification.mp3", {
 		volume: 0.5,
 	});
 

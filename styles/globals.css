@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
 @theme {
-	--color-primary-50: var(--theme-primary-50, #eff6ff);
-	--color-primary-100: var(--theme-primary-100, #dbeafe);
-	--color-primary-400: var(--theme-primary-400, #60a5fa);
-	--color-primary-500: var(--theme-primary-500, #3b82f6);
-	--color-primary-600: var(--theme-primary-600, #2563eb);
-	--color-primary-700: var(--theme-primary-700, #1d4ed8);
-	--color-primary-800: var(--theme-primary-800, #1e40af);
-	--color-primary-900: var(--theme-primary-900, #1e3a8a);
+	--color-primary-50: var(--theme-primary-50, #e6eaf2);
+	--color-primary-100: var(--theme-primary-100, #b3c0d9);
+	--color-primary-400: var(--theme-primary-400, #1a4a8f);
+	--color-primary-500: var(--theme-primary-500, #0d3a80);
+	--color-primary-600: var(--theme-primary-600, #002d75);
+	--color-primary-700: var(--theme-primary-700, #00236a);
+	--color-primary-800: var(--theme-primary-800, #001c55);
+	--color-primary-900: var(--theme-primary-900, #001440);
 
-	--color-accent-50: var(--theme-accent-50, #fefce8);
-	--color-accent-100: var(--theme-accent-100, #fef9c3);
-	--color-accent-400: var(--theme-accent-400, #facc15);
-	--color-accent-500: var(--theme-accent-500, #eab308);
-	--color-accent-600: var(--theme-accent-600, #ca8a04);
+	--color-accent-50: var(--theme-accent-50, #fef6e0);
+	--color-accent-100: var(--theme-accent-100, #fde9b3);
+	--color-accent-400: var(--theme-accent-400, #f8b60e);
+	--color-accent-500: var(--theme-accent-500, #e0a30d);
+	--color-accent-600: var(--theme-accent-600, #c8910b);
 }
 
 :root {
@@ -23,18 +23,18 @@
 
 	/* Default theme colors (Blue/Yellow) */
 	/* These will be overridden by JavaScript when theme changes */
-	--theme-primary-50: #eff6ff;
-	--theme-primary-100: #dbeafe;
-	--theme-primary-400: #60a5fa;
-	--theme-primary-500: #3b82f6;
-	--theme-primary-600: #2563eb;
-	--theme-primary-700: #1d4ed8;
-	--theme-primary-800: #1e40af;
-	--theme-primary-900: #1e3a8a;
+	--theme-primary-50: #e6eaf2;
+	--theme-primary-100: #b3c0d9;
+	--theme-primary-400: #1a4a8f;
+	--theme-primary-500: #0d3a80;
+	--theme-primary-600: #002d75;
+	--theme-primary-700: #00236a;
+	--theme-primary-800: #001c55;
+	--theme-primary-900: #001440;
 
-	--theme-accent-50: #fefce8;
-	--theme-accent-100: #fef9c3;
-	--theme-accent-400: #facc15;
-	--theme-accent-500: #eab308;
-	--theme-accent-600: #ca8a04;
+	--theme-accent-50: #fef6e0;
+	--theme-accent-100: #fde9b3;
+	--theme-accent-400: #f8b60e;
+	--theme-accent-500: #e0a30d;
+	--theme-accent-600: #c8910b;
 }

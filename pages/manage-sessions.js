@@ -23,8 +23,8 @@ export default function ManageSessionsPage() {
 	if (status === "loading") return <div className="p-8">Loading…</div>;
 	if (!session?.user?.isAdmin && !session?.user?.isSuperAdmin) return null;
 
-	const primaryColor = theme?.primaryColor || "#1e40af";
-	const primaryDark = theme?.primaryDark || "#1e3a8a";
+	const primaryColor = theme?.primaryColor || "#00236a";
+	const primaryDark = theme?.primaryDark || "#001440";
 	const accentColor = theme?.accentColor || "#fbbf24";
 
 	return (
@@ -98,7 +98,7 @@ function SessionsPanel() {
 	const [, setSettingsLoaded] = useState(false);
 
 	const accentColor = theme?.accentColor || "#fbbf24";
-	const primaryDark = theme?.primaryDark || "#1e3a8a";
+	const primaryDark = theme?.primaryDark || "#001440";
 
 	const loadSessions = useCallback(async () => {
 		setLoading(true);
@@ -1055,7 +1055,7 @@ function LivePanel({ sessionId, onPhaseAdvanced }) {
 	const pollRef = useRef(null);
 	const lastAdjustRef = useRef(0);
 
-	const primaryDark = theme?.primaryDark || "#1e3a8a";
+	const primaryDark = theme?.primaryDark || "#001440";
 
 	const executeTermination = useCallback(async () => {
 		try {

@@ -835,9 +835,9 @@ export default function SessionPage() {
 	const displayProposals =
 		currentPhase === "phase1" ? activeProposals : topProposals;
 
-	const primaryColor = theme.colors.primary[600] || "#2563eb";
-	const accentColor = theme.colors.accent[400] || "#facc15";
-	const primaryDark = theme.colors.primary[800] || "#1e40af";
+	const primaryColor = theme.colors.primary[600] || "#002d75";
+	const accentColor = theme.colors.accent[400] || "#f8b60e";
+	const primaryDark = theme.colors.primary[800] || "#001c55";
 
 	return (
 		<div className="min-h-screen bg-gray-50 overflow-x-hidden">

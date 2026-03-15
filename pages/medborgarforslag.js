@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { Star, Plus, TrendingUp, Clock, Award } from "lucide-react";
+import { Star, Plus, TrendingUp, Clock, Award, Users, Calendar, ChevronRight } from "lucide-react";
 import { fetchWithCsrf } from "../lib/fetch-with-csrf";
 import { useTranslation } from "../lib/hooks/useTranslation";
+import { useConfig } from "../lib/contexts/ConfigContext";
+import useSSE from "../lib/hooks/useSSE";
 
 const CATEGORY_NAMES = {
 	1: "Bygga, bo och miljö",
@@ -20,11 +22,13 @@ export default function MedborgarforslagPage() {
 	const { data: session } = useSession();
 	const router = useRouter();
 	const { t } = useTranslation();
+	const { theme } = useConfig();
 	const [proposals, setProposals] = useState([]);
 	const [loading, setLoading] = useState(true);
 	const [view, setView] = useState("list"); // 'list' or 'create'
 	const [sortBy, setSortBy] = useState("popular"); // 'popular' or 'recent'
 	const [filterCategory, setFilterCategory] = useState(null);
+	const [activeSessions, setActiveSessions] = useState([]);
 
 	// Create form
 	const [title, setTitle] = useState("");
@@ -32,6 +36,31 @@ export default function MedborgarforslagPage() {
 	const [selectedCategories, setSelectedCategories] = useState([]);
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState("");
+
+	const fetchActiveSessions = useCallback(async () => {
+		try {
+			const res = await fetch("/api/sessions/active");
+			const data = await res.json();
+			const sessions = Array.isArray(data) ? data : [];
+			setActiveSessions(sessions.filter((s) => s.sessionType !== "municipal"));
+		} catch (err) {
+			console.error("Error fetching sessions:", err);
+		}
+	}, []);
+
+	useSSE({
+		onNewSession: fetchActiveSessions,
+		onPhaseChange: fetchActiveSessions,
+		onSessionArchived: fetchActiveSessions,
+		onConnected: () => {},
+		onError: () => {},
+	});
+
+	useEffect(() => {
+		if (session) {
+			fetchActiveSessions();
+		}
+	}, [session, fetchActiveSessions]);
 
 	useEffect(() => {
 		fetchProposals();
@@ -139,15 +168,19 @@ export default function MedborgarforslagPage() {
 		}
 	};
 
+	const primaryColor = theme?.colors?.primary[600] || "#002d75";
+	const accentColor = theme?.colors?.accent[400] || "#f8b60e";
+	const primaryDark = theme?.colors?.primary[800] || "#001c55";
+
 	return (
 		<div className="min-h-screen bg-gray-50">
 			<header className="bg-primary-600 text-white p-6 shadow">
 				<div className="max-w-6xl mx-auto">
 					<div className="flex items-center justify-between">
 						<div>
-							<h1 className="text-3xl font-bold mb-2">Medborgarförslag</h1>
+							<h1 className="text-3xl font-bold mb-2">Idéer</h1>
 							<p className="text-primary-100">
-								Föreslå idéer som kan bli motioner i kommunfullmäktige
+								Föreslå idéer och delta i omröstningar
 							</p>
 						</div>
 						<Link
@@ -161,6 +194,28 @@ export default function MedborgarforslagPage() {
 			</header>
 
 			<main className="max-w-6xl mx-auto p-6">
+
+				{/* Active sessions */}
+				{activeSessions.length > 0 && (
+					<section className="mb-8">
+						<h2 className="text-lg font-semibold text-gray-700 mb-3">
+							Aktiva omröstningar
+						</h2>
+						<div className="grid gap-4">
+							{activeSessions.map((s) => (
+								<SessionCard
+									key={s._id}
+									session={s}
+									onClick={() => router.push(`/session/${s._id}`)}
+									t={t}
+									primaryDark={primaryDark}
+									accentColor={accentColor}
+								/>
+							))}
+						</div>
+					</section>
+				)}
+
 				{/* Navigation */}
 				<div className="mb-6 flex flex-wrap gap-3 items-center justify-between">
 					<div className="flex gap-2">
@@ -273,7 +328,7 @@ export default function MedborgarforslagPage() {
 				{view === "create" && (
 					<div className="bg-white rounded-lg shadow p-6">
 						<h2 className="text-2xl font-bold mb-4">
-							Skapa Medborgarförslag
+							Skapa Idé
 						</h2>
 
 						{error && (
@@ -364,7 +419,7 @@ export default function MedborgarforslagPage() {
 									}
 									className="flex-1 px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:bg-gray-400"
 								>
-									{submitting ? "Skapar..." : "Skapa Förslag"}
+									{submitting ? "Skapar..." : "Skapa Idé"}
 								</button>
 							</div>
 						</form>
@@ -472,5 +527,103 @@ function ProposalCard({ proposal, onRate, session }) {
 				</div>
 			</div>
 		</div>
+	);
+}
+
+function SessionCard({ session, onClick, t, primaryDark, accentColor }) {
+	const isSurvey = session.sessionType === "survey";
+
+	const phaseLabel = isSurvey
+		? t("ranking.liveRankings") || "Live Rankings"
+		: session.phase === "phase1"
+			? t("phases.phase1") || "Phase 1 - Idea Collection"
+			: session.phase === "phase2"
+				? t("phases.phase2") || "Phase 2 - Voting"
+				: t("phases.closed") || "Closed";
+
+	const phaseColor = isSurvey
+		? "bg-purple-100 text-purple-800"
+		: session.phase === "phase1"
+			? "bg-blue-100 text-blue-800"
+			: session.phase === "phase2"
+				? "bg-green-100 text-green-800"
+				: "bg-gray-100 text-gray-800";
+
+	const formatDate = (dateString) => {
+		const date = new Date(dateString);
+		return date.toLocaleDateString("sv-SE", {
+			year: "numeric",
+			month: "short",
+			day: "numeric",
+			hour: "2-digit",
+			minute: "2-digit",
+		});
+	};
+
+	return (
+		<button
+			onClick={onClick}
+			className="w-full bg-white rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 p-6 text-left group hover:scale-[1.02]"
+		>
+			<div className="flex items-start justify-between gap-4">
+				<div className="flex-1 min-w-0">
+					<h3 className="text-xl font-bold text-gray-900 mb-2 wrap-break-word group-hover:text-primary-700">
+						{session.place || "Unnamed Session"}
+					</h3>
+
+					<div className="flex flex-wrap items-center gap-2 mb-3">
+						<span
+							className={`px-3 py-1 rounded-full text-sm font-medium ${phaseColor}`}
+						>
+							{phaseLabel}
+						</span>
+						{session.activeUsersCount > 0 && (
+							<span className="flex items-center gap-1 text-sm text-gray-500">
+								<Users className="w-4 h-4" />
+								{session.activeUsersCount}{" "}
+								{t("sessions.activeUsers") || "active"}
+							</span>
+						)}
+					</div>
+
+					<div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+						{session.startDate && (
+							<span className="flex items-center gap-1">
+								<Calendar className="w-4 h-4" />
+								{formatDate(session.startDate)}
+							</span>
+						)}
+						{isSurvey && session.archiveDate && (
+							<span className="flex items-center gap-1 text-purple-600">
+								<Clock className="w-4 h-4" />
+								{(() => {
+									const now = new Date();
+									const archive = new Date(session.archiveDate);
+									const diff = archive - now;
+									if (diff <= 0)
+										return t("ranking.rankingEnded") || "Ended";
+									const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+									const hours = Math.floor(
+										(diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+									);
+									return days > 0 ? `${days}d ${hours}h` : `${hours}h`;
+								})()}{" "}
+								{t("ranking.timeRemaining") || "remaining"}
+							</span>
+						)}
+					</div>
+				</div>
+
+				<div
+					className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform"
+					style={{ backgroundColor: accentColor }}
+				>
+					<ChevronRight
+						className="w-6 h-6"
+						style={{ color: primaryDark }}
+					/>
+				</div>
+			</div>
+		</button>
 	);
 }

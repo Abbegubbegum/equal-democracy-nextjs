@@ -31,21 +31,12 @@ export default function LayeredTreemaps({ expenseCategories, incomeCategories, o
 	const expenseWidthPercent = maxTotal > 0 ? Math.max(20, Math.min(100, (totalFullExpenses / maxTotal) * 100 - (totalFullExpenses < totalFullIncome ? amplifiedDifference / maxTotal * 100 : 0))) : 100;
 	const incomeWidthPercent = maxTotal > 0 ? Math.max(20, Math.min(100, (totalFullIncome / maxTotal) * 100 - (totalFullIncome < totalFullExpenses ? amplifiedDifference / maxTotal * 100 : 0))) : 100;
 
-	// Now filter expense categories to show only adjustable portion (30%)
-	// Remove Skolpeng and Gymnasieskolpeng completely (100% fixed by law)
-	const filteredExpenseCategories = expenseCategories?.map(cat => {
-		// Remove Skolpeng and Gymnasieskolpeng completely
-		if (cat.name.toLowerCase().includes('skolpeng') || cat.name.toLowerCase().includes('gymnasieskolpeng')) {
-			return null;
-		}
-
-		// For other categories, show only the adjustable 30%
-		return {
-			...cat,
-			amount: cat.amount * 0.3,
-			defaultAmount: (cat.defaultAmount || cat.amount) * 0.3,
-		};
-	}).filter(cat => cat !== null) || [];
+	// Filter expense categories to show only the adjustable portion (30%)
+	const filteredExpenseCategories = expenseCategories?.map(cat => ({
+		...cat,
+		amount: cat.amount * 0.3,
+		defaultAmount: (cat.defaultAmount || cat.amount) * 0.3,
+	})) || [];
 
 	// Filter income categories - remove Statsbidrag (not adjustable)
 	const filteredIncomeCategories = incomeCategories?.map(cat => {

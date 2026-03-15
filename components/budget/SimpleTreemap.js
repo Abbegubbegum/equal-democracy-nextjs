@@ -1,15 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import * as d3 from "d3";
 
 /**
  * Simple Mobile-Friendly Treemap for Budget Committees
  * Shows only expense categories with green-to-red color scale
  * Displays committee name and amount in mnkr
- * Supports pinch-to-zoom gestures for adjusting amounts
  */
-export default function SimpleTreemap({ categories, onAmountChange, taxBaseInfo, onCategoryClick }) {
+export default function SimpleTreemap({ categories, taxBaseInfo, onCategoryClick }) {
   const containerRef = useRef(null);
-  const [, setActiveTouch] = useState(null);
 
   useEffect(() => {
     if (!containerRef.current || !categories || categories.length === 0) return;
@@ -166,96 +164,6 @@ export default function SimpleTreemap({ categories, onAmountChange, taxBaseInfo,
         .text(amountText);
     });
 
-    // Add pinch-to-zoom gesture support for mobile users
-    let touchState = null;
-    let handleTouchStart, handleTouchMove, handleTouchEnd;
-
-    if (onAmountChange) {
-      handleTouchStart = (e) => {
-        if (e.touches.length === 2) {
-          const target = e.target.closest('g');
-          if (!target) return;
-
-          const rect = target.querySelector('rect');
-          if (!rect) return;
-
-          const categoryId = rect.getAttribute('data-category-id');
-          const category = categories.find(c => c.id === categoryId);
-          if (!category) return;
-
-          const touch1 = e.touches[0];
-          const touch2 = e.touches[1];
-          const distance = Math.hypot(
-            touch2.clientX - touch1.clientX,
-            touch2.clientY - touch1.clientY
-          );
-
-          // Calculate min/max the same way as the sliders do
-          const defaultValue = category.defaultAmount || category.amount;
-          let minValue, maxValue;
-
-          // Check if this is a tax rate income category
-          if (category.isTaxRate && taxBaseInfo) {
-            // For tax income: use ±10% based on tax rates from session
-            minValue = taxBaseInfo.minTaxRateKr * taxBaseInfo.taxBase;
-            maxValue = taxBaseInfo.maxTaxRateKr * taxBaseInfo.taxBase;
-          } else {
-            // For expenses and regular income: use ±30% (70% to 130% of default)
-            minValue = category.minAmount < defaultValue
-              ? category.minAmount
-              : Math.floor(defaultValue * 0.7);
-            maxValue = minValue + 2 * (defaultValue - minValue);
-          }
-
-          touchState = {
-            categoryId,
-            initialDistance: distance,
-            initialAmount: category.amount || category.defaultAmount,
-            minAmount: minValue,
-            maxAmount: maxValue,
-          };
-
-          setActiveTouch(categoryId);
-          e.preventDefault();
-        }
-      };
-
-      handleTouchMove = (e) => {
-        if (e.touches.length === 2 && touchState) {
-          const touch1 = e.touches[0];
-          const touch2 = e.touches[1];
-          const distance = Math.hypot(
-            touch2.clientX - touch1.clientX,
-            touch2.clientY - touch1.clientY
-          );
-
-          const distanceChange = distance - touchState.initialDistance;
-          // Sensitivity: 1 million kr per 10 pixels of pinch distance change
-          const amountChange = distanceChange * 100000; // 0.1 mnkr per pixel
-          let newAmount = touchState.initialAmount + amountChange;
-
-          // Clamp to min/max
-          newAmount = Math.max(touchState.minAmount, Math.min(touchState.maxAmount, newAmount));
-
-          onAmountChange(touchState.categoryId, newAmount);
-          e.preventDefault();
-        }
-      };
-
-      handleTouchEnd = (e) => {
-        if (touchState && e.touches.length < 2) {
-          touchState = null;
-          setActiveTouch(null);
-        }
-      };
-
-      const svgElement = svg.node();
-      svgElement.addEventListener('touchstart', handleTouchStart, { passive: false });
-      svgElement.addEventListener('touchmove', handleTouchMove, { passive: false });
-      svgElement.addEventListener('touchend', handleTouchEnd);
-      svgElement.addEventListener('touchcancel', handleTouchEnd);
-    }
-
     // Responsive resize handler
     const handleResize = () => {
       if (!containerRef.current) return;
@@ -339,16 +247,9 @@ export default function SimpleTreemap({ categories, onAmountChange, taxBaseInfo,
 
     return () => {
       window.removeEventListener("resize", handleResize);
-      if (onAmountChange && svg.node()) {
-        const svgElement = svg.node();
-        svgElement.removeEventListener('touchstart', handleTouchStart);
-        svgElement.removeEventListener('touchmove', handleTouchMove);
-        svgElement.removeEventListener('touchend', handleTouchEnd);
-        svgElement.removeEventListener('touchcancel', handleTouchEnd);
-      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categories, onAmountChange, taxBaseInfo, onCategoryClick]);
+  }, [categories, taxBaseInfo, onCategoryClick]);
 
   // Helper function to wrap text with hyphenation support
   function wrapText(text, maxWidth) {

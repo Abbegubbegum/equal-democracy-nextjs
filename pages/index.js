@@ -1,77 +1,41 @@
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/router";
 import { useState, useEffect, useCallback } from "react";
-import {
-	Users,
-	Calendar,
-	ChevronRight,
-	Clock,
-	Star,
-} from "lucide-react";
+import { Users, ChevronRight } from "lucide-react";
 import { useTranslation } from "../lib/hooks/useTranslation";
 import { useConfig } from "../lib/contexts/ConfigContext";
-import useSSE from "../lib/hooks/useSSE";
+
+function relativeTime(date) {
+	const diff = Date.now() - new Date(date).getTime();
+	const minutes = Math.floor(diff / 60000);
+	if (minutes < 1) return "just nu";
+	if (minutes < 60) return `${minutes} min sedan`;
+	const hours = Math.floor(minutes / 60);
+	if (hours < 24) return `${hours} tim sedan`;
+	const days = Math.floor(hours / 24);
+	if (days < 7) return `${days} d sedan`;
+	return new Date(date).toLocaleDateString("sv-SE", { day: "numeric", month: "short" });
+}
 
 export default function HomePage() {
 	const { data: session, status } = useSession();
 	const router = useRouter();
 	const { t } = useTranslation();
 	const { theme } = useConfig();
-	const [loading, setLoading] = useState(true);
-	const [activeSessions, setActiveSessions] = useState([]);
-	const [_archivedSessions, setArchivedSessions] = useState([]);
 	const [view, setView] = useState("home"); // 'home', 'apply-admin'
+	const [latestItems, setLatestItems] = useState([]);
 
-	// Fetch all active sessions
-	const fetchActiveSessions = useCallback(async () => {
+	const fetchLatestItems = useCallback(async () => {
 		try {
-			const res = await fetch("/api/sessions/active");
-			const data = await res.json();
-			const sessions = Array.isArray(data) ? data : [];
-			// Filter out municipal sessions - they should only appear on board pages
-			const nonMunicipalSessions = sessions.filter(s => s.sessionType !== "municipal");
-			setActiveSessions(nonMunicipalSessions);
+			const res = await fetch("/api/recent");
+			if (res.ok) {
+				const data = await res.json();
+				setLatestItems(Array.isArray(data) ? data : []);
+			}
 		} catch (error) {
-			console.error("Error fetching active sessions:", error);
-		} finally {
-			setLoading(false);
+			console.error("Error fetching latest items:", error);
 		}
 	}, []);
-
-	// Fetch archived sessions
-	const fetchArchivedSessions = useCallback(async () => {
-		try {
-			const res = await fetch("/api/sessions/archived");
-			const data = await res.json();
-			const sessions = Array.isArray(data) ? data : [];
-			// Filter out municipal sessions - they should only appear on board pages
-			const nonMunicipalSessions = sessions.filter(s => s.sessionType !== "municipal");
-			setArchivedSessions(nonMunicipalSessions);
-		} catch (error) {
-			console.error("Error fetching archived sessions:", error);
-		}
-	}, []);
-
-	// Setup SSE for real-time updates - listen for new sessions
-	useSSE({
-		onNewSession: async () => {
-			// Refresh sessions list when a new session is created
-			await fetchActiveSessions();
-		},
-		onPhaseChange: async () => {
-			// Refresh sessions list when a session phase changes
-			await fetchActiveSessions();
-		},
-		onSessionArchived: async () => {
-			// Refresh both lists when a session is archived
-			await fetchActiveSessions();
-			await fetchArchivedSessions();
-		},
-		onConnected: () => {},
-		onError: (error) => {
-			console.error("Connection error:", error);
-		},
-	});
 
 	useEffect(() => {
 		if (status === "unauthenticated") {
@@ -79,41 +43,11 @@ export default function HomePage() {
 		}
 	}, [status, router]);
 
-	// Check for expired ranking sessions to archive on load
-	useEffect(() => {
-		const checkForArchiving = async () => {
-			try {
-				await fetch("/api/sessions/check-archive", { method: "POST" });
-				// Refresh lists after checking
-				await fetchActiveSessions();
-				await fetchArchivedSessions();
-			} catch (error) {
-				console.error("Error checking for sessions to archive:", error);
-			}
-		};
-
-		if (session) {
-			checkForArchiving();
-		}
-	}, [session, fetchActiveSessions, fetchArchivedSessions]);
-
 	useEffect(() => {
 		if (session) {
-			fetchActiveSessions();
-			fetchArchivedSessions();
+			fetchLatestItems();
 		}
-	}, [session, fetchActiveSessions, fetchArchivedSessions]);
-
-	// Refresh sessions periodically
-	useEffect(() => {
-		if (!session) return;
-
-		const pollInterval = setInterval(() => {
-			fetchActiveSessions();
-		}, 30000); // Every 30 seconds
-
-		return () => clearInterval(pollInterval);
-	}, [session, fetchActiveSessions]);
+	}, [session, fetchLatestItems]);
 
 	const handleApplyForAdmin = async (
 		name,
@@ -146,7 +80,7 @@ export default function HomePage() {
 		}
 	};
 
-	if (status === "loading" || loading) {
+	if (status === "loading") {
 		return (
 			<div className="min-h-screen bg-gray-100 flex items-center justify-center">
 				<div className="text-xl text-gray-600">Laddar...</div>
@@ -192,7 +126,7 @@ export default function HomePage() {
 								onClick={() => router.push("/about")}
 								className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity cursor-pointer"
 								style={{ backgroundColor: accentColor }}
-								title="Om Jämlik Demokrati"
+								title="Om Vallentuna Framåt"
 							>
 								<Users
 									className="w-6 h-6"
@@ -203,7 +137,7 @@ export default function HomePage() {
 								<button
 									onClick={() => router.push("/about")}
 									className="text-xl sm:text-2xl font-bold wrap-break-word hover:text-accent-400 transition-colors text-left"
-									title="Om Jämlik Demokrati"
+									title="Om Vallentuna Framåt"
 								>
 									{t("appName")}
 								</button>
@@ -263,7 +197,7 @@ export default function HomePage() {
 					</div>
 					<h2 className="text-lg sm:text-xl font-medium">
 						{t("sessions.selectSession") ||
-							"Select a session to participate"}
+							"Välkommen att påverka!"}
 					</h2>
 				</div>
 			</div>
@@ -272,12 +206,12 @@ export default function HomePage() {
 			<div className="max-w-4xl mx-auto p-4 sm:p-6">
 				<div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
 					<button
-						onClick={() => router.push("/vallentuna/kommunfullmaktige")}
+						onClick={() => router.push("/vallentuna")}
 						className="bg-white hover:bg-gray-50 p-4 rounded-lg shadow text-center transition-colors"
 					>
 						<div className="text-2xl mb-2">🏛️</div>
 						<div className="font-semibold text-sm text-gray-800">
-							Kommunfullmäktige
+							Kommunen
 						</div>
 					</button>
 					<button
@@ -286,16 +220,16 @@ export default function HomePage() {
 					>
 						<div className="text-2xl mb-2">💡</div>
 						<div className="font-semibold text-sm text-gray-800">
-							Medborgarförslag
+							Idéer
 						</div>
 					</button>
 					<button
-						onClick={() => router.push("/vallentuna")}
+						onClick={() => router.push("/budget")}
 						className="bg-white hover:bg-gray-50 p-4 rounded-lg shadow text-center transition-colors"
 					>
-						<div className="text-2xl mb-2">📋</div>
+						<div className="text-2xl mb-2">📊</div>
 						<div className="font-semibold text-sm text-gray-800">
-							Alla Nämnder
+							Budget
 						</div>
 					</button>
 					<button
@@ -304,264 +238,49 @@ export default function HomePage() {
 					>
 						<div className="text-2xl mb-2">📚</div>
 						<div className="font-semibold text-sm text-gray-800">
-							Arkivet
+							Arkiv
 						</div>
 					</button>
 				</div>
 			</div>
 
-			{/* Session cards */}
-			<div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
-				{activeSessions.length === 0 ? (
-					<div className="bg-white rounded-2xl shadow-md p-8 text-center">
-						<div className="text-6xl mb-4">📭</div>
-						<h3 className="text-xl font-bold text-gray-800 mb-2">
-							{t("sessions.noActiveSessions") ||
-								"No active sessions"}
-						</h3>
-						<p className="text-gray-600">
-							{t("sessions.checkBackLater") ||
-								"Check back later or contact an administrator to create a session."}
-						</p>
-					</div>
-				) : (
-					<div className="grid gap-4 sm:gap-6">
-						{activeSessions.map((sessionItem) => (
-							<SessionCard
-								key={sessionItem._id}
-								session={sessionItem}
-								onClick={() =>
-									router.push(`/session/${sessionItem._id}`)
-								}
-								t={t}
-								primaryDark={primaryDark}
-								accentColor={accentColor}
-							/>
+			{/* Latest contributions */}
+			{latestItems.length > 0 && (
+				<div className="max-w-4xl mx-auto px-4 sm:px-6 pb-8">
+					<div className="bg-white rounded-lg shadow overflow-hidden">
+						<div className="px-4 py-2 border-b bg-gray-50">
+							<span className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+								Senaste aktivitet
+							</span>
+						</div>
+						{latestItems.map((item, i) => (
+							<button
+								key={i}
+								onClick={() => router.push(item.link)}
+								className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left transition-colors border-b last:border-b-0"
+							>
+								<span className="text-lg shrink-0">{item.icon}</span>
+								<div className="min-w-0 flex-1">
+									<span className="text-sm font-medium text-gray-800 block truncate">
+										{item.title}
+									</span>
+									<span className="text-xs text-gray-500">
+										{item.subtitle} · {relativeTime(item.date)}
+									</span>
+								</div>
+								<ChevronRight className="w-4 h-4 text-gray-300 shrink-0" />
+							</button>
 						))}
-					</div>
-				)}
-
-			</div>
-		</div>
-	);
-}
-
-// ============================================================================
-// SESSION CARD COMPONENT
-// ============================================================================
-
-function SessionCard({
-	session,
-	onClick,
-	t,
-	primaryDark,
-	accentColor,
-}) {
-	const isSurvey = session.sessionType === "survey";
-
-	const phaseLabel = isSurvey
-		? t("ranking.liveRankings") || "Live Rankings"
-		: session.phase === "phase1"
-			? t("phases.phase1") || "Phase 1 - Idea Collection"
-			: session.phase === "phase2"
-				? t("phases.phase2") || "Phase 2 - Voting"
-				: t("phases.closed") || "Closed";
-
-	const phaseColor = isSurvey
-		? "bg-purple-100 text-purple-800"
-		: session.phase === "phase1"
-			? "bg-blue-100 text-blue-800"
-			: session.phase === "phase2"
-				? "bg-green-100 text-green-800"
-				: "bg-gray-100 text-gray-800";
-
-	const formatDate = (dateString) => {
-		const date = new Date(dateString);
-		return date.toLocaleDateString("sv-SE", {
-			year: "numeric",
-			month: "short",
-			day: "numeric",
-			hour: "2-digit",
-			minute: "2-digit",
-		});
-	};
-
-	return (
-		<button
-			onClick={onClick}
-			className="w-full bg-white rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 p-6 text-left group hover:scale-[1.02]"
-		>
-			<div className="flex items-start justify-between gap-4">
-				<div className="flex-1 min-w-0">
-					{/* Session name/place */}
-					<h3 className="text-xl font-bold text-gray-900 mb-2 wrap-break-word group-hover:text-primary-700">
-						{session.place || "Unnamed Session"}
-					</h3>
-
-					{/* Phase badge */}
-					<div className="flex flex-wrap items-center gap-2 mb-3">
-						<span
-							className={`px-3 py-1 rounded-full text-sm font-medium ${phaseColor}`}
+						<button
+							onClick={() => router.push("/archive")}
+							className="w-full px-4 py-3 text-sm text-primary-600 hover:bg-gray-50 text-center font-medium transition-colors"
 						>
-							{phaseLabel}
-						</span>
-						{session.activeUsersCount > 0 && (
-							<span className="flex items-center gap-1 text-sm text-gray-500">
-								<Users className="w-4 h-4" />
-								{session.activeUsersCount}{" "}
-								{t("sessions.activeUsers") || "active"}
-							</span>
-						)}
-					</div>
-
-					{/* Session info */}
-					<div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
-						{session.startDate && (
-							<span className="flex items-center gap-1">
-								<Calendar className="w-4 h-4" />
-								{formatDate(session.startDate)}
-							</span>
-						)}
-						{isSurvey && session.archiveDate && (
-							<span className="flex items-center gap-1 text-purple-600">
-								<Clock className="w-4 h-4" />
-								{(() => {
-									const now = new Date();
-									const archive = new Date(
-										session.archiveDate
-									);
-									const diff = archive - now;
-									if (diff <= 0)
-										return (
-											t("ranking.rankingEnded") || "Ended"
-										);
-									const days = Math.floor(
-										diff / (1000 * 60 * 60 * 24)
-									);
-									const hours = Math.floor(
-										(diff % (1000 * 60 * 60 * 24)) /
-											(1000 * 60 * 60)
-									);
-									return days > 0
-										? `${days}d ${hours}h`
-										: `${hours}h`;
-								})()}{" "}
-								{t("ranking.timeRemaining") || "remaining"}
-							</span>
-						)}
+							Se mer i Arkivet →
+						</button>
 					</div>
 				</div>
-
-				{/* Arrow indicator */}
-				<div
-					className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform"
-					style={{ backgroundColor: accentColor }}
-				>
-					<ChevronRight
-						className="w-6 h-6"
-						style={{ color: primaryDark }}
-					/>
-				</div>
-			</div>
-		</button>
-	);
-}
-
-// ============================================================================
-// ARCHIVED SESSION CARD COMPONENT (currently unused but kept for future use)
-// ============================================================================
-
-function _ArchivedSessionCard({ session, onClick, t }) {
-	const formatDate = (dateString) => {
-		if (!dateString) return "";
-		const date = new Date(dateString);
-		return date.toLocaleDateString("sv-SE", {
-			year: "numeric",
-			month: "short",
-			day: "numeric",
-		});
-	};
-
-	return (
-		<button
-			onClick={onClick}
-			className="w-full bg-white rounded-2xl shadow-md hover:shadow-lg transition-all duration-200 p-5 text-left group hover:scale-[1.01] border border-gray-200"
-		>
-			<div className="flex items-start justify-between gap-4">
-				<div className="flex-1 min-w-0">
-					{/* Session name */}
-					<h3 className="text-lg font-bold text-gray-800 mb-2 wrap-break-word group-hover:text-purple-700">
-						{session.place || "Unnamed Ranking"}
-					</h3>
-
-					{/* Ranking info badges */}
-					<div className="flex flex-wrap items-center gap-2 mb-3">
-						<span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
-							{t("archive.archived") || "Archived"}
-						</span>
-						{session.participantCount > 0 && (
-							<span className="flex items-center gap-1 text-xs text-gray-500">
-								<Users className="w-3 h-3" />
-								{session.participantCount}{" "}
-								{t("archive.participants") || "participants"}
-							</span>
-						)}
-					</div>
-
-					{/* Top responses preview */}
-					{session.topProposals &&
-						session.topProposals.length > 0 && (
-							<div className="space-y-1 mb-2">
-								{session.topProposals
-									.slice(0, 3)
-									.map((proposal, index) => (
-										<div
-											key={proposal._id}
-											className="flex items-center gap-2 text-sm"
-										>
-											<span
-												className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white ${
-													index === 0
-														? "bg-yellow-500"
-														: index === 1
-															? "bg-gray-400"
-															: "bg-orange-500"
-												}`}
-											>
-												{index + 1}
-											</span>
-											<span className="text-gray-700 truncate flex-1">
-												{proposal.title}
-											</span>
-											<span className="text-xs text-gray-500 flex items-center gap-0.5">
-												<Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-												{(
-													proposal.averageRating || 0
-												).toFixed(1)}
-											</span>
-										</div>
-									))}
-							</div>
-						)}
-
-					{/* Dates */}
-					<div className="flex flex-wrap items-center gap-3 text-xs text-gray-500">
-						{session.startDate && (
-							<span className="flex items-center gap-1">
-								<Calendar className="w-3 h-3" />
-								{formatDate(session.startDate)} -{" "}
-								{formatDate(session.endDate)}
-							</span>
-						)}
-					</div>
-				</div>
-
-				{/* Arrow indicator */}
-				<div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-gray-100 group-hover:bg-purple-100 transition-colors">
-					<ChevronRight className="w-5 h-5 text-gray-500 group-hover:text-purple-600" />
-				</div>
-			</div>
-		</button>
+			)}
+		</div>
 	);
 }
 

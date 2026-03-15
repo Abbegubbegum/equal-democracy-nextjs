@@ -236,12 +236,25 @@ export default function BudgetVotingPage() {
 		};
 	});
 
-	// Sort categories to put priorityCategoryId first
-	const sortedExpenseCategories = budgetSession?.categories ? [...budgetSession.categories].sort((a, b) => {
-		if (a.id === priorityCategoryId) return -1;
-		if (b.id === priorityCategoryId) return 1;
-		return 0;
-	}) : [];
+	// Sort categories to put priorityCategoryId first.
+	// Override Skolpeng and Gymnasieskolpeng: adjustable at 70–130% of default (default in middle).
+	const isSkolpeng = (name) => name && (
+		name.toLowerCase().includes('skolpeng') ||
+		name.toLowerCase().includes('gymnasieskolpeng')
+	);
+	const sortedExpenseCategories = budgetSession?.categories ? [...budgetSession.categories]
+		.map(cat => {
+			if (isSkolpeng(cat.name)) {
+				const def = cat.defaultAmount || cat.amount;
+				return { ...cat, isFixed: false, fixedPercentage: 0, minAmount: Math.round(def * 0.7) };
+			}
+			return cat;
+		})
+		.sort((a, b) => {
+			if (a.id === priorityCategoryId) return -1;
+			if (b.id === priorityCategoryId) return 1;
+			return 0;
+		}) : [];
 
 	const sortedIncomeCategories = budgetSession?.incomeCategories ? [...budgetSession.incomeCategories].sort((a, b) => {
 		if (a.id === priorityCategoryId) return -1;
@@ -337,14 +350,22 @@ export default function BudgetVotingPage() {
 							<ArrowLeft className="w-4 h-4" />
 							{t("common.back")}
 						</button>
-						{session?.user?.isSuperAdmin && (
+						<div className="flex items-center gap-4">
 							<button
-								onClick={() => router.push("/budget/admin")}
+								onClick={() => router.push(`/budget/debate/${sessionId}`)}
 								className={`${themeColors.text} ${themeColors.hover} font-medium`}
 							>
-								{t("budget.budgetAdmin")}
+								Till debatten
 							</button>
-						)}
+							{session?.user?.isSuperAdmin && (
+								<button
+									onClick={() => router.push("/budget/admin")}
+									className={`${themeColors.text} ${themeColors.hover} font-medium`}
+								>
+									{t("budget.budgetAdmin")}
+								</button>
+							)}
+						</div>
 					</div>
 					<h1 className="text-2xl font-bold">
 						{budgetSession?.name} {t("budget.title")}

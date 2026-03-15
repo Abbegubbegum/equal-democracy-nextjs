@@ -7,6 +7,7 @@ import {
 	BudgetSession,
 	MunicipalSession,
 	TopProposal,
+	BudgetArgument,
 } from "@/lib/models";
 import { createLogger } from "@/lib/logger";
 
@@ -21,7 +22,7 @@ export default async function handler(req, res) {
 	try {
 		await connectDB();
 
-		const [sessions, ideas, budgets, municipals, winners] = await Promise.all([
+		const [sessions, ideas, budgets, municipals, winners, debateArgs] = await Promise.all([
 			Session.find({ status: "active" })
 				.sort({ createdAt: -1 })
 				.limit(6)
@@ -47,9 +48,22 @@ export default async function handler(req, res) {
 				.limit(6)
 				.select("title sessionPlace archivedAt createdAt _id")
 				.lean(),
+			BudgetArgument.find({ isHidden: false })
+				.sort({ createdAt: -1 })
+				.limit(6)
+				.select("sessionId categoryName direction createdAt")
+				.lean(),
 		]);
 
 		const candidates = [
+			...debateArgs.map((a) => ({
+				type: "debate",
+				icon: "💬",
+				title: `${a.direction === "up" ? "Höj" : "Sänk"} ${a.categoryName}`,
+				subtitle: "Budgetdebatt",
+				date: a.createdAt,
+				link: `/budget/debate/${a.sessionId}`,
+			})),
 			...sessions.map((s) => ({
 				type: "session",
 				icon: "🗳️",

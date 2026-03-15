@@ -163,10 +163,10 @@ export default function CategoryInput({ category, allocation, onUpdate, readOnly
 									}}
 								/>
 							)}
-							{/* Default position marker (blue line) */}
+							{/* Default position marker (blue tick) */}
 							<div
-								className="absolute top-0 bottom-0 w-0.5 bg-blue-400 z-10"
-								style={{ left: `${defaultPercentage}%` }}
+								className="absolute w-0.5 bg-blue-500 z-10"
+								style={{ left: `${defaultPercentage}%`, top: "-4px", bottom: "-4px" }}
 							/>
 							{/* Filled track from left (minimum) to current position */}
 							<div

@@ -1,7 +1,7 @@
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/router";
 import { useState, useEffect, useCallback } from "react";
-import { Users, ChevronRight } from "lucide-react";
+import { ChevronsRight, ChevronRight } from "lucide-react";
 import { useTranslation } from "../lib/hooks/useTranslation";
 import { useConfig } from "../lib/contexts/ConfigContext";
 
@@ -121,31 +121,26 @@ export default function HomePage() {
 			>
 				<div className="max-w-4xl mx-auto">
 					<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
-						<div className="flex items-center gap-3">
-							<button
-								onClick={() => router.push("/about")}
-								className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 hover:opacity-80 transition-opacity cursor-pointer"
+						<button
+							onClick={() => router.push("/about")}
+							className="flex flex-row items-center gap-3 hover:opacity-80 transition-opacity cursor-pointer"
+							title="Om Vallentuna Framåt"
+						>
+							<div
+								className="w-14 h-14 rounded-full flex items-center justify-center shrink-0"
 								style={{ backgroundColor: accentColor }}
-								title="Om Vallentuna Framåt"
 							>
-								<Users
-									className="w-6 h-6"
+								<ChevronsRight
+									className="w-11 h-11"
+									strokeWidth={3}
 									style={{ color: primaryDark }}
 								/>
-							</button>
-							<div className="min-w-0">
-								<button
-									onClick={() => router.push("/about")}
-									className="text-xl sm:text-2xl font-bold wrap-break-word hover:text-accent-400 transition-colors text-left"
-									title="Om Vallentuna Framåt"
-								>
-									{t("appName")}
-								</button>
-								<p className="text-primary-100 text-xs sm:text-sm wrap-break-word">
-									{t("auth.hello")}, {session.user.name}!
-								</p>
 							</div>
-						</div>
+							<div className="text-left">
+								<div className="text-xl sm:text-2xl font-black tracking-widest leading-tight">VALLENTUNA</div>
+								<div className="text-base sm:text-lg font-medium -mt-1">Framåt</div>
+							</div>
+						</button>
 						<div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm">
 							{session.user.isSuperAdmin && (
 								<>
@@ -195,10 +190,9 @@ export default function HomePage() {
 							</button>
 						</div>
 					</div>
-					<h2 className="text-lg sm:text-xl font-medium">
-						{t("sessions.selectSession") ||
-							"Välkommen att påverka!"}
-					</h2>
+					<p className="text-white text-sm font-normal mt-3">
+						{t("auth.hello")}, {session.user.name} – Välkommen att påverka!
+					</p>
 				</div>
 			</div>
 

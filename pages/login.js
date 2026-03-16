@@ -2,7 +2,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { Users, Info } from "lucide-react";
+import { ChevronsRight, Info } from "lucide-react";
 import { useTranslation } from "../lib/hooks/useTranslation";
 import { useConfig } from "../lib/contexts/ConfigContext";
 
@@ -63,12 +63,15 @@ export default function LoginPage() {
 		<div className="min-h-screen bg-linear-to-br from-blue-600 to-blue-800 flex flex-col items-center justify-center p-6">
 			<div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 space-y-6">
 				<div className="text-center space-y-2">
-					<div className="w-20 h-20 bg-yellow-400 rounded-full mx-auto flex items-center justify-center">
-						<Users className="w-10 h-10 text-blue-800" />
+				<div className="flex flex-row items-center justify-center gap-3">
+					<div className="w-20 h-20 bg-yellow-400 rounded-full flex items-center justify-center shrink-0">
+						<ChevronsRight className="w-14 h-14 text-blue-800" strokeWidth={3} />
 					</div>
-					<h1 className="text-3xl font-bold text-blue-800">
-						{t("appName")}
+					<h1 className="text-blue-800 text-left">
+						<div className="text-3xl font-black tracking-widest leading-tight">VALLENTUNA</div>
+						<div className="text-xl font-medium -mt-1">Framåt</div>
 					</h1>
+				</div>
 					<p className="text-lg text-gray-600">
 						{t("login.subtitle")}
 					</p>

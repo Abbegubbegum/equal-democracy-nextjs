@@ -23,10 +23,10 @@ export default async function handler(req, res) {
 
 			const query = {};
 
-			// Filter by status (default: active)
-			if (status) {
+			// Filter by status (default: active; "all" returns everything)
+			if (status && status !== "all") {
 				query.status = status;
-			} else {
+			} else if (!status) {
 				query.status = "active";
 			}
 

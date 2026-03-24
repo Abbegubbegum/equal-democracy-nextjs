@@ -60,14 +60,14 @@ export default function LoginPage() {
 	}
 
 	return (
-		<div className="min-h-screen bg-linear-to-br from-blue-600 to-blue-800 flex flex-col items-center justify-center p-6">
+		<div className="min-h-screen flex flex-col items-center justify-center p-6" style={{ background: "linear-gradient(to bottom right, #002d75, #001c55)" }}>
 			<div className="max-w-md w-full bg-white rounded-3xl shadow-2xl p-8 space-y-6">
 				<div className="text-center space-y-2">
 				<div className="flex flex-row items-center justify-center gap-3">
-					<div className="w-20 h-20 bg-yellow-400 rounded-full flex items-center justify-center shrink-0">
-						<ChevronsRight className="w-14 h-14 text-blue-800" strokeWidth={3} />
+					<div className="w-20 h-20 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: "#f8b60e" }}>
+						<ChevronsRight className="w-14 h-14" strokeWidth={3} style={{ color: "#001c55" }} />
 					</div>
-					<h1 className="text-blue-800 text-left">
+					<h1 className="text-left" style={{ color: "#001c55" }}>
 						<div className="text-3xl font-black tracking-widest leading-tight">VALLENTUNA</div>
 						<div className="text-xl font-medium -mt-1">Framåt</div>
 					</h1>
@@ -98,7 +98,7 @@ export default function LoginPage() {
 								type="email"
 								value={email}
 								onChange={(e) => setEmail(e.target.value)}
-								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none text-lg"
+								className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-[#002d75] focus:outline-none text-lg"
 								placeholder={t("login.emailPlaceholder")}
 								required
 								autoFocus
@@ -108,7 +108,7 @@ export default function LoginPage() {
 						<button
 							type="submit"
 							disabled={loading}
-							className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-semibold py-4 rounded-xl transition-colors text-lg shadow-lg"
+							className="w-full disabled:bg-gray-300 text-white font-semibold py-4 rounded-xl transition-colors text-lg shadow-lg" style={{ backgroundColor: "#002d75" }} onMouseEnter={e=>e.currentTarget.style.backgroundColor="#001c55"} onMouseLeave={e=>e.currentTarget.style.backgroundColor="#002d75"}
 						>
 							{loading ? t("login.sending") : t("login.sendCode")}
 						</button>
@@ -135,7 +135,7 @@ export default function LoginPage() {
 								onChange={(e) =>
 									setCode(e.target.value.replace(/\D/g, ""))
 								}
-								className="w-full tracking-widest text-center text-2xl px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-500 focus:outline-none"
+								className="w-full tracking-widest text-center text-2xl px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-[#002d75] focus:outline-none"
 								placeholder="••••••"
 								required
 								autoFocus
@@ -149,7 +149,7 @@ export default function LoginPage() {
 						<button
 							type="submit"
 							disabled={loading || code.length !== 6}
-							className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 text-white font-semibold py-4 rounded-xl transition-colors text-lg shadow-lg"
+							className="w-full disabled:bg-gray-300 text-white font-semibold py-4 rounded-xl transition-colors text-lg shadow-lg" style={{ backgroundColor: "#002d75" }} onMouseEnter={e=>e.currentTarget.style.backgroundColor="#001c55"} onMouseLeave={e=>e.currentTarget.style.backgroundColor="#002d75"}
 						>
 							{loading ? t("login.verifying") : t("login.login")}
 						</button>
@@ -157,7 +157,7 @@ export default function LoginPage() {
 						<button
 							type="button"
 							onClick={() => setStep("email")}
-							className="w-full text-blue-600 hover:text-blue-700 font-medium"
+							className="w-full font-medium" style={{ color: "#002d75" }}
 						>
 							{t("login.changeEmail")}
 						</button>
@@ -167,7 +167,7 @@ export default function LoginPage() {
 				<div className="text-center space-y-3">
 					<Link
 						href="/about"
-						className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium"
+						className="inline-flex items-center gap-2 font-medium" style={{ color: "#002d75" }}
 					>
 						<Info className="w-4 h-4" /> {t("login.aboutLink")}
 					</Link>

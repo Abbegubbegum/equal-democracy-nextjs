@@ -22,7 +22,6 @@ export default async function handler(req, res) {
 		// Get all archived sessions (survey type)
 		const archivedSessions = await Session.find({
 			status: "archived",
-			sessionType: "survey",
 		})
 			.select("_id place startDate endDate surveyDurationDays activeUsers")
 			.sort({ endDate: -1 })

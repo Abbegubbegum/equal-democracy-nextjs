@@ -46,20 +46,20 @@ export default function ArchivePage() {
 			const sessionsData = await sessionsRes.json();
 			setArchivedSessions(Array.isArray(sessionsData) ? sessionsData : []);
 
-			// Fetch closed municipal sessions
-			const municipalRes = await fetch("/api/municipal/sessions?status=closed");
+			// Fetch all non-draft municipal sessions
+			const municipalRes = await fetch("/api/municipal/sessions");
 			const municipalData = await municipalRes.json();
-			setMunicipalSessions(municipalData.sessions || []);
+			setMunicipalSessions((municipalData.sessions || []).filter(s => s.status !== "draft"));
 
-			// Fetch archived citizen proposals (status !== active)
-			const proposalsRes = await fetch("/api/citizen-proposals?status=archived");
+			// Fetch all citizen proposals
+			const proposalsRes = await fetch("/api/citizen-proposals?status=all");
 			const proposalsData = await proposalsRes.json();
 			setCitizenProposals(proposalsData.proposals || []);
 
-			// Fetch closed budget sessions
-			const budgetRes = await fetch("/api/budget/sessions?status=closed");
+			// Fetch all non-draft budget sessions
+			const budgetRes = await fetch("/api/budget/sessions");
 			const budgetData = await budgetRes.json();
-			setBudgetSessions(budgetData.sessions || []);
+			setBudgetSessions((budgetData.sessions || []).filter(s => s.status !== "draft"));
 		} catch (error) {
 			console.error("Error fetching archives:", error);
 		} finally {
@@ -115,7 +115,7 @@ export default function ArchivePage() {
 									Budget
 								</h2>
 								<p className="text-sm text-gray-600">
-									{budgetSessions.length} arkiverade sessioner
+									{budgetSessions.length} sessioner
 								</p>
 							</div>
 						</div>
@@ -174,10 +174,10 @@ export default function ArchivePage() {
 							</div>
 							<div className="text-left">
 								<h2 className="text-xl font-bold text-gray-800">
-									Kommunfullmäktige
+									Kommunen
 								</h2>
 								<p className="text-sm text-gray-600">
-									{municipalSessions.length} arkiverade möten
+									{municipalSessions.length} möten
 								</p>
 							</div>
 						</div>
@@ -255,10 +255,10 @@ export default function ArchivePage() {
 							</div>
 							<div className="text-left">
 								<h2 className="text-xl font-bold text-gray-800">
-									Medborgarförslag
+									Idéer
 								</h2>
 								<p className="text-sm text-gray-600">
-									{citizenProposals.length} arkiverade förslag
+									{citizenProposals.length} idéer
 								</p>
 							</div>
 						</div>
@@ -273,7 +273,7 @@ export default function ArchivePage() {
 						<div className="mt-3 ml-4">
 							{citizenProposals.length === 0 ? (
 								<div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
-									Inga arkiverade medborgarförslag än
+									Inga arkiverade idéer än
 								</div>
 							) : (
 								<div className="grid gap-4">
@@ -315,7 +315,7 @@ export default function ArchivePage() {
 									Enkla Frågor
 								</h2>
 								<p className="text-sm text-gray-600">
-									{archivedSessions.length} arkiverade sessioner
+									{archivedSessions.length} sessioner
 								</p>
 							</div>
 						</div>
